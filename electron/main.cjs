@@ -114,6 +114,62 @@ ipcMain.handle('markforge:choose-folder', async () => {
   return { copied }
 })
 
+/** Reads the repo .env - the one place cloud credentials legitimately live. */
+function readRepoEnv() {
+  const out = {}
+  try {
+    for (const line of fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8').split(/\r?\n/)) {
+      const [key, ...rest] = line.split('=')
+      if (key && rest.length) out[key.trim()] = rest.join('=').trim()
+    }
+  } catch {
+    // No .env - caller reports cloud as unconfigured.
+  }
+  return out
+}
+
+/**
+ * Push the local corpus to R2 on demand. Runs scripts/push-to-cloud.ts in a
+ * child with cloud credentials injected; the workspace server itself never
+ * sees them, so browsing/editing stays purely local.
+ */
+ipcMain.handle('markforge:sync-to-cloud', async () => {
+  const env = readRepoEnv()
+  if (!env.R2_ACCOUNT_ID || !env.R2_ACCESS_KEY_ID || !env.R2_SECRET_ACCESS_KEY || !env.R2_BUCKET) {
+    return { ok: false, error: 'Cloud not configured - R2_* missing from .env' }
+  }
+  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+  return new Promise((resolve) => {
+    const child = spawn(
+      npx,
+      ['tsx', 'scripts/push-to-cloud.ts', '--dir', NOTES_DIR],
+      {
+        cwd: path.join(__dirname, '..'),
+        env: { ...process.env, ...env },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        windowsHide: true,
+        shell: process.platform === 'win32',
+      }
+    )
+    let out = ''
+    let errOut = ''
+    child.stdout.on('data', (d) => (out += d))
+    child.stderr.on('data', (d) => (errOut += d))
+    child.on('exit', (code) => {
+      if (code !== 0) {
+        resolve({ ok: false, error: `sync failed (${code}): ${errOut.trim().slice(-200)}` })
+        return
+      }
+      try {
+        const line = out.trim().split(/\r?\n/).pop()
+        resolve({ ok: true, ...JSON.parse(line) })
+      } catch {
+        resolve({ ok: false, error: 'unexpected sync output' })
+      }
+    })
+  })
+})
+
 async function main() {
   await app.whenReady()
   fs.mkdirSync(NOTES_DIR, { recursive: true })
