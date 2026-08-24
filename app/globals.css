@@ -1,0 +1,395 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+/*
+  Markdown rendering.
+
+  The reading view and the public share page have always carried `prose` classes, but
+  the plugin that gives them meaning was never installed — so every rendered document
+  was unstyled HTML: headings the same size as body text, tables collapsed into runs
+  of words, code blocks indistinguishable from paragraphs. The markup said what it
+  wanted; nothing was listening.
+*/
+@plugin '@tailwindcss/typography';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-geist);
+  --font-serif: var(--font-lora);
+  --font-mono: var(--font-geist);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * .65);
+  --radius-md: calc(var(--radius) * .82);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.35);
+}
+
+:root {
+  color-scheme: light;
+  --background: oklch(.975 .006 95);
+  --foreground: oklch(.225 .012 75);
+  --card: oklch(.995 .003 95);
+  --card-foreground: var(--foreground);
+  --popover: oklch(.995 .003 95);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(.44 .09 154);
+  --primary-foreground: oklch(.99 .005 95);
+  --secondary: oklch(.935 .008 95);
+  --secondary-foreground: oklch(.3 .014 75);
+  --muted: oklch(.94 .006 95);
+  --muted-foreground: oklch(.51 .018 75);
+  --accent: oklch(.91 .025 145);
+  --accent-foreground: oklch(.27 .05 150);
+  --destructive: oklch(.58 .2 28);
+  --border: oklch(.885 .009 90);
+  --input: oklch(.885 .009 90);
+  --ring: oklch(.55 .09 154);
+  --radius: .625rem;
+  --sidebar: oklch(.955 .008 92);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(.91 .016 95);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+.dark {
+  color-scheme: dark;
+  --background: oklch(.18 .008 110);
+  --foreground: oklch(.92 .008 95);
+  --card: oklch(.205 .009 110);
+  --card-foreground: var(--foreground);
+  --popover: oklch(.23 .01 110);
+  --popover-foreground: var(--foreground);
+  --primary: oklch(.68 .1 150);
+  --primary-foreground: oklch(.17 .02 150);
+  --secondary: oklch(.26 .01 110);
+  --secondary-foreground: var(--foreground);
+  --muted: oklch(.25 .009 110);
+  --muted-foreground: oklch(.67 .012 95);
+  --accent: oklch(.3 .035 150);
+  --accent-foreground: oklch(.9 .04 145);
+  --destructive: oklch(.66 .19 25);
+  --border: oklch(.32 .01 110);
+  --input: oklch(.32 .01 110);
+  --ring: oklch(.62 .09 150);
+  --sidebar: oklch(.195 .009 110);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--primary-foreground);
+  --sidebar-accent: oklch(.26 .012 110);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    color-scheme: dark;
+    --background: oklch(.18 .008 110);
+    --foreground: oklch(.92 .008 95);
+    --card: oklch(.205 .009 110);
+    --card-foreground: var(--foreground);
+    --popover: oklch(.23 .01 110);
+    --popover-foreground: var(--foreground);
+    --primary: oklch(.68 .1 150);
+    --primary-foreground: oklch(.17 .02 150);
+    --secondary: oklch(.26 .01 110);
+    --secondary-foreground: var(--foreground);
+    --muted: oklch(.25 .009 110);
+    --muted-foreground: oklch(.67 .012 95);
+    --accent: oklch(.3 .035 150);
+    --accent-foreground: oklch(.9 .04 145);
+    --destructive: oklch(.66 .19 25);
+    --border: oklch(.32 .01 110);
+    --input: oklch(.32 .01 110);
+    --ring: oklch(.62 .09 150);
+    --sidebar: oklch(.195 .009 110);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: oklch(.26 .012 110);
+    --sidebar-accent-foreground: var(--foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
+  }
+}
+
+@layer base {
+  * { @apply border-border outline-ring/50; }
+  body { @apply bg-background text-foreground; }
+  ::selection { @apply bg-accent text-accent-foreground; }
+  button, a { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50; }
+}
+
+.workspace-sidebar svg, nav svg { flex-shrink: 0; }
+
+/*
+  Rendered Markdown, tuned to the workspace's own tokens.
+
+  The typography plugin brings the structure — spacing, sizes, table borders, list
+  markers. These override its palette so a document uses the same colours as the app
+  around it in both themes, instead of the plugin's stock greys.
+*/
+.prose {
+  --tw-prose-body: var(--foreground);
+  --tw-prose-headings: var(--foreground);
+  --tw-prose-lead: var(--muted-foreground);
+  --tw-prose-links: var(--primary);
+  --tw-prose-bold: var(--foreground);
+  --tw-prose-counters: var(--muted-foreground);
+  --tw-prose-bullets: var(--primary);
+  --tw-prose-hr: var(--border);
+  --tw-prose-quotes: var(--foreground);
+  --tw-prose-quote-borders: var(--primary);
+  --tw-prose-captions: var(--muted-foreground);
+  --tw-prose-code: var(--foreground);
+  --tw-prose-pre-code: var(--foreground);
+  --tw-prose-pre-bg: var(--muted);
+  --tw-prose-th-borders: var(--border);
+  --tw-prose-td-borders: var(--border);
+}
+
+/* Inline code, which the plugin leaves as bare text with backtick pseudo-elements. */
+.prose :where(code):not(:where(pre code)) {
+  @apply rounded border bg-muted px-1.5 py-0.5 font-mono text-[0.85em] font-normal;
+}
+.prose :where(code):not(:where(pre code))::before,
+.prose :where(code):not(:where(pre code))::after { content: none; }
+
+.prose :where(pre) { @apply border; }
+
+/* A wide table must scroll inside the document, not widen the page. */
+.prose :where(table) { @apply block w-full overflow-x-auto text-sm; }
+
+/*
+  Room above a heading the outline just jumped to, so it does not sit flush against
+  the top edge of the scrolling article.
+*/
+.prose :where(h1, h2, h3, h4, h5, h6) { @apply scroll-mt-6; }
+.prose :where(h1, h2, h3, h4, h5, h6):focus { @apply outline-none; }
+
+.prose :where(blockquote) { @apply font-normal not-italic; }
+.prose :where(blockquote p:first-of-type)::before,
+.prose :where(blockquote p:last-of-type)::after { content: none; }
+
+.editor-content kbd { @apply rounded border bg-muted px-1.5 py-0.5 font-mono text-xs; }
+.context-link { @apply rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground; }
+.context-link.active { @apply bg-muted font-medium text-foreground; }
+
+* { scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+
+html, body, main, aside, article, header {
+  transition: background-color 220ms cubic-bezier(.2,.8,.2,1), border-color 220ms cubic-bezier(.2,.8,.2,1), color 180ms ease-out;
+}
+
+.theme-switcher {
+  position: relative;
+  width: 3.25rem;
+  height: 1.75rem;
+  flex: none;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: inset 0 1px 2px color-mix(in oklch, var(--foreground) 8%, transparent), 0 1px 2px color-mix(in oklch, var(--foreground) 8%, transparent);
+  transition: background-color 220ms cubic-bezier(.2,.8,.2,1), border-color 220ms cubic-bezier(.2,.8,.2,1), transform 140ms ease-out;
+  -webkit-tap-highlight-color: transparent;
+}
+.theme-switcher:active { transform: scale(.94); }
+.theme-switcher__sky { position: absolute; inset: 0; }
+.theme-switcher__orb {
+  position: absolute;
+  top: .2rem;
+  left: .2rem;
+  display: grid;
+  place-items: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 50%;
+  color: oklch(.42 .16 65);
+  background: oklch(.9 .13 85);
+  box-shadow: 0 1px 5px oklch(.65 .13 75 / .35);
+  transform: translateX(0) rotate(0deg);
+  transition: transform 280ms cubic-bezier(.34,1.32,.64,1), color 200ms ease-out, background-color 200ms ease-out, box-shadow 200ms ease-out;
+}
+.theme-switcher__sun, .theme-switcher__moon { position: absolute; width: .8rem; height: .8rem; transition: opacity 160ms ease-out, transform 240ms cubic-bezier(.2,.8,.2,1); }
+.theme-switcher__sun { opacity: 1; transform: rotate(0deg) scale(1); }
+.theme-switcher__moon { opacity: 0; transform: rotate(-55deg) scale(.4); }
+.theme-switcher__stars { position: absolute; inset: 0; opacity: 0; transform: translateY(.35rem); transition: opacity 160ms ease-out 40ms, transform 240ms cubic-bezier(.2,.8,.2,1); }
+.theme-switcher__stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: var(--foreground); }
+.theme-switcher__stars i:nth-child(1) { left: .55rem; top: .45rem; }
+.theme-switcher__stars i:nth-child(2) { left: .95rem; top: 1rem; opacity: .55; }
+.theme-switcher__stars i:nth-child(3) { left: 1.35rem; top: .38rem; opacity: .75; }
+.theme-switcher.is-night { background: var(--secondary); }
+.theme-switcher.is-night .theme-switcher__orb { color: oklch(.35 .04 260); background: oklch(.86 .03 260); box-shadow: 0 1px 6px oklch(.75 .08 260 / .22); transform: translateX(1.5rem) rotate(360deg); }
+.theme-switcher.is-night .theme-switcher__sun { opacity: 0; transform: rotate(90deg) scale(.4); }
+.theme-switcher.is-night .theme-switcher__moon { opacity: 1; transform: rotate(0deg) scale(1); }
+.theme-switcher.is-night .theme-switcher__stars { opacity: 1; transform: translateY(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  html, body, main, aside, article, header, .theme-switcher, .theme-switcher__orb, .theme-switcher__sun, .theme-switcher__moon, .theme-switcher__stars { transition-duration: 80ms; }
+  .theme-switcher__orb { transform: none; }
+  .theme-switcher.is-night .theme-switcher__orb { transform: translateX(1.5rem); }
+}
+
+/*
+  The mobile sidebar rule that used to live here matched nothing: no component ever
+  carried a `workspace-sidebar` class, so below 768px the sidebar simply took 256 of
+  375 pixels and left 119 for the document. It is a drawer now, handled in the
+  component where its open state lives.
+*/
+
+/* ---------------------------------------------------------------------------
+   CodeMirror editor tokens (Sprint 3)
+
+   Mapped onto the existing theme tokens so the editor follows light/dark with
+   the rest of the app instead of shipping a second colour system.
+   --------------------------------------------------------------------------- */
+:root {
+  --cm-text: var(--foreground);
+  --cm-muted: var(--muted-foreground);
+  --cm-accent: var(--primary);
+  --cm-on-accent: var(--primary-foreground);
+  --cm-panel: var(--popover, var(--background));
+  --cm-border: var(--border);
+  --cm-selection: color-mix(in oklch, var(--primary) 22%, transparent);
+  --cm-active-line: color-mix(in oklch, var(--muted) 55%, transparent);
+  --cm-code: oklch(.48 .11 25);
+  --cm-keyword: oklch(.46 .13 295);
+  --cm-string: oklch(.45 .1 145);
+  --cm-number: oklch(.5 .12 55);
+  --cm-fn: oklch(.47 .12 245);
+  --cm-type: oklch(.48 .1 195);
+}
+
+.dark {
+  --cm-code: oklch(.76 .11 25);
+  --cm-keyword: oklch(.76 .12 295);
+  --cm-string: oklch(.76 .1 145);
+  --cm-number: oklch(.79 .11 65);
+  --cm-fn: oklch(.75 .11 245);
+  --cm-type: oklch(.76 .09 195);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.light) {
+    --cm-code: oklch(.76 .11 25);
+    --cm-keyword: oklch(.76 .12 295);
+    --cm-string: oklch(.76 .1 145);
+    --cm-number: oklch(.79 .11 65);
+    --cm-fn: oklch(.75 .11 245);
+    --cm-type: oklch(.76 .09 195);
+  }
+}
+
+.cm-editor { height: 100%; }
+.cm-editor .cm-scroller { scrollbar-width: thin; }
+
+/* ---------------------------------------------------------------------------
+   Reading-view code blocks
+
+   The `tok-*` classes `@lezer/highlight`'s `classHighlighter` emits, mapped onto
+   the same `--cm-*` tokens the editor theme above uses. That shared palette is the
+   point: a fenced block should not change colour when you press Edit.
+
+   Only the reading view needs these. The editor gets its colours from a
+   CodeMirror `HighlightStyle`, which mounts its own stylesheet and cannot be
+   reused outside an editor instance — hence two mechanisms over one palette
+   rather than one mechanism that only works in one of the two places.
+
+   Ordering is load-bearing: a token carries every class its modifiers imply, so
+   `tok-variableName tok-definition tok-function` matches three of these rules and
+   the last one written wins. The more specific the concept, the lower it sits.
+   --------------------------------------------------------------------------- */
+.tok-comment,
+.tok-lineComment,
+.tok-blockComment,
+.tok-docComment { color: var(--cm-muted); font-style: italic; }
+
+.tok-punctuation,
+.tok-separator,
+.tok-bracket,
+.tok-angleBracket,
+.tok-squareBracket,
+.tok-paren,
+.tok-brace,
+.tok-operator,
+.tok-derefOperator,
+.tok-meta,
+.tok-processingInstruction { color: var(--cm-muted); }
+
+.tok-string,
+.tok-docString,
+.tok-character,
+.tok-attributeValue,
+.tok-regexp { color: var(--cm-string); }
+
+.tok-number,
+.tok-integer,
+.tok-float,
+.tok-bool,
+.tok-literal,
+.tok-escape { color: var(--cm-number); }
+
+.tok-typeName,
+.tok-className,
+.tok-namespace,
+.tok-propertyName,
+.tok-attributeName { color: var(--cm-type); }
+
+.tok-keyword,
+.tok-modifier,
+.tok-controlKeyword,
+.tok-moduleKeyword,
+.tok-operatorKeyword,
+.tok-definitionKeyword,
+.tok-controlOperator,
+.tok-self { color: var(--cm-keyword); font-weight: 500; }
+
+.tok-function,
+.tok-macroName,
+.tok-labelName { color: var(--cm-fn); }
+
+.tok-constant,
+.tok-standard { color: var(--cm-code); }
+
+.tok-link,
+.tok-url { color: var(--cm-accent); text-decoration: underline; }
+
+.tok-heading,
+.tok-strong { font-weight: 600; }
+.tok-emphasis { font-style: italic; }
+.tok-strikethrough { text-decoration: line-through; }
+
+/* A token the grammar could not make sense of. Marked, not hidden. */
+.tok-invalid { color: var(--destructive); text-decoration: underline wavy; }

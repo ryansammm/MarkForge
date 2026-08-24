@@ -1,0 +1,124 @@
+{
+  "documents": {
+    "Bagus/File Tambahan.md": {
+      "path": "Bagus/File Tambahan.md",
+      "title": "File Tambahan",
+      "frontmatter": {
+        "id": "msftoo5qgwhp905b"
+      },
+      "outboundLinks": [
+        "Welcome",
+        "Principle"
+      ],
+      "content": "\r\n# File Tambahan\r\n[[Welcome]]\r\n\r\nIni [[Principle]] jadi harus gimana\r\n* Ini List\r\n* Ini juga list\r\n\r\n## Title 2\r\n\r\n  \r\n\r\n",
+      "updatedAt": "2026-08-06T06:32:04.314Z",
+      "etag": "6c7cf269ab043ee66c17db81f35646ce",
+      "id": "msftoo5qgwhp905b"
+    },
+    "Getting started/Principles.md": {
+      "path": "Getting started/Principles.md",
+      "title": "Writing principles",
+      "frontmatter": {
+        "id": "mseojtdnsx6mqqwb",
+        "title": "Writing principles",
+        "tags": [
+          "getting-started",
+          "principles"
+        ]
+      },
+      "outboundLinks": [
+        "Welcome",
+        "File Tambahan"
+      ],
+      "content": "\r\n# Writing Principles\r\n\r\nA few simple habits that make connected notes clearer and easier to navigate:\r\n\r\n1. **Atomic Notes**: One concept per file.\r\n2. **Explicit Wikilinks**: Use [[Welcome]] to connect relevant ideas together.\r\n3. **Structured Frontmatter**: Keep titles and tags at the top.\r\n\r\nBack to [[Welcome]] to return home. \r\n```\r\nBagaimanapun aku sudah berusaha\r\n```\r\n\r\n[[File Tambahan]]\r\n",
+      "updatedAt": "2026-08-06T06:32:04.333Z",
+      "etag": "54d1b7d42db97c43585f89549830ac70",
+      "id": "mseojtdnsx6mqqwb"
+    },
+    "Getting started/Welcome.md": {
+      "path": "Getting started/Welcome.md",
+      "title": "Welcome to Markdown Workspace",
+      "frontmatter": {
+        "title": "Welcome to Markdown Workspace",
+        "tags": [
+          "getting-started",
+          "overview"
+        ]
+      },
+      "outboundLinks": [
+        "Principles",
+        "Architecture notes"
+      ],
+      "content": "\n# Welcome to Markdown Workspace\n\nA focused, lightning-fast workspace for connected Markdown notes and documents.\n\n## Key Features\n\n- **Wikilink Navigation**: Jump seamlessly between notes using [[Principles|Writing principles]] or [[Architecture notes]].\n- **Client-side Index**: Fast instant search and zero latency document loading.\n- **Backlinks Panel**: Discover which documents link back to the current note.\n\nTry clicking on [[Principles]] to explore wikilink resolution!\n",
+      "updatedAt": "2026-08-06T06:32:04.339Z",
+      "etag": "8f26586ae55cf9a0f9b4525fca81e542"
+    },
+    "siyapp.md": {
+      "path": "siyapp.md",
+      "title": "Verification Test Doc",
+      "frontmatter": {
+        "id": "msfv2wbdix6mlwkx",
+        "title": "Verification Test Doc"
+      },
+      "outboundLinks": [],
+      "content": "Hello world",
+      "updatedAt": "2026-08-06T06:32:04.341Z",
+      "etag": "bb1697872e7bc3deea70b0c4d98a92ae",
+      "id": "msfv2wbdix6mlwkx"
+    }
+  },
+  "tree": [
+    {
+      "name": "Bagus",
+      "path": "Bagus",
+      "isDir": true,
+      "children": [
+        {
+          "name": "File Tambahan",
+          "path": "Bagus/File Tambahan.md",
+          "isDir": false
+        }
+      ]
+    },
+    {
+      "name": "Getting started",
+      "path": "Getting started",
+      "isDir": true,
+      "children": [
+        {
+          "name": "Welcome to Markdown Workspace",
+          "path": "Getting started/Welcome.md",
+          "isDir": false
+        },
+        {
+          "name": "Writing principles",
+          "path": "Getting started/Principles.md",
+          "isDir": false
+        }
+      ]
+    },
+    {
+      "name": "Verification Test Doc",
+      "path": "siyapp.md",
+      "isDir": false
+    }
+  ],
+  "backlinks": {
+    "Welcome": [
+      "Bagus/File Tambahan.md",
+      "Getting started/Principles.md"
+    ],
+    "Principle": [
+      "Bagus/File Tambahan.md"
+    ],
+    "File Tambahan": [
+      "Getting started/Principles.md"
+    ],
+    "Principles": [
+      "Getting started/Welcome.md"
+    ],
+    "Architecture notes": [
+      "Getting started/Welcome.md"
+    ]
+  }
+}

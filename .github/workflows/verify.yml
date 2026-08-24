@@ -1,0 +1,35 @@
+name: verify
+
+# Six sprints of tests protect this repository only when somebody remembers to run
+# them. `npm run verify` chains deps → typecheck → lint → test → build and was, until
+# now, a gate nothing enforced.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - run: npm ci
+
+      # The whole gate, in the order the developer runs it locally. Deliberately not
+      # split into parallel jobs: the failures are ordered by how cheap they are to
+      # produce, and a typecheck error is not worth spending a build on.
+      - run: npm run verify
+        env:
+          # No R2 credentials here on purpose. The conformance suite includes R2 only
+          # when credentials are present, and a pull request from a fork must never
+          # reach a real bucket. The R2 write path is covered by r2-integration.yml.
+          APP_PASSWORD: ''
