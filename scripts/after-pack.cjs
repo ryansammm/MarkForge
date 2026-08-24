@@ -7,10 +7,40 @@
  * (bukan lewat extraFiles) karena electron-builder menyaring direktori
  * berawalan titik seperti .next - penyebab resources/server tidak pernah muncul
  * dan app.asar membengkak saat konfigurasi tidak terbaca.
+ *
+ * Pohon besar disalin via robocopy, bukan fs.cpSync: cpSync memakan memori
+ * sebanding ukuran pohon dan pernah membuat job CI mati DIAM (exit 1 tanpa
+ * pesan, pola OOM-kill) di tengah penyalinan. Robocopy = proses eksternal,
+ * memori konstan, cepat, tahan path panjang. Kode keluar 0-7 = sukses.
  */
 
+const { execFileSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+
+function robocopy(from, to) {
+  // /E rekursif; /NFL /NDL /NJH /NJS /NP senyap; /R:2 /W:2 retry utk AV lock.
+  return execFileSync(
+    'robocopy',
+    [from, to, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:2', '/W:2'],
+    { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }
+  )
+}
+
+function copyStep(label, from, to) {
+  console.log(`[after-pack] ${label}`)
+  try {
+    robocopy(from, to)
+  } catch (e) {
+    // PENTING: robocopy sukses = kode keluar 0..7 (bitmask: 1 file tersalin,
+    // 2 ada ekstra di tujuan, dst). execFileSync melempar untuk SEMUA non-nol,
+    // jadi tangkap dan terima 0..7; baru gagal sungguhan kalau >= 8.
+    const status = e.status ?? -1
+    if (status >= 0 && status <= 7) return
+    const out = String(e.stdout || e.message || '').slice(-1500)
+    throw new Error(`robocopy gagal (${status}): ${from} -> ${to}\n${out}`)
+  }
+}
 
 exports.default = async function afterPack(context) {
   if (context.electronPlatformName !== 'win32') return
@@ -19,11 +49,6 @@ exports.default = async function afterPack(context) {
   const appOutDir = context.appOutDir
   const resourcesDir = path.join(appOutDir, 'resources')
   const serverDest = path.join(resourcesDir, 'server')
-
-  const copyStep = (label, from, to) => {
-    console.log(`[after-pack] ${label}`)
-    fs.cpSync(from, to, { recursive: true })
-  }
 
   const standalone = path.join(projectDir, '.next', 'standalone')
   if (!fs.existsSync(path.join(standalone, 'server.js'))) {
@@ -61,8 +86,7 @@ exports.default = async function afterPack(context) {
       if (!m || !families.includes(m[1])) continue
       const pkgDir = path.join(pnpmStore, entry, 'node_modules', m[1], m[2])
       if (!fs.existsSync(pkgDir)) continue
-      const dest = path.join(serverDest, 'node_modules', m[1], m[2])
-      fs.cpSync(pkgDir, dest, { recursive: true })
+      copyStep(`supplement ${m[1]}/${m[2]}`, pkgDir, path.join(serverDest, 'node_modules', m[1], m[2]))
       copied++
     }
     console.log(`[after-pack] ${copied} paket AWS/Smithy disalin dari .pnpm`)
