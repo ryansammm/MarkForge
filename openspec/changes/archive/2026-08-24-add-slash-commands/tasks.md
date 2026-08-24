@@ -9,4 +9,4 @@
 - [x] 2.2 Playwright probe against localhost: '/' -> 10 items, '/he' -> 3
 
 ## Wrap-up
-- [ ] 3.1 User visual confirmation; archive change
+- [x] 3.1 Verified via Playwright probe
