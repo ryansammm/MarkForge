@@ -58,12 +58,17 @@ export function BacklinksPanel({ activeDoc, allDocs, backlinksMap, onSelectDoc }
                   key={refPath}
                   type="button"
                   {...openHandlers((intent) => onSelectDoc(refPath, intent))}
-                  title={`${title} — Ctrl/Cmd-click to open in a new tab`}
-                  className="group flex flex-col items-start rounded-lg border bg-card p-2.5 text-left shadow-xs transition-all hover:border-primary/50 hover:shadow-md"
+                  title={`${title} - Ctrl/Cmd-click to open in a new tab`}
+                  className="group flex flex-col items-start rounded-lg border bg-card p-2.5 text-left transition-all hover:border-primary/50"
                 >
-                  <div className="flex items-center gap-1.5 text-xs font-medium text-foreground group-hover:text-primary">
+                  {/*
+                    min-w-0 twice: without it a long unbreakable title makes the
+                    flex row grow past the card, and truncate never gets a chance
+                    to do its job.
+                  */}
+                  <div className="flex min-w-0 w-full items-center gap-1.5 text-xs font-medium text-foreground group-hover:text-primary">
                     <FileText className="size-3.5 shrink-0 text-muted-foreground group-hover:text-primary" />
-                    <span className="truncate">{title}</span>
+                    <span className="min-w-0 truncate">{title}</span>
                   </div>
                   {/*
                     The excerpt, not the body: the index carries a short one per

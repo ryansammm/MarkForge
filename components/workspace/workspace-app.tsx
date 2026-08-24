@@ -926,12 +926,16 @@ export function WorkspaceApp() {
         dispatchTabs({ type: 'pathRemoved', path: node.path })
         toast.success(`Deleted ${node.name}`, undo(result.trashId))
       }
+      // The optimistic patch above can miss (path normalisation, races with an
+      // in-flight fetch) and a stale entry lingers in panels like Recent Edits.
+      // The server's index is the truth - refetch it so every panel agrees.
+      await reloadIndex()
       closeDialog()
     } catch (err) {
       setDialogError((err as Error).message)
       setDialogBusy(false)
     }
-  }, [dialog, patchIndex, closeDialog, undoDelete, dispatchTabs])
+  }, [dialog, patchIndex, closeDialog, undoDelete, dispatchTabs, reloadIndex])
 
   /**
    * Ghost page: an unresolved wikilink becomes a real document.

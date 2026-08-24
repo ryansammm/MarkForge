@@ -508,7 +508,7 @@ export function Sidebar({
         >
           <Search className="size-3.5" />
           <span>Search documents</span>
-          <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">âŒ˜K</kbd>
+          <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl K</kbd>
         </button>
       </div>
 
@@ -597,7 +597,7 @@ export function Sidebar({
             is a shortcut nobody uses, and this one overrides Print â€” so it had
             better be visibly deliberate rather than a surprise.
           */}
-          <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">âŒ˜P</kbd>
+          <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl P</kbd>
         </button>
         <button
           type="button"
