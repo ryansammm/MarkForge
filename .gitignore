@@ -41,3 +41,7 @@ dist/
 
 # pnpm-only project - npm lockfile must not drift
 package-lock.json
+
+# local CI log dumps
+verify-log.txt
+ci-build-section.log
