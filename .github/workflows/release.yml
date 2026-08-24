@@ -1,0 +1,46 @@
+name: release
+
+# Push a tag like v1.0.1 and this builds the portable exe in the cloud,
+# attaching it to a GitHub Release - nobody compiles locally.
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  portable:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # The exe carries the tag's version (v1.0.1 -> 1.0.1)
+      - name: Set version from tag
+        shell: pwsh
+        run: |
+          $ver = $env:GITHUB_REF_NAME -replace '^v', ''
+          npm version $ver --no-git-tag-version
+
+      - name: Build portable exe
+        run: node scripts/build-portable.mjs
+
+      - name: Attach to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/MarkForge-Portable-*.exe
+          generate_release_notes: true
