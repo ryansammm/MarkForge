@@ -119,8 +119,7 @@
 }
 
 /* --- dark (brief values, verbatim) --------------------------------------- */
-.dark,
-@media-prefers-dark {
+.dark {
   color-scheme: dark;
   --bg-canvas: #111111;
   --bg-panel: #1a1a1a;
