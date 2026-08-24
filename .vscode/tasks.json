@@ -1,0 +1,42 @@
+{
+  // MarkForge task runner - Ctrl+Shift+B untuk build default
+  // Lihat semua: Terminal > Run Task...
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "MF: Dev Server (web)",
+      "type": "shell",
+      "command": "pnpm dev",
+      "isBackground": true,
+      "problemMatcher": [],
+      "group": "none"
+    },
+    {
+      "label": "MF: Desktop App (tanpa rebuild)",
+      "type": "shell",
+      "command": "pnpm desktop:start",
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "MF: Verify (encoding+typecheck+lint+test+build)",
+      "type": "shell",
+      "command": "pnpm verify",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "MF: Build Portable EXE",
+      "type": "shell",
+      "command": "pnpm dist:portable",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "MF: Release Status (GitHub)",
+      "type": "shell",
+      "command": "node scripts/release-status.mjs",
+      "problemMatcher": []
+    }
+  ]
+}
