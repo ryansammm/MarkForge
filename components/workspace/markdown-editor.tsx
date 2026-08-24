@@ -37,6 +37,7 @@ import { livePreview } from './live-preview'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
 import { wikilinkCompletions } from './wikilink-complete'
+import { slashCommands } from './slash-commands'
 import { imageDrop } from './image-drop'
 import { EditorToolbar } from './editor-toolbar'
 import {
@@ -320,7 +321,7 @@ export function MarkdownEditor({
         onNotice: (message) => toast.info(message),
       }),
       autocompletion({
-        override: [wikilinkCompletions(() => docsRef.current)],
+        override: [wikilinkCompletions(() => docsRef.current), slashCommands()],
         closeOnBlur: true,
         icons: false,
       }),

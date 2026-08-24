@@ -179,7 +179,9 @@ async function main() {
   try {
     await waitUntilReady(BASE, 60000)
   } catch (err) {
-    dialog.showErrorBox('MarkForge', String(err))
+    // Silent by design: popups mid-game are worse than a dead window. The
+    // failure is fully visible in the log file instead.
+    console.error('[markforge] server did not become ready:', err)
     app.quit()
     return
   }
@@ -198,6 +200,12 @@ async function main() {
     },
   })
   win.loadURL(BASE)
+  // Surface renderer-side errors in our log - a silent console is how the
+  // slash-menu bug stayed invisible for an entire session.
+  win.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
+    if (sourceId.startsWith('devtools://')) return
+    process.stdout.write(`[renderer] ${message} (${path.basename(String(sourceId))}:${line})\n`)
+  })
   win.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url)
     return { action: 'deny' }

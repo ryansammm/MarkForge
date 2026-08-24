@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import remarkBreaks from 'remark-breaks'
 import rehypeSlug from 'rehype-slug'
 import { FileText, Calendar, Hash } from 'lucide-react'
 import { MarkdownDocument } from '@/lib/file-store'
@@ -168,7 +169,12 @@ export function DocViewer({
         {/* Markdown Body Content */}
         <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-serif prose-a:no-underline">
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
+            /*
+              Notion-style lines: a single newline inside a paragraph becomes a
+              visible break, instead of being folded into a space like strict
+              CommonMark does.
+            */
+            remarkPlugins={[remarkGfm, remarkBreaks]}
             /*
               Gives every heading an id, which is what the outline scrolls to. It uses
               github-slugger, the same thing lib/markdown/headings.ts uses to work out
