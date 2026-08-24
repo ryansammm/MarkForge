@@ -17,6 +17,26 @@ import path from 'node:path'
 const root = process.cwd()
 const out = path.join(root, '.next', 'electron-build')
 
+// Fail loudly with diagnostics: a silent exit-1 here cost a full debugging
+// session on CI because nothing was printed at all.
+const standaloneServer = path.join(root, '.next', 'standalone', 'server.js')
+if (!fs.existsSync(standaloneServer)) {
+  console.error('FATAL: .next/standalone/server.js tidak ditemukan.')
+  console.error('Kemungkinan: next build dijalankan tanpa BUILD_FOR_ELECTRON=1,')
+  console.error('atau versi Next/Turbopack tidak menghasilkan output standalone.')
+  const dotNext = path.join(root, '.next')
+  if (fs.existsSync(dotNext)) {
+    const names = fs.readdirSync(dotNext).join(', ')
+    console.error('Isi .next saat ini:', names || '(kosong)')
+    const cfg = fs.readFileSync(path.join(root, 'next.config.mjs'), 'utf8')
+    console.error('BUILD_FOR_ELECTRON env =', JSON.stringify(process.env.BUILD_FOR_ELECTRON))
+    console.error('next.config.mjs menyertakan output standalone:', cfg.includes("output: 'standalone'"))
+  } else {
+    console.error('.next tidak ada sama sekali - build belum dijalankan.')
+  }
+  process.exit(1)
+}
+
 fs.rmSync(out, { recursive: true, force: true })
 fs.cpSync(path.join(root, '.next', 'standalone'), path.join(out, 'server'), { recursive: true })
 fs.cpSync(path.join(root, '.next', 'static'), path.join(out, 'server', '.next', 'static'), {
