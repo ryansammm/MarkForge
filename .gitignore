@@ -32,3 +32,5 @@ backups/
 .env
 .vercel
 .env*
+
+# nothing - hooks path is repo-local

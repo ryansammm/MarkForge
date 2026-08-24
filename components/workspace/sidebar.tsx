@@ -34,11 +34,11 @@ import { collectDroppedFiles } from './explorer-drop'
  * The floor is where the row actions and a few characters of a name still fit; below
  * that the panel is a column of ellipses. The ceiling is a guess at the widest anyone
  * would want on a laptop, and it is what stops a width restored from a larger monitor
- * from eating the document â€” see `usePersistedSize`, which clamps on read.
+ * from eating the document — see `usePersistedSize`, which clamps on read.
  */
 export const SIDEBAR_WIDTH = { default: 256, min: 180, max: 560 } as const
 
-/** Present only inside the Electron shell â€” see electron/preload.cjs. */
+/** Present only inside the Electron shell — see electron/preload.cjs. */
 interface DesktopBridge {
   desktop: boolean
   chooseFiles: () => Promise<{ copied: number }>
@@ -94,7 +94,7 @@ const subscribeNever = () => () => {}
  * One indentation rule for the whole tree, and it lives in two places only.
  *
  * A row is a twisty, an icon and a name. Folders have a twisty; documents do not, so
- * a document row reserves the same width for one it will never draw â€” otherwise a
+ * a document row reserves the same width for one it will never draw — otherwise a
  * document's icon sits under its parent folder's *chevron* instead of under the
  * folder's icon, and no two names in the panel share a left edge.
  *
@@ -144,11 +144,11 @@ export function Sidebar({
     try {
       const { copied } = await pick()
       if (copied === 0) return
-      toast.info(`Imported ${copied} item(s), rebuilding indexâ€¦`)
+      toast.info(`Imported ${copied} item(s), rebuilding index…`)
       const response = await fetch('/api/storage?action=reindex', { method: 'POST' })
       if (!response.ok) throw new Error(`reindex failed (${response.status})`)
       await onAfterImport?.()
-      toast.success(`Import complete â€” ${copied} item(s) added`)
+      toast.success(`Import complete — ${copied} item(s) added`)
     } catch (err) {
       toast.error(`Import failed: ${(err as Error).message}`)
     }
@@ -172,7 +172,7 @@ export function Sidebar({
   const handleDrop = async (dataTransfer: DataTransfer) => {    try {
       const files = await collectDroppedFiles(dataTransfer)
       if (files.length === 0) return
-      toast.info(`Importing ${files.length} file(s)â€¦`)
+      toast.info(`Importing ${files.length} file(s)…`)
       const payload = await Promise.all(
         files.map(async ({ path, file }) => ({ path, content: await file.text() }))
       )
@@ -267,7 +267,7 @@ export function Sidebar({
 
   /*
     Depth is not a parameter any more. Indentation comes entirely from the nesting of
-    the wrappers below, so a row cannot be indented twice â€” which is what used to
+    the wrappers below, so a row cannot be indented twice — which is what used to
     happen to a nested folder: once by its parent's wrapper and again by an `ml-3` on
     the row itself.
   */
@@ -376,7 +376,7 @@ export function Sidebar({
             className={ROW_BUTTON}
             data-tree-row
             /*
-              The title first, because the title is the thing that got truncated â€”
+              The title first, because the title is the thing that got truncated —
               these rows show a document's title, not its filename, and a long one is
               unrecoverable from the few words that survive the ellipsis. The path
               goes underneath: it is the other question a truncated row raises, and
@@ -398,7 +398,7 @@ export function Sidebar({
           <span className={ACTION_GROUP}>
             {/*
               The discoverable way to reach a second tab. Mod-click and middle-click
-              do the same thing, but neither announces itself â€” and the tab strip,
+              do the same thing, but neither announces itself — and the tab strip,
               which does, only appears once a second tab already exists.
             */}
             <button
@@ -559,7 +559,7 @@ export function Sidebar({
               className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
             >
               <FileDown className="size-3.5 shrink-0" />
-              <span>Import filesâ€¦</span>
+              <span>Import files…</span>
             </button>
             <button
               type="button"
@@ -594,7 +594,7 @@ export function Sidebar({
           <span>Passwords</span>
           {/*
             Advertised the way search advertises âŒ˜K. A shortcut nobody can discover
-            is a shortcut nobody uses, and this one overrides Print â€” so it had
+            is a shortcut nobody uses, and this one overrides Print — so it had
             better be visibly deliberate rather than a surprise.
           */}
           <kbd className="ml-auto rounded border bg-muted px-1.5 py-0.5 font-mono text-[10px]">Ctrl P</kbd>

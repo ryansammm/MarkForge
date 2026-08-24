@@ -1,0 +1,3 @@
+#!/bin/sh
+# Pre-commit gate: no mojibake, no BOM. See scripts/check-encoding.mjs.
+npm run --silent check:encoding

@@ -45,8 +45,9 @@
     "backup": "tsx scripts/backup.ts",
     "gc:assets": "tsx scripts/gc-assets.ts",
     "benchmark": "tsx scripts/benchmark.ts",
+    "check:encoding": "node scripts/check-encoding.mjs",
     "check:deps": "node scripts/check-deps.mjs",
-    "verify": "npm run check:deps && npm run typecheck && npm run lint && npm test && npm run build",
+    "verify": "npm run check:deps && npm run check:encoding && npm run typecheck && npm run lint && npm test && npm run build",
     "sync": "tsx scripts/sync-storage.ts"
   },
   "dependencies": {
