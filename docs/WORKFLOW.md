@@ -98,3 +98,4 @@ Sebelum menyatakan sebuah pekerjaan selesai:
 | Exe tidak mau start | `%TEMP%\markforge-desktop.log`; pastikan `.next\BUILD_ID` ada (jalankan `pnpm build`) |
 | Sync to cloud gagal di exe | `.env` R2_* ikut ter-bake? cek `scripts/prepare-electron.mjs` output |
 | Huruf aneh muncul lagi | `npm run check:encoding` → perbaiki file sebagai UTF-8 no-BOM via node/.NET |
+| **Build/typecheck lambat di Windows** | ⚠️ Cek Windows Defender dulu (pemindaian real-time node_modules bisa melambatkan 5-10×). Pengecualian sudah dikonfigurasi: folder project, `.pnpm-store`, electron-builder Cache, proses node/electron/MarkForge |
