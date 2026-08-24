@@ -45,3 +45,7 @@ package-lock.json
 # local CI log dumps
 verify-log.txt
 ci-build-section.log
+
+# CI log dumps lokal
+ci-failed.log
+*.local.log
