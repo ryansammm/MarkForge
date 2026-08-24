@@ -1,12 +1,14 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
 import {
   ChevronDown,
   ChevronRight,
+  FileDown,
   FilePlus,
   FileText,
   Folder,
+  FolderInput,
   FolderOpen,
   FolderPlus,
   KeyRound,
@@ -16,6 +18,7 @@ import {
   SquarePlus,
   Trash2,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { FileTreeNode } from '@/lib/file-store'
 import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
@@ -32,6 +35,19 @@ import { ResizeHandle } from './resize-handle'
  */
 export const SIDEBAR_WIDTH = { default: 256, min: 180, max: 560 } as const
 
+/** Present only inside the Electron shell — see electron/preload.cjs. */
+interface DesktopBridge {
+  desktop: boolean
+  chooseFiles: () => Promise<{ copied: number }>
+  chooseFolder: () => Promise<{ copied: number }>
+}
+
+declare global {
+  interface Window {
+    markforge?: DesktopBridge
+  }
+}
+
 interface SidebarProps {
   tree: FileTreeNode[]
   activePath: string | null
@@ -45,6 +61,8 @@ interface SidebarProps {
   onOpenTrash: () => void
   onOpenPasswords: () => void
   onSignOut: () => void
+  /** Refetch the index after a native import copied files into the store. */
+  onAfterImport?: () => Promise<void>
   /** Drawer state. Only meaningful below the md breakpoint. */
   open: boolean
   onClose: () => void
@@ -64,6 +82,9 @@ const ACTION_GROUP =
 
 const ACTION_BUTTON =
   'flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:opacity-100 focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary'
+
+/** The desktop bridge never changes during a session; there is nothing to subscribe to. */
+const subscribeNever = () => () => {}
 
 /**
  * One indentation rule for the whole tree, and it lives in two places only.
@@ -96,12 +117,35 @@ export function Sidebar({
   onOpenTrash,
   onOpenPasswords,
   onSignOut,
+  onAfterImport,
   open,
   onClose,
   width,
   onWidthChange,
 }: SidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
+  // The Electron bridge exists only in the desktop shell. useSyncExternalStore
+  // reads it after mount without an effect: server snapshot false keeps the
+  // first client render identical to the HTML.
+  const isDesktop = useSyncExternalStore(
+    subscribeNever,
+    () => Boolean(window.markforge),
+    () => false
+  )
+
+  const runImport = async (pick: () => Promise<{ copied: number }>) => {
+    try {
+      const { copied } = await pick()
+      if (copied === 0) return
+      toast.info(`Imported ${copied} item(s), rebuilding index…`)
+      const response = await fetch('/api/storage?action=reindex', { method: 'POST' })
+      if (!response.ok) throw new Error(`reindex failed (${response.status})`)
+      await onAfterImport?.()
+      toast.success(`Import complete — ${copied} item(s) added`)
+    } catch (err) {
+      toast.error(`Import failed: ${(err as Error).message}`)
+    }
+  }
 
   // Escape closes the drawer, which is the one affordance a phone user cannot
   // discover but a keyboard user expects.
@@ -441,6 +485,26 @@ export function Sidebar({
       </nav>
 
       <div className="flex flex-col gap-0.5 border-t p-2">
+        {isDesktop && (
+          <>
+            <button
+              type="button"
+              onClick={() => void runImport(() => window.markforge!.chooseFiles())}
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            >
+              <FileDown className="size-3.5 shrink-0" />
+              <span>Import files…</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => void runImport(() => window.markforge!.chooseFolder())}
+              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+            >
+              <FolderInput className="size-3.5 shrink-0" />
+              <span>Import folder…</span>
+            </button>
+          </>
+        )}
         {/*
           Beside Trash rather than in the document tree: the vault is not a document,
           is not indexed, and is not part of the corpus. Putting it in the tree would

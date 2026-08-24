@@ -1,0 +1,151 @@
+'use strict'
+
+const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron')
+const { spawn } = require('child_process')
+const fs = require('fs')
+const http = require('http')
+const path = require('path')
+
+const PORT = 3457
+const BASE = `http://127.0.0.1:${PORT}`
+// Data lives outside the repo so imports never dirty git status.
+const DATA_DIR = path.join(app.getPath('userData'), 'MarkForge')
+const NOTES_DIR = path.join(DATA_DIR, 'notes')
+const META_DIR = path.join(DATA_DIR, 'meta')
+const ASSET_PREFIX = 'assets'
+
+let server = null
+let win = null
+
+function waitUntilReady(url, timeoutMs) {
+  const deadline = Date.now() + timeoutMs
+  return new Promise((resolve, reject) => {
+    const attempt = () => {
+      http
+        .get(url, (res) => {
+          res.resume()
+          // Any HTTP answer means the server is up; the app handles its own
+          // login gate and redirects.
+          resolve(res.statusCode)
+        })
+        .on('error', () => {
+          if (Date.now() > deadline) reject(new Error(`Server did not start within ${timeoutMs}ms`))
+          else setTimeout(attempt, 400)
+        })
+    }
+    attempt()
+  })
+}
+
+function startServer() {
+  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+  server = spawn(npx, ['next', 'start', '-p', String(PORT)], {
+    cwd: path.join(__dirname, '..'),
+    env: { ...process.env, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+    // Windows refuses to spawn .cmd shims without a shell since Node 20.12.
+    shell: process.platform === 'win32',
+  })
+  server.stdout.on('data', (d) => process.stdout.write(`[next] ${d}`))
+  server.stderr.on('data', (d) => process.stderr.write(`[next] ${d}`))
+  server.on('exit', (code) => console.log(`[next] exited with ${code}`))
+  return server
+}
+
+function copyFileToWorkspace(srcPath, relativeName) {
+  const dest = path.join(NOTES_DIR, relativeName)
+  fs.mkdirSync(path.dirname(dest), { recursive: true })
+  fs.copyFileSync(srcPath, dest)
+}
+
+function walkMarkdown(dir, baseDir, out) {
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    if (entry.name.startsWith('.')) continue
+    const full = path.join(dir, entry.name)
+    if (entry.isDirectory()) walkMarkdown(full, baseDir, out)
+    else out.push({ src: full, rel: path.relative(baseDir, full).split(path.sep).join('/') })
+  }
+  return out
+}
+
+ipcMain.handle('markforge:choose-files', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Import files',
+    properties: ['openFile', 'multiSelections'],
+  })
+  if (res.canceled) return { copied: 0 }
+  let copied = 0
+  for (const file of res.filePaths) {
+    const name = path.basename(file)
+    const rel = name.endsWith('.md') ? name : `${ASSET_PREFIX}/${Date.now()}-${name}`
+    copyFileToWorkspace(file, rel)
+    copied++
+  }
+  return { copied }
+})
+
+ipcMain.handle('markforge:choose-folder', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Import folder',
+    properties: ['openDirectory'],
+  })
+  if (res.canceled) return { copied: 0 }
+  const files = walkMarkdown(res.filePaths[0], res.filePaths[0], [])
+  let copied = 0
+  for (const f of files) {
+    copyFileToWorkspace(f.src, f.rel)
+    copied++
+  }
+  return { copied }
+})
+
+async function main() {
+  await app.whenReady()
+  fs.mkdirSync(NOTES_DIR, { recursive: true })
+  fs.mkdirSync(META_DIR, { recursive: true })
+
+  startServer()
+  try {
+    await waitUntilReady(BASE, 60000)
+  } catch (err) {
+    dialog.showErrorBox('MarkForge', String(err))
+    app.quit()
+    return
+  }
+
+  win = new BrowserWindow({
+    width: 1280,
+    height: 840,
+    title: 'MarkForge',
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+    },
+  })
+  win.loadURL(BASE)
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url)
+    return { action: 'deny' }
+  })
+
+  app.on('window-all-closed', () => {
+    app.quit()
+  })
+}
+
+main().catch((err) => {
+  console.error(err)
+  app.quit()
+})
+
+process.on('exit', () => {
+  if (!server || server.killed) return
+  if (process.platform === 'win32') {
+    // shell:true means server.pid is the cmd shim; /T takes the whole tree with it.
+    spawn('taskkill', ['/pid', String(server.pid), '/T', '/F'], { windowsHide: true })
+  } else {
+    server.kill()
+  }
+})

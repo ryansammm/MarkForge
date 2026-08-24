@@ -1029,6 +1029,7 @@ export function WorkspaceApp() {
         onOpenTrash={() => setTrashOpen(true)}
         onOpenPasswords={() => setPasswordsOpen(true)}
         onSignOut={() => void signOut()}
+        onAfterImport={reloadIndex}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         width={sidebarWidth}
