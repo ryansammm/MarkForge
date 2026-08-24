@@ -30,3 +30,5 @@ password-vault.json
 # Backup snapshots
 backups/
 .env
+.vercel
+.env*
