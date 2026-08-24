@@ -91,3 +91,49 @@ export function usePersistedSize(
 
   return [value, setValue]
 }
+
+/**
+ * A list of string ids remembered in localStorage - the pinned-documents rail.
+ * Toggle semantics: id in the list is removed, otherwise appended at the end,
+ * so pin order is the order you pinned things in.
+ *
+ * useSyncExternalStore requires a STABLE snapshot between renders - parsing
+ * JSON into a fresh array on every call would loop forever. The cache returns
+ * the same array reference until the stored string actually changes.
+ */
+const listCache = new Map<string, { raw: string | null; value: string[] }>()
+
+function parseList(key: string): string[] {
+  const raw = window.localStorage.getItem(key)
+  const hit = listCache.get(key)
+  if (hit && hit.raw === raw) return hit.value
+  let value: string[] = []
+  try {
+    const parsed: unknown = JSON.parse(raw ?? '[]')
+    if (Array.isArray(parsed)) value = parsed.filter((v): v is string => typeof v === 'string')
+  } catch {
+    value = []
+  }
+  listCache.set(key, { raw, value })
+  return value
+}
+
+export function usePersistedList(key: string): [string[], (id: string) => void] {
+  const getSnapshot = useCallback(() => parseList(key), [key])
+
+  const value = useSyncExternalStore(subscribe, getSnapshot, () => [])
+
+  const toggle = useCallback(
+    (id: string) => {
+      const current = parseList(key)
+      const next = current.includes(id)
+        ? current.filter((v) => v !== id)
+        : [...current.filter((v) => v !== id), id]
+      window.localStorage.setItem(key, JSON.stringify(next))
+      for (const listener of listeners) listener()
+    },
+    [key]
+  )
+
+  return [value, toggle]
+}

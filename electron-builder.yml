@@ -1,0 +1,24 @@
+appId: com.xyks.markforge
+productName: MarkForge
+copyright: © XYKS
+directories:
+  output: dist
+  buildResources: build-resources
+files:
+  - electron/**
+  - package.json
+extraFiles:
+  - from: .next/electron-build/server
+    to: server
+  - from: .next/electron-build/.env
+    to: .env
+icon: build-resources/markforge.ico
+win:
+  target:
+    - target: portable
+      arch:
+        - x64
+portable:
+  artifactName: MarkForge-Portable-${version}.exe
+  # The app unpacks and runs; nothing is installed, no admin rights needed.
+npmRebuild: false

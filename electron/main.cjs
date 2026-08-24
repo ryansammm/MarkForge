@@ -41,26 +41,49 @@ function waitUntilReady(url, timeoutMs) {
 }
 
 function startServer() {
-  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
-  // The repo's .env carries R2 credentials for the deployed web app, and Next
-  // loads it automatically - which would silently turn this local instance into
-  // a cloud-backed one, every save round-tripping to another hemisphere. Next
-  // only fills variables that are NOT already present, so pre-setting empties
-  // pins them off; the backend treats '' as unset.
-  const localOnly = {
-    R2_ACCOUNT_ID: '',
-    R2_ACCESS_KEY_ID: '',
-    R2_SECRET_ACCESS_KEY: '',
-    R2_BUCKET: '',
+  // ── Packaged (portable exe) ──────────────────────────────────────────────
+  // Runs the Next standalone server with Electron's own embedded Node
+  // (ELECTRON_RUN_AS_NODE): no system Node, no pnpm, no terminal. The server
+  // folder ships in resources/server, assembled by scripts/prepare-electron.mjs.
+  if (app.isPackaged) {
+    const serverDir = path.join(process.resourcesPath, 'server')
+    process.env.MARKFORG_SYNC = '0' // tsx-based cloud push needs the repo; hidden in packaged builds
+    server = spawn(process.execPath, [path.join(serverDir, 'server.js')], {
+      cwd: serverDir,
+      env: {
+        ...process.env,
+        ELECTRON_RUN_AS_NODE: '1',
+        NODE_ENV: 'production',
+        PORT: String(PORT),
+        NOTES_DIR: NOTES_DIR,
+        META_DIR: META_DIR,
+      },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+    })
+  } else {
+    // ── Development (repo checkout) ────────────────────────────────────────
+    const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+    // The repo's .env carries R2 credentials for the deployed web app, and Next
+    // loads it automatically - which would silently turn this local instance into
+    // a cloud-backed one, every save round-tripping to another hemisphere. Next
+    // only fills variables that are NOT already present, so pre-setting empties
+    // pins them off; the backend treats '' as unset.
+    const localOnly = {
+      R2_ACCOUNT_ID: '',
+      R2_ACCESS_KEY_ID: '',
+      R2_SECRET_ACCESS_KEY: '',
+      R2_BUCKET: '',
+    }
+    server = spawn(npx, ['next', 'start', '-p', String(PORT)], {
+      cwd: path.join(__dirname, '..'),
+      env: { ...process.env, ...localOnly, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
+      stdio: ['ignore', 'pipe', 'pipe'],
+      windowsHide: true,
+      // Windows refuses to spawn .cmd shims without a shell since Node 20.12.
+      shell: process.platform === 'win32',
+    })
   }
-  server = spawn(npx, ['next', 'start', '-p', String(PORT)], {
-    cwd: path.join(__dirname, '..'),
-    env: { ...process.env, ...localOnly, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-    // Windows refuses to spawn .cmd shims without a shell since Node 20.12.
-    shell: process.platform === 'win32',
-  })
   server.stdout.on('data', (d) => process.stdout.write(`[next] ${d}`))
   server.stderr.on('data', (d) => process.stderr.write(`[next] ${d}`))
   server.on('exit', (code) => console.log(`[next] exited with ${code}`))
@@ -114,16 +137,23 @@ ipcMain.handle('markforge:choose-folder', async () => {
   return { copied }
 })
 
-/** Reads the repo .env - the one place cloud credentials legitimately live. */
+/** Reads the repo .env - the one place cloud credentials legitimately live.
+ *  Packaged builds look next to the exe resources instead (copied at build time). */
 function readRepoEnv() {
+  const candidates = app.isPackaged
+    ? [path.join(process.resourcesPath, '.env')]
+    : [path.join(__dirname, '..', '.env')]
   const out = {}
-  try {
-    for (const line of fs.readFileSync(path.join(__dirname, '..', '.env'), 'utf8').split(/\r?\n/)) {
-      const [key, ...rest] = line.split('=')
-      if (key && rest.length) out[key.trim()] = rest.join('=').trim()
+  for (const envPath of candidates) {
+    try {
+      for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
+        const [key, ...rest] = line.split('=')
+        if (key && rest.length) out[key.trim()] = rest.join('=').trim()
+      }
+      break
+    } catch {
+      // Try the next candidate; caller reports cloud as unconfigured if none work.
     }
-  } catch {
-    // No .env - caller reports cloud as unconfigured.
   }
   return out
 }

@@ -34,3 +34,7 @@ backups/
 .env*
 
 # nothing - hooks path is repo-local
+
+# Build outputs - too big for git, distributed via GitHub Releases
+dist/
+.next/electron-build/

@@ -1033,6 +1033,7 @@ export function WorkspaceApp() {
         onOpenTrash={() => setTrashOpen(true)}
         onOpenPasswords={() => setPasswordsOpen(true)}
         onSignOut={() => void signOut()}
+        documents={indexData?.documents || {}}
         onAfterImport={reloadIndex}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}

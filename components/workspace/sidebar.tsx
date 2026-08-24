@@ -17,16 +17,19 @@ import {
   Pencil,
   Search,
   SquarePlus,
+  Star,
   Trash2,
+  X,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { FileTreeNode } from '@/lib/file-store'
+import { FileTreeNode, MarkdownDocument } from '@/lib/file-store'
 import { APP_SIGNATURE, APP_VERSION } from '@/lib/version'
 import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
 import { openHandlers } from './tab-gestures'
 import { ResizeHandle } from './resize-handle'
 import { collectDroppedFiles } from './explorer-drop'
+import { usePersistedList } from '@/lib/use-persisted'
 
 /**
  * Sidebar width, and the range it can be dragged through.
@@ -67,6 +70,8 @@ interface SidebarProps {
   onSignOut: () => void
   /** Refetch the index after a native import copied files into the store. */
   onAfterImport?: () => Promise<void>
+  /** Current index documents, for pin titles. */
+  documents?: Record<string, MarkdownDocument>
   /** Drawer state. Only meaningful below the md breakpoint. */
   open: boolean
   onClose: () => void
@@ -122,6 +127,7 @@ export function Sidebar({
   onOpenPasswords,
   onSignOut,
   onAfterImport,
+  documents,
   open,
   onClose,
   width,
@@ -131,6 +137,8 @@ export function Sidebar({
   // Depth counter, not a boolean: enter/leave fire for every child element, and a
   // boolean flickers the highlight off while crossing gaps between rows.
   const [dragDepth, setDragDepth] = useState(0)
+  // Pinned documents, remembered per device in localStorage.
+  const [pinnedPaths, togglePinned] = usePersistedList('markforge.pinned-docs')
   // The Electron bridge exists only in the desktop shell. useSyncExternalStore
   // reads it after mount without an effect: server snapshot false keeps the
   // first client render identical to the HTML.
@@ -340,6 +348,17 @@ export function Sidebar({
                 </button>
                 <button
                   type="button"
+                  className={cn(ACTION_BUTTON, pinnedPaths.includes(node.path) && 'text-primary')}
+                  title={pinnedPaths.includes(node.path) ? `Unpin ${node.name}` : `Pin ${node.name}`}
+                  aria-label={
+                    pinnedPaths.includes(node.path) ? `Unpin ${node.name}` : `Pin ${node.name}`
+                  }
+                  onClick={() => togglePinned(node.path)}
+                >
+                  <Star className={cn('size-3', pinnedPaths.includes(node.path) && 'fill-current')} />
+                </button>
+                <button
+                  type="button"
                   className={cn(ACTION_BUTTON, 'hover:text-destructive')}
                   title={`Delete ${node.name}`}
                   aria-label={`Delete ${node.name}`}
@@ -512,6 +531,41 @@ export function Sidebar({
         </button>
       </div>
 
+      {pinnedPaths.length > 0 && (
+        <div className="mb-1 px-3">
+          <div className="mb-1 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <Star className="size-3 fill-(--accent-fill) text-(--accent-fill)" />
+            <span>Pinned</span>
+          </div>
+          {pinnedPaths
+            .filter((p) => documents?.[p])
+            .map((path) => {
+              const doc = documents![path]
+              return (
+                <div key={path} className="group flex items-center rounded-md hover:bg-sidebar-accent/60">
+                  <button
+                    type="button"
+                    {...openHandlers((intent) => onSelectFile(path, intent))}
+                    className="flex min-w-0 flex-1 items-center gap-1.5 px-1 py-1 text-left text-xs text-foreground"
+                    title={doc.title || path}
+                  >
+                    <Star className="size-3 shrink-0 fill-(--accent-fill) text-(--accent-fill)" />
+                    <span className="truncate">{doc.title || path}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => togglePinned(path)}
+                    title="Unpin"
+                    aria-label={`Unpin ${doc.title || path}`}
+                    className={cn(ACTION_BUTTON, 'mr-1')}
+                  >
+                    <X className="size-3" />
+                  </button>
+                </div>
+              )
+            })}
+        </div>
+      )}
       <nav
         className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-4"
         aria-label="Workspace documents"
@@ -593,7 +647,7 @@ export function Sidebar({
           <KeyRound className="size-3.5 shrink-0" />
           <span>Passwords</span>
           {/*
-            Advertised the way search advertises âŒ˜K. A shortcut nobody can discover
+            Advertised the way search advertises —K. A shortcut nobody can discover
             is a shortcut nobody uses, and this one overrides Print — so it had
             better be visibly deliberate rather than a surprise.
           */}
