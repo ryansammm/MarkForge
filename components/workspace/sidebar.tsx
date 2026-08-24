@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FileTreeNode } from '@/lib/file-store'
+import { APP_SIGNATURE, APP_VERSION } from '@/lib/version'
 import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
 import { openHandlers } from './tab-gestures'
@@ -195,7 +196,7 @@ export function Sidebar({
   const toggleFolder = (path: string) => {
     setExpandedFolders((prev) => ({
       ...prev,
-      [path]: prev[path] === undefined ? false : !prev[path],
+      [path]: !prev[path],
     }))
   }
 
@@ -257,7 +258,7 @@ export function Sidebar({
   */
   const renderTree = (nodes: FileTreeNode[]) => {
     return nodes.map((node) => {
-      const isExpanded = expandedFolders[node.path] !== false // Default open
+      const isExpanded = expandedFolders[node.path] === true // Default collapsed
 
       if (node.isDir) {
         return (
@@ -288,7 +289,7 @@ export function Sidebar({
                     <ChevronRight className="size-3.5" />
                   )}
                 </span>
-                <span className={cn(ICON_BOX, 'text-amber-500/80')}>
+                <span className={cn(ICON_BOX, 'text-(--icon-neutral)')}>
                   {isExpanded ? <FolderOpen className="size-4" /> : <Folder className="size-4" />}
                 </span>
                 <span className="truncate">{node.name}</span>
@@ -480,7 +481,7 @@ export function Sidebar({
           <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
             M
           </span>
-          <span className="truncate text-sm font-semibold tracking-tight">Markdown Workspace</span>
+          <span className="truncate text-sm font-semibold tracking-tight">MarkForge</span>
         </div>
       </header>
 
@@ -591,6 +592,15 @@ export function Sidebar({
           <LogOut className="size-3.5 shrink-0" />
           <span>Sign out</span>
         </button>
+        <div
+          className="flex items-center justify-between px-2 pt-1 text-[10px] tracking-wide text-(--text-disabled)"
+          title="MarkForge"
+        >
+          <span>
+            MarkForge v{APP_VERSION}
+          </span>
+          <span>Ã‚Â© {APP_SIGNATURE}</span>
+        </div>
       </div>
       </aside>
     </>

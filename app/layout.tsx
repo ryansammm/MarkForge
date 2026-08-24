@@ -12,14 +12,16 @@ const geist = Geist({ subsets: ['latin'], variable: '--font-geist' })
 const lora = Lora({ subsets: ['latin'], variable: '--font-lora' })
 
 export const metadata: Metadata = {
-  title: 'Morrow — Markdown Workspace',
+  title: 'MarkForge',
   description: 'A focused workspace for connected Markdown notes and documents.',
   generator: 'v0.app',
   manifest: '/manifest.webmanifest',
-  applicationName: 'Morrow',
+  icons: { icon: '/icon-192.png', apple: '/apple-icon.png' },
+  applicationName: 'MarkForge',
+  authors: [{ name: 'XYKS' }],
   appleWebApp: {
     capable: true,
-    title: 'Morrow',
+    title: 'MarkForge',
     statusBarStyle: 'default',
   },
 }
@@ -27,8 +29,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   colorScheme: 'light dark',
   themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#f7f7f5' },
-    { media: '(prefers-color-scheme: dark)', color: '#181a18' },
+    { media: '(prefers-color-scheme: light)', color: '#111111' },
+    { media: '(prefers-color-scheme: dark)', color: '#111111' },
   ],
   userScalable: true,
 }

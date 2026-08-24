@@ -132,6 +132,9 @@ async function main() {
     width: 1280,
     height: 840,
     title: 'MarkForge',
+    // Unpackaged Electron shows its own logo unless told otherwise; PNG is
+    // enough for the window and taskbar at runtime.
+    icon: path.join(__dirname, '..', 'public', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,

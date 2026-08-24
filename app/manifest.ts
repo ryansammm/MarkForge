@@ -2,14 +2,14 @@ import type { MetadataRoute } from 'next'
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Morrow — Markdown Workspace',
-    short_name: 'Morrow',
+    name: 'MarkForge',
+    short_name: 'MarkForge',
     description: 'A focused workspace for connected Markdown notes and documents.',
     start_url: '/',
     scope: '/',
     display: 'standalone',
-    background_color: '#f7f7f5',
-    theme_color: '#f7f7f5',
+    background_color: '#111111',
+    theme_color: '#111111',
     icons: [
       {
         src: '/icon-192.png',

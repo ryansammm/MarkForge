@@ -1,0 +1,10 @@
+{
+  "cSpell.ignorePaths": [
+    "**/*.yaml",
+    "**/*.yml",
+    "node_modules/**",
+    ".next/**",
+    "pnpm-lock.yaml"
+  ],
+  "cSpell.words": ["MarkForge", "XYKS", "wikilink", "wikilinks", "pnpm"]
+}

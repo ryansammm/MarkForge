@@ -51,96 +51,112 @@
   --radius-xl: calc(var(--radius) * 1.35);
 }
 
+/*
+  Theme: "Monochrome pop"
+
+  Neutral grayscale with exactly one loud yellow accent. The yellow is
+  rationed - interactive elements, links, CTAs only - so that meeting it always
+  means something. Flat surfaces throughout: depth comes from one shade steps
+  between canvas and panels, never from shadows or glows.
+
+  Structure: the shadcn mappings below are declared once and read raw tokens;
+  only the raw values differ between light and dark. Dark values are the ones
+  the design brief specified verbatim; light is its derived sibling.
+*/
+:root {
+  /* --- shadcn mapping (theme-independent; reads whichever raw tokens are
+         in scope - light here, dark once .dark lands on <html>) ---------- */
+  --background: var(--bg-canvas);
+  --foreground: var(--text-primary);
+  --card: var(--bg-panel);
+  --card-foreground: var(--foreground);
+  --popover: var(--bg-panel);
+  --popover-foreground: var(--foreground);
+  --primary: var(--accent-fill);
+  --primary-foreground: var(--accent-on);
+  --secondary: var(--bg-hover);
+  --secondary-foreground: var(--text-primary);
+  --muted: var(--bg-hover);
+  --muted-foreground: var(--text-secondary);
+  --accent: var(--bg-hover);
+  --accent-foreground: var(--text-primary);
+  --destructive: oklch(.66 .19 25);
+  --border: var(--border-default);
+  --input: var(--border-default);
+  --ring: var(--accent-fill);
+  --radius: .625rem;
+  --sidebar: var(--bg-panel);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--primary);
+  --sidebar-primary-foreground: var(--accent-on);
+  --sidebar-accent: var(--bg-hover);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border-default);
+  --sidebar-ring: var(--accent-fill);
+}
+
+/* --- light -------------------------------------------------------------- */
 :root {
   color-scheme: light;
-  --background: oklch(.975 .006 95);
-  --foreground: oklch(.225 .012 75);
-  --card: oklch(.995 .003 95);
-  --card-foreground: var(--foreground);
-  --popover: oklch(.995 .003 95);
-  --popover-foreground: var(--foreground);
-  --primary: oklch(.44 .09 154);
-  --primary-foreground: oklch(.99 .005 95);
-  --secondary: oklch(.935 .008 95);
-  --secondary-foreground: oklch(.3 .014 75);
-  --muted: oklch(.94 .006 95);
-  --muted-foreground: oklch(.51 .018 75);
-  --accent: oklch(.91 .025 145);
-  --accent-foreground: oklch(.27 .05 150);
-  --destructive: oklch(.58 .2 28);
-  --border: oklch(.885 .009 90);
-  --input: oklch(.885 .009 90);
-  --ring: oklch(.55 .09 154);
-  --radius: .625rem;
-  --sidebar: oklch(.955 .008 92);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(.91 .016 95);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
+  --bg-canvas: #fafaf8;
+  --bg-panel: #f1f1ee;
+  --bg-hover: #e7e7e3;
+  --border-default: #dcdcd7;
+  --text-primary: #1d1d1a;
+  --text-secondary: #54544e;
+  --text-muted: #84847c;
+  --text-disabled: #c4c4bc;
+  /* The same yellow reads too pale against white as text, so text-bearing
+     accents deepen one step while fills stay true to the brief. */
+  --accent-fill: #f0d84a;
+  --accent-on: #1d1d1a;
+  --accent-link: #857400;
+  --accent-link-underline: #b3a12c;
+  --accent-bg-muted: #f3ecb8;
+  --accent-badge-text: #7a6900;
+  --icon-neutral: #8a8a86;
 }
 
-.dark {
+/* --- dark (brief values, verbatim) --------------------------------------- */
+.dark,
+@media-prefers-dark {
   color-scheme: dark;
-  --background: oklch(.18 .008 110);
-  --foreground: oklch(.92 .008 95);
-  --card: oklch(.205 .009 110);
-  --card-foreground: var(--foreground);
-  --popover: oklch(.23 .01 110);
-  --popover-foreground: var(--foreground);
-  --primary: oklch(.68 .1 150);
-  --primary-foreground: oklch(.17 .02 150);
-  --secondary: oklch(.26 .01 110);
-  --secondary-foreground: var(--foreground);
-  --muted: oklch(.25 .009 110);
-  --muted-foreground: oklch(.67 .012 95);
-  --accent: oklch(.3 .035 150);
-  --accent-foreground: oklch(.9 .04 145);
-  --destructive: oklch(.66 .19 25);
-  --border: oklch(.32 .01 110);
-  --input: oklch(.32 .01 110);
-  --ring: oklch(.62 .09 150);
-  --sidebar: oklch(.195 .009 110);
-  --sidebar-foreground: var(--foreground);
-  --sidebar-primary: var(--primary);
-  --sidebar-primary-foreground: var(--primary-foreground);
-  --sidebar-accent: oklch(.26 .012 110);
-  --sidebar-accent-foreground: var(--foreground);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--ring);
+  --bg-canvas: #111111;
+  --bg-panel: #1a1a1a;
+  --bg-hover: #232323;
+  --border-default: #2a2a2a;
+  --text-primary: #f2f2f0;
+  --text-secondary: #b8b8b4;
+  --text-muted: #7a7a76;
+  --text-disabled: #4a4a47;
+  --accent-fill: #f0d84a;
+  --accent-on: #111111;
+  --accent-link: #f0d84a;
+  --accent-link-underline: #d4be3a;
+  --accent-bg-muted: #3a3520;
+  --accent-badge-text: #f0d84a;
+  --icon-neutral: #8a8a86;
 }
 
+/* OS-level dark preference applies even before hydration adds the class. */
 @media (prefers-color-scheme: dark) {
   :root:not(.light) {
     color-scheme: dark;
-    --background: oklch(.18 .008 110);
-    --foreground: oklch(.92 .008 95);
-    --card: oklch(.205 .009 110);
-    --card-foreground: var(--foreground);
-    --popover: oklch(.23 .01 110);
-    --popover-foreground: var(--foreground);
-    --primary: oklch(.68 .1 150);
-    --primary-foreground: oklch(.17 .02 150);
-    --secondary: oklch(.26 .01 110);
-    --secondary-foreground: var(--foreground);
-    --muted: oklch(.25 .009 110);
-    --muted-foreground: oklch(.67 .012 95);
-    --accent: oklch(.3 .035 150);
-    --accent-foreground: oklch(.9 .04 145);
-    --destructive: oklch(.66 .19 25);
-    --border: oklch(.32 .01 110);
-    --input: oklch(.32 .01 110);
-    --ring: oklch(.62 .09 150);
-    --sidebar: oklch(.195 .009 110);
-    --sidebar-foreground: var(--foreground);
-    --sidebar-primary: var(--primary);
-    --sidebar-primary-foreground: var(--primary-foreground);
-    --sidebar-accent: oklch(.26 .012 110);
-    --sidebar-accent-foreground: var(--foreground);
-    --sidebar-border: var(--border);
-    --sidebar-ring: var(--ring);
+    --bg-canvas: #111111;
+    --bg-panel: #1a1a1a;
+    --bg-hover: #232323;
+    --border-default: #2a2a2a;
+    --text-primary: #f2f2f0;
+    --text-secondary: #b8b8b4;
+    --text-muted: #7a7a76;
+    --text-disabled: #4a4a47;
+    --accent-fill: #f0d84a;
+    --accent-on: #111111;
+    --accent-link: #f0d84a;
+    --accent-link-underline: #d4be3a;
+    --accent-bg-muted: #3a3520;
+    --accent-badge-text: #f0d84a;
+    --icon-neutral: #8a8a86;
   }
 }
 
@@ -202,6 +218,27 @@
 .prose :where(blockquote p:first-of-type)::before,
 .prose :where(blockquote p:last-of-type)::after { content: none; }
 
+/*
+  Links are the rationed yellow: accent fill, hover-tone underline. Applies to
+  rendered markdown and to the editor's live wikilinks alike.
+*/
+.prose :where(a) {
+  color: var(--accent-link);
+  text-decoration-color: var(--accent-link-underline);
+}
+.cm-wikilink {
+  color: var(--accent-link);
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: var(--accent-link-underline);
+}
+
+/* Badges and tags: muted yellow field, accent text - loud but contained. */
+.mf-badge {
+  background: var(--accent-bg-muted);
+  color: var(--accent-badge-text);
+}
+
 .editor-content kbd { @apply rounded border bg-muted px-1.5 py-0.5 font-mono text-xs; }
 .context-link { @apply rounded-md px-2 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground; }
 .context-link.active { @apply bg-muted font-medium text-foreground; }
@@ -220,8 +257,7 @@ html, body, main, aside, article, header {
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: 999px;
-  background: var(--accent);
-  box-shadow: inset 0 1px 2px color-mix(in oklch, var(--foreground) 8%, transparent), 0 1px 2px color-mix(in oklch, var(--foreground) 8%, transparent);
+  background: var(--bg-hover);
   transition: background-color 220ms cubic-bezier(.2,.8,.2,1), border-color 220ms cubic-bezier(.2,.8,.2,1), transform 140ms ease-out;
   -webkit-tap-highlight-color: transparent;
 }
@@ -238,9 +274,8 @@ html, body, main, aside, article, header {
   border-radius: 50%;
   color: oklch(.42 .16 65);
   background: oklch(.9 .13 85);
-  box-shadow: 0 1px 5px oklch(.65 .13 75 / .35);
   transform: translateX(0) rotate(0deg);
-  transition: transform 280ms cubic-bezier(.34,1.32,.64,1), color 200ms ease-out, background-color 200ms ease-out, box-shadow 200ms ease-out;
+  transition: transform 280ms cubic-bezier(.34,1.32,.64,1), color 200ms ease-out, background-color 200ms ease-out;
 }
 .theme-switcher__sun, .theme-switcher__moon { position: absolute; width: .8rem; height: .8rem; transition: opacity 160ms ease-out, transform 240ms cubic-bezier(.2,.8,.2,1); }
 .theme-switcher__sun { opacity: 1; transform: rotate(0deg) scale(1); }
@@ -251,7 +286,7 @@ html, body, main, aside, article, header {
 .theme-switcher__stars i:nth-child(2) { left: .95rem; top: 1rem; opacity: .55; }
 .theme-switcher__stars i:nth-child(3) { left: 1.35rem; top: .38rem; opacity: .75; }
 .theme-switcher.is-night { background: var(--secondary); }
-.theme-switcher.is-night .theme-switcher__orb { color: oklch(.35 .04 260); background: oklch(.86 .03 260); box-shadow: 0 1px 6px oklch(.75 .08 260 / .22); transform: translateX(1.5rem) rotate(360deg); }
+.theme-switcher.is-night .theme-switcher__orb { color: oklch(.35 .04 260); background: oklch(.86 .03 260); transform: translateX(1.5rem) rotate(360deg); }
 .theme-switcher.is-night .theme-switcher__sun { opacity: 0; transform: rotate(90deg) scale(.4); }
 .theme-switcher.is-night .theme-switcher__moon { opacity: 1; transform: rotate(0deg) scale(1); }
 .theme-switcher.is-night .theme-switcher__stars { opacity: 1; transform: translateY(0); }

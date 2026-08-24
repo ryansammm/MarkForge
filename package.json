@@ -1,6 +1,7 @@
 {
-  "name": "my-project",
-  "version": "0.1.0",
+  "name": "markforge",
+  "version": "1.0.0",
+  "productName": "MarkForge",
   "private": true,
   "main": "electron/main.cjs",
   "packageManager": "pnpm@11.20.0",
