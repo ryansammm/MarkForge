@@ -102,6 +102,15 @@ export class WorkspaceStore implements WritableFileStore {
   }
 
   /**
+   * Public validation for callers that batch writes outside the per-write flow
+   * (bulk import). Delegates to the same guard `write` uses so the rules cannot
+   * drift between the two paths.
+   */
+  validateDocumentKey(input: string): string {
+    return this.documentKey(input)
+  }
+
+  /**
    * Containment, shared by every keyspace.
    *
    * Object storage has no `..` to resolve, so containment is a matter of refusing the
@@ -119,8 +128,7 @@ export class WorkspaceStore implements WritableFileStore {
   }
 
   /** The document checks without requiring a `.md` extension. */
-  private folderKey(input: string): string {
-    const key = this.safeKey(input)
+  private folderKey(input: string): string {    const key = this.safeKey(input)
     /**
      * The asset namespace is not addressable as a document or a folder.
      *

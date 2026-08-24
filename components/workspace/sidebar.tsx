@@ -24,6 +24,7 @@ import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
 import { openHandlers } from './tab-gestures'
 import { ResizeHandle } from './resize-handle'
+import { collectDroppedFiles } from './explorer-drop'
 
 /**
  * Sidebar width, and the range it can be dragged through.
@@ -124,6 +125,9 @@ export function Sidebar({
   onWidthChange,
 }: SidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
+  // Depth counter, not a boolean: enter/leave fire for every child element, and a
+  // boolean flickers the highlight off while crossing gaps between rows.
+  const [dragDepth, setDragDepth] = useState(0)
   // The Electron bridge exists only in the desktop shell. useSyncExternalStore
   // reads it after mount without an effect: server snapshot false keeps the
   // first client render identical to the HTML.
@@ -144,6 +148,36 @@ export function Sidebar({
       toast.success(`Import complete — ${copied} item(s) added`)
     } catch (err) {
       toast.error(`Import failed: ${(err as Error).message}`)
+    }
+  }
+
+  /** Explorer drop: one bulk request, index rebuilt server-side once. */
+  const handleDrop = async (dataTransfer: DataTransfer) => {
+    try {
+      const files = await collectDroppedFiles(dataTransfer)
+      if (files.length === 0) return
+      toast.info(`Importing ${files.length} file(s)…`)
+      const payload = await Promise.all(
+        files.map(async ({ path, file }) => ({ path, content: await file.text() }))
+      )
+      const response = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ files: payload }),
+      })
+      if (!response.ok) {
+        const detail = (await response.json().catch(() => null)) as { error?: string } | null
+        throw new Error(detail?.error ?? `import failed (${response.status})`)
+      }
+      const result = (await response.json()) as { copied: number; skipped: number }
+      await onAfterImport?.()
+      if (result.skipped > 0)
+        toast.warning(
+          `Dropped in: ${result.copied} imported, ${result.skipped} skipped (already exist)`
+        )
+      else toast.success(`Dropped in: ${result.copied} imported`)
+    } catch (err) {
+      toast.error(`Drop import failed: ${(err as Error).message}`)
     }
   }
 
@@ -412,10 +446,26 @@ export function Sidebar({
           // Below md the sidebar is a drawer: it used to take 256 of 375 pixels and
           // leave 119 for the document, which is not a mobile layout.
           'fixed inset-y-0 left-0 z-50 transition-transform duration-200 md:static md:z-auto md:translate-x-0',
-          open ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+          open ? 'translate-x-0 shadow-xl' : '-translate-x-full',
+          dragDepth > 0 && 'ring-2 ring-inset ring-primary'
         )}
-        aria-hidden={undefined}
+        onDragEnter={(event) => {
+          event.preventDefault()
+          setDragDepth((depth) => depth + 1)
+        }}
+        onDragOver={(event) => event.preventDefault()}
+        onDragLeave={() => setDragDepth((depth) => Math.max(0, depth - 1))}
+        onDrop={(event) => {
+          event.preventDefault()
+          setDragDepth(0)
+          void handleDrop(event.dataTransfer)
+        }}
       >
+        {dragDepth > 0 && (
+          <div className="pointer-events-none absolute inset-x-3 top-16 z-10 rounded-md border border-dashed border-primary bg-background/90 px-3 py-2 text-center text-xs font-medium text-primary">
+            Drop .md files or folders to import
+          </div>
+        )}
       <ResizeHandle
         width={width}
         min={SIDEBAR_WIDTH.min}

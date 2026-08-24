@@ -8,10 +8,13 @@ const path = require('path')
 
 const PORT = 3457
 const BASE = `http://127.0.0.1:${PORT}`
-// Data lives outside the repo so imports never dirty git status.
-const DATA_DIR = path.join(app.getPath('userData'), 'MarkForge')
-const NOTES_DIR = path.join(DATA_DIR, 'notes')
-const META_DIR = path.join(DATA_DIR, 'meta')
+app.setName('MarkForge')
+// Data lives outside the repo so imports never dirty git status. The name is
+// pinned before getPath('userData') because an unpackaged Electron falls back
+// to the package name ("my-project") - a rename would orphan the corpus.
+const DATA_ROOT = app.getPath('userData')
+const NOTES_DIR = path.join(DATA_ROOT, 'notes')
+const META_DIR = path.join(DATA_ROOT, 'meta')
 const ASSET_PREFIX = 'assets'
 
 let server = null
@@ -39,9 +42,20 @@ function waitUntilReady(url, timeoutMs) {
 
 function startServer() {
   const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
+  // The repo's .env carries R2 credentials for the deployed web app, and Next
+  // loads it automatically - which would silently turn this local instance into
+  // a cloud-backed one, every save round-tripping to another hemisphere. Next
+  // only fills variables that are NOT already present, so pre-setting empties
+  // pins them off; the backend treats '' as unset.
+  const localOnly = {
+    R2_ACCOUNT_ID: '',
+    R2_ACCESS_KEY_ID: '',
+    R2_SECRET_ACCESS_KEY: '',
+    R2_BUCKET: '',
+  }
   server = spawn(npx, ['next', 'start', '-p', String(PORT)], {
     cwd: path.join(__dirname, '..'),
-    env: { ...process.env, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
+    env: { ...process.env, ...localOnly, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
     // Windows refuses to spawn .cmd shims without a shell since Node 20.12.
