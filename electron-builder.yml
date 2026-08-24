@@ -7,19 +7,9 @@ directories:
 files:
   - electron/**
   - package.json
-# Server standalone + aset browser + .env disalin electron-builder sendiri
-# (extraFiles) - bukan cpSync manual, karena penyalinannya battle-tested.
-extraFiles:
-  - from: .next/standalone
-    to: server
-  - from: .next/static
-    to: server/.next/static
-  - from: public
-    to: server/public
-  - from: .next/electron-build/.env
-    to: server/.env
-  - from: .next/electron-build/.env
-    to: .env
+# Server standalone disalin oleh hook afterPack (scripts/after-pack.cjs) -
+# extraFiles tidak dipakai karena menyaring direktori berawalan titik (.next).
+afterPack: ./scripts/after-pack.cjs
 icon: build-resources/markforge.ico
 win:
   icon: build-resources/markforge.ico
@@ -30,6 +20,4 @@ win:
 portable:
   artifactName: MarkForge-Portable-${version}.exe
 npmRebuild: false
-# 'store' = tanpa kompresi: build hitungan menit, bukan 20-40 menit LZMA.
-# Ukuran exe membesar sedikit - trade-off yang tepat untuk pemakaian pribadi.
 compression: store

@@ -1,17 +1,13 @@
 import { spawnSync } from 'node:child_process'
-import fs from 'node:fs'
-import path from 'node:path'
 
 /**
- * Build portable exe end-to-end.
+ * Build portable exe end-to-end dalam satu perintah:
  *
- * Penyalinan folder standalone TIDAK dilakukan manual di sini (cpSync Node
- * terbukti mati diam-diam di runner Windows CI). electron-builder yang menyalin,
- * lewat mapping extraFiles di electron-builder.yml - jalur yang sama dipakai
- * ribuan project Next standalone + Electron.
+ *   pnpm dist:portable
  *
- * Yang disiapkan skrip ini: build standalone + file .env penanda untuk
- * extraFiles (wajib ada agar electron-builder tidak error).
+ * 1. next build dengan output standalone (BUILD_FOR_ELECTRON=1)
+ * 2. electron-builder portable - penyalinan server ke resources dilakukan
+ *    hook afterPack (scripts/after-pack.cjs), bukan cpSync manual.
  */
 
 function run(cmd, args, extraEnv = {}) {
@@ -27,14 +23,6 @@ function run(cmd, args, extraEnv = {}) {
 }
 
 run('pnpm', ['build'], { BUILD_FOR_ELECTRON: '1' })
-
-// Marker .env untuk extraFiles (isi dari repo .env kalau ada)
-const markerDir = path.join(process.cwd(), '.next', 'electron-build')
-fs.mkdirSync(markerDir, { recursive: true })
-const envTarget = path.join(markerDir, '.env')
-if (fs.existsSync('.env')) fs.copyFileSync('.env', envTarget)
-else fs.writeFileSync(envTarget, '')
-
 run('pnpm', ['exec', 'electron-builder', '--win', '--x64'])
 
 console.log('\nDone. Portable exe is in dist/')
