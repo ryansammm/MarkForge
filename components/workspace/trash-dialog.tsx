@@ -134,7 +134,7 @@ export function TrashDialog({ open, onOpenChange, onRestored }: TrashDialogProps
             {entries.map((entry) => (
               <li key={entry.id} className="flex items-center gap-3 py-2.5">
                 {entry.kind === 'folder' ? (
-                  <Folder className="size-4 shrink-0 text-amber-500/80" />
+                  <Folder className="size-4 shrink-0 text-(--icon-neutral)" />
                 ) : (
                   <FileText className="size-4 shrink-0 text-muted-foreground" />
                 )}

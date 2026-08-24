@@ -106,14 +106,15 @@
   --text-secondary: #54544e;
   --text-muted: #84847c;
   --text-disabled: #c4c4bc;
-  /* The same yellow reads too pale against white as text, so text-bearing
-     accents deepen one step while fills stay true to the brief. */
-  --accent-fill: #f0d84a;
-  --accent-on: #1d1d1a;
-  --accent-link: #857400;
-  --accent-link-underline: #b3a12c;
-  --accent-bg-muted: #f3ecb8;
-  --accent-badge-text: #7a6900;
+  /* Light carries its own pop colour: electric blue. Yellow on white fails
+     contrast, and the two themes reading as siblings-of-one-family beats
+     forcing one hue everywhere. */
+  --accent-fill: #2563eb;
+  --accent-on: #ffffff;
+  --accent-link: #1d4ed8;
+  --accent-link-underline: #93c5fd;
+  --accent-bg-muted: #dbeafe;
+  --accent-badge-text: #1e40af;
   --icon-neutral: #8a8a86;
 }
 

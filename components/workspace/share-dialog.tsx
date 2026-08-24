@@ -286,7 +286,7 @@ export function ShareDialog({ open, onOpenChange, documentPath, documentTitle }:
                 className="flex items-center gap-2 rounded-md border bg-card px-2.5 py-2 text-xs"
               >
                 {share.scope === 'subtree' ? (
-                  <Folder className="size-3.5 shrink-0 text-amber-500/80" />
+                  <Folder className="size-3.5 shrink-0 text-(--icon-neutral)" />
                 ) : (
                   <FileText className="size-3.5 shrink-0 text-muted-foreground" />
                 )}
