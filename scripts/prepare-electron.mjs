@@ -17,8 +17,10 @@ function guard(label, fn) {
   try {
     fn()
   } catch (err) {
+    // Lempar, jangan process.exit: exit segera setelah menulis bisa kehilangan
+    // output stderr di CI (race flush) - persis penyebab gagal-diam itu.
     console.error(`[prepare] GAGAL pada "${label}":`, err)
-    process.exit(1)
+    throw err
   }
 }
 
@@ -41,7 +43,7 @@ if (!fs.existsSync(standaloneServer)) {
   } else {
     console.error('.next tidak ada sama sekali - build belum dijalankan.')
   }
-  process.exit(1)
+  throw new Error('standalone output tidak tersedia - lihat diagnosa di atas')
 }
 
 step('hapus hasil rakitan lama')
