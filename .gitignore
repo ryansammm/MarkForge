@@ -49,3 +49,6 @@ ci-build-section.log
 # CI log dumps lokal
 ci-failed.log
 *.local.log
+
+# opencode internal session state — churns every session, not source
+.opencode/
