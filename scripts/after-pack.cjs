@@ -19,10 +19,11 @@ const fs = require('fs')
 const path = require('path')
 
 function robocopy(from, to) {
-  // /E rekursif; /NFL /NDL /NJH /NJS /NP senyap; /R:2 /W:2 retry utk AV lock.
+  // /R:10 /W:5: runner CI Windows sering mengunci file baru (AV scan) —
+  // retry pendek bikin ERROR 5 Access denied palsu. 10x5 dtk cukup longgar.
   return execFileSync(
     'robocopy',
-    [from, to, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:2', '/W:2'],
+    [from, to, '/E', '/NFL', '/NDL', '/NJH', '/NJS', '/NP', '/R:10', '/W:5'],
     { stdio: ['ignore', 'pipe', 'pipe'], encoding: 'utf8' }
   )
 }
