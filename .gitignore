@@ -38,3 +38,6 @@ backups/
 # Build outputs - too big for git, distributed via GitHub Releases
 dist/
 .next/electron-build/
+
+# pnpm-only project - npm lockfile must not drift
+package-lock.json

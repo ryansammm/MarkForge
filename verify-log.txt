@@ -1,0 +1,401 @@
+2026-08-24T15:46:08.8887883Z Current runner version: '2.336.0'
+2026-08-24T15:46:08.8927012Z ##[group]Runner Image Provisioner
+2026-08-24T15:46:08.8928315Z Hosted Compute Agent
+2026-08-24T15:46:08.8929238Z Version: 20260729.566
+2026-08-24T15:46:08.8930466Z Commit: cf7153fe6e25b664e8693c24944bf2b00355d109
+2026-08-24T15:46:08.8931585Z Build Date: 2026-07-29T19:17:02Z
+2026-08-24T15:46:08.8932704Z Worker ID: {737bd0c2-9024-4cfc-82ec-8b98649de52b}
+2026-08-24T15:46:08.8933840Z Azure Region: centralus
+2026-08-24T15:46:08.8952228Z ##[endgroup]
+2026-08-24T15:46:08.8954756Z ##[group]Operating System
+2026-08-24T15:46:08.8955731Z Ubuntu
+2026-08-24T15:46:08.8956513Z 24.04.4
+2026-08-24T15:46:08.8957437Z LTS
+2026-08-24T15:46:08.8958222Z ##[endgroup]
+2026-08-24T15:46:08.8959182Z ##[group]Runner Image
+2026-08-24T15:46:08.8960204Z Image: ubuntu-24.04
+2026-08-24T15:46:08.8961052Z Version: 20260816.277.1
+2026-08-24T15:46:08.8963159Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260816.277/images/ubuntu/Ubuntu2404-Readme.md
+2026-08-24T15:46:08.8966329Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260816.277
+2026-08-24T15:46:08.8967930Z ##[endgroup]
+2026-08-24T15:46:08.8969892Z ##[group]GITHUB_TOKEN Permissions
+2026-08-24T15:46:08.8972653Z Contents: read
+2026-08-24T15:46:08.8973590Z Metadata: read
+2026-08-24T15:46:08.8998725Z Packages: read
+2026-08-24T15:46:08.8999677Z ##[endgroup]
+2026-08-24T15:46:08.9003723Z Secret source: Actions
+2026-08-24T15:46:08.9016169Z Prepare workflow directory
+2026-08-24T15:46:08.9963884Z Prepare all required actions
+2026-08-24T15:46:09.0117318Z Getting action download info
+2026-08-24T15:46:09.3282538Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-08-24T15:46:09.4470968Z Download action repository 'actions/setup-node@v4' (SHA:49933ea5288caeca8642d1e84afbd3f7d6820020)
+2026-08-24T15:46:09.6506027Z Complete job name: verify
+2026-08-24T15:46:09.7219090Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-24T15:46:09.7228173Z ##[group]Run actions/checkout@v4
+2026-08-24T15:46:09.7228865Z with:
+2026-08-24T15:46:09.7229317Z   repository: ryansammm/MarkForge
+2026-08-24T15:46:09.7233121Z   token: ***
+2026-08-24T15:46:09.7233571Z   ssh-strict: true
+2026-08-24T15:46:09.7234216Z   ssh-user: git
+2026-08-24T15:46:09.7234680Z   persist-credentials: true
+2026-08-24T15:46:09.7235180Z   clean: true
+2026-08-24T15:46:09.7235635Z   sparse-checkout-cone-mode: true
+2026-08-24T15:46:09.7236149Z   fetch-depth: 1
+2026-08-24T15:46:09.7236579Z   fetch-tags: false
+2026-08-24T15:46:09.7237026Z   show-progress: true
+2026-08-24T15:46:09.7237479Z   lfs: false
+2026-08-24T15:46:09.7237940Z   submodules: false
+2026-08-24T15:46:09.7238388Z   set-safe-directory: true
+2026-08-24T15:46:09.7238904Z   allow-unsafe-pr-checkout: false
+2026-08-24T15:46:09.7239621Z ##[endgroup]
+2026-08-24T15:46:09.9012571Z Syncing repository: ryansammm/MarkForge
+2026-08-24T15:46:09.9015624Z ##[group]Getting Git version info
+2026-08-24T15:46:09.9017703Z Working directory is '/home/runner/work/MarkForge/MarkForge'
+2026-08-24T15:46:09.9019548Z [command]/usr/bin/git version
+2026-08-24T15:46:09.9020502Z git version 2.55.0
+2026-08-24T15:46:09.9023471Z ##[endgroup]
+2026-08-24T15:46:09.9786677Z Temporarily overriding HOME='/home/runner/work/_temp/8349c0c6-dbca-4dcb-9d18-6e57767cf913' before making global git config changes
+2026-08-24T15:46:09.9788679Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-24T15:46:09.9789845Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MarkForge/MarkForge
+2026-08-24T15:46:10.3959257Z Deleting the contents of '/home/runner/work/MarkForge/MarkForge'
+2026-08-24T15:46:10.3961981Z ##[group]Initializing the repository
+2026-08-24T15:46:10.3963818Z [command]/usr/bin/git init /home/runner/work/MarkForge/MarkForge
+2026-08-24T15:46:10.4978379Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-08-24T15:46:10.4987397Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-08-24T15:46:10.4995396Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-08-24T15:46:10.5000664Z hint: call:
+2026-08-24T15:46:10.5003623Z hint:
+2026-08-24T15:46:10.5007609Z hint: 	git config --global init.defaultBranch <name>
+2026-08-24T15:46:10.5009109Z hint:
+2026-08-24T15:46:10.5010512Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-08-24T15:46:10.5012179Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-08-24T15:46:10.5013482Z hint:
+2026-08-24T15:46:10.5014548Z hint: 	git branch -m <name>
+2026-08-24T15:46:10.5015549Z hint:
+2026-08-24T15:46:10.5016728Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-08-24T15:46:10.5018605Z Initialized empty Git repository in /home/runner/work/MarkForge/MarkForge/.git/
+2026-08-24T15:46:10.5021918Z [command]/usr/bin/git remote add origin https://github.com/ryansammm/MarkForge
+2026-08-24T15:46:10.5398802Z ##[endgroup]
+2026-08-24T15:46:10.5400291Z ##[group]Disabling automatic garbage collection
+2026-08-24T15:46:10.5401551Z [command]/usr/bin/git config --local gc.auto 0
+2026-08-24T15:46:10.5458621Z ##[endgroup]
+2026-08-24T15:46:10.5460008Z ##[group]Setting up auth
+2026-08-24T15:46:10.5468446Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-24T15:46:10.5534285Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-24T15:46:10.8987195Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-24T15:46:10.9029918Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-24T15:46:10.9293613Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-24T15:46:10.9337978Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-24T15:46:10.9594763Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-08-24T15:46:11.1396644Z ##[endgroup]
+2026-08-24T15:46:11.1408034Z ##[group]Fetching the repository
+2026-08-24T15:46:11.1415924Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +c21aa1f712e750d45a27bfaeee2b919e26936704:refs/remotes/origin/main
+2026-08-24T15:46:11.7786782Z From https://github.com/ryansammm/MarkForge
+2026-08-24T15:46:11.7788134Z  * [new ref]         c21aa1f712e750d45a27bfaeee2b919e26936704 -> origin/main
+2026-08-24T15:46:11.7794937Z ##[endgroup]
+2026-08-24T15:46:11.7795973Z ##[group]Determining the checkout info
+2026-08-24T15:46:11.7796980Z ##[endgroup]
+2026-08-24T15:46:11.7797796Z [command]/usr/bin/git sparse-checkout disable
+2026-08-24T15:46:11.7849721Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-08-24T15:46:11.7886155Z ##[group]Checking out the ref
+2026-08-24T15:46:11.7891399Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-08-24T15:46:11.8184580Z Switched to a new branch 'main'
+2026-08-24T15:46:11.8190389Z branch 'main' set up to track 'origin/main'.
+2026-08-24T15:46:11.8197268Z ##[endgroup]
+2026-08-24T15:46:11.8255992Z [command]/usr/bin/git log -1 --format=%H
+2026-08-24T15:46:11.8277951Z c21aa1f712e750d45a27bfaeee2b919e26936704
+2026-08-24T15:46:11.8566245Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-24T15:46:11.8568144Z ##[group]Run actions/setup-node@v4
+2026-08-24T15:46:11.8568413Z with:
+2026-08-24T15:46:11.8568631Z   node-version: 22
+2026-08-24T15:46:11.8568847Z   cache: npm
+2026-08-24T15:46:11.8569059Z   always-auth: false
+2026-08-24T15:46:11.8569287Z   check-latest: false
+2026-08-24T15:46:11.8571696Z   token: ***
+2026-08-24T15:46:11.8571914Z ##[endgroup]
+2026-08-24T15:46:12.0154824Z (node:2087) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-08-24T15:46:12.0158045Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-08-24T15:46:12.0175082Z Found in cache @ /opt/hostedtoolcache/node/22.23.2/x64
+2026-08-24T15:46:12.0176358Z ##[group]Environment details
+2026-08-24T15:46:12.5151084Z node: v22.23.2
+2026-08-24T15:46:12.5155090Z npm: 10.9.8
+2026-08-24T15:46:12.5155595Z yarn: 1.22.22
+2026-08-24T15:46:12.5156714Z ##[endgroup]
+2026-08-24T15:46:12.5178003Z [command]/opt/hostedtoolcache/node/22.23.2/x64/bin/npm config get cache
+2026-08-24T15:46:12.6648294Z /home/runner/.npm
+2026-08-24T15:46:12.8275877Z Cache hit for: node-cache-Linux-x64-npm-f0ab3b217d2898b53e0c4c1bcd15f5564fc4be85624448daf71cded850844c2f
+2026-08-24T15:46:12.8410619Z (node:2087) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-08-24T15:46:13.9859840Z Received 83886080 of 187129344 (44.8%), 80.1 MBs/sec
+2026-08-24T15:46:14.9863709Z Received 182935040 of 187129344 (97.8%), 87.2 MBs/sec
+2026-08-24T15:46:15.1271744Z Received 187129344 of 187129344 (100.0%), 83.4 MBs/sec
+2026-08-24T15:46:15.1272616Z Cache Size: ~178 MB (187129344 B)
+2026-08-24T15:46:15.1312996Z [command]/usr/bin/tar -xf /home/runner/work/_temp/754b7f02-95df-44ef-b651-b2535da30df3/cache.tzst -P -C /home/runner/work/MarkForge/MarkForge --use-compress-program unzstd
+2026-08-24T15:46:15.5543856Z Cache restored successfully
+2026-08-24T15:46:15.5655215Z Cache restored from key: node-cache-Linux-x64-npm-f0ab3b217d2898b53e0c4c1bcd15f5564fc4be85624448daf71cded850844c2f
+2026-08-24T15:46:15.5977308Z ##[group]Run npm ci
+2026-08-24T15:46:15.5977858Z [36;1mnpm ci[0m
+2026-08-24T15:46:15.6030981Z shell: /usr/bin/bash -e {0}
+2026-08-24T15:46:15.6031269Z ##[endgroup]
+2026-08-24T15:46:26.0118307Z npm error code EUSAGE
+2026-08-24T15:46:26.0119354Z npm error
+2026-08-24T15:46:26.0121548Z npm error `npm ci` can only install packages when your package.json and package-lock.json or npm-shrinkwrap.json are in sync. Please update your lock file with `npm install` before continuing.
+2026-08-24T15:46:26.0123291Z npm error
+2026-08-24T15:46:26.0124232Z npm error Missing: electron@43.4.1 from lock file
+2026-08-24T15:46:26.0125177Z npm error Missing: electron-builder@26.15.3 from lock file
+2026-08-24T15:46:26.0126155Z npm error Missing: remark-breaks@4.0.0 from lock file
+2026-08-24T15:46:26.0127208Z npm error Missing: @electron-internal/extract-zip@1.0.5 from lock file
+2026-08-24T15:46:26.0128184Z npm error Missing: @electron/get@5.1.0 from lock file
+2026-08-24T15:46:26.0129142Z npm error Missing: env-paths@3.0.0 from lock file
+2026-08-24T15:46:26.0129994Z npm error Missing: progress@2.0.3 from lock file
+2026-08-24T15:46:26.0130815Z npm error Missing: semver@7.8.5 from lock file
+2026-08-24T15:46:26.0131629Z npm error Missing: sumchecker@3.0.1 from lock file
+2026-08-24T15:46:26.0132547Z npm error Missing: app-builder-lib@26.15.3 from lock file
+2026-08-24T15:46:26.0133438Z npm error Missing: dmg-builder@26.15.3 from lock file
+2026-08-24T15:46:26.0134831Z npm error Missing: electron-builder-squirrel-windows@26.15.3 from lock file
+2026-08-24T15:46:26.0135888Z npm error Missing: builder-util@26.15.3 from lock file
+2026-08-24T15:46:26.0136829Z npm error Missing: builder-util-runtime@9.7.0 from lock file
+2026-08-24T15:46:26.0138078Z npm error Missing: ci-info@4.4.0 from lock file
+2026-08-24T15:46:26.0138895Z npm error Missing: fs-extra@10.1.0 from lock file
+2026-08-24T15:46:26.0139716Z npm error Missing: lazy-val@1.0.5 from lock file
+2026-08-24T15:46:26.0140660Z npm error Missing: simple-update-notifier@2.0.0 from lock file
+2026-08-24T15:46:26.0141549Z npm error Missing: yargs@17.7.3 from lock file
+2026-08-24T15:46:26.0142473Z npm error Missing: @electron/asar@3.4.1 from lock file
+2026-08-24T15:46:26.0143353Z npm error Missing: @electron/fuses@1.8.0 from lock file
+2026-08-24T15:46:26.0144423Z npm error Missing: @electron/get@3.1.0 from lock file
+2026-08-24T15:46:26.0145381Z npm error Missing: @electron/notarize@2.5.0 from lock file
+2026-08-24T15:46:26.0146304Z npm error Missing: @electron/osx-sign@1.3.3 from lock file
+2026-08-24T15:46:26.0147232Z npm error Missing: @electron/rebuild@4.2.0 from lock file
+2026-08-24T15:46:26.0148155Z npm error Missing: @electron/universal@2.0.3 from lock file
+2026-08-24T15:46:26.0149138Z npm error Missing: @malept/flatpak-bundler@0.4.0 from lock file
+2026-08-24T15:46:26.0150067Z npm error Missing: @noble/hashes@2.3.0 from lock file
+2026-08-24T15:46:26.0150978Z npm error Missing: @peculiar/webcrypto@1.7.1 from lock file
+2026-08-24T15:46:26.0152060Z npm error Missing: @types/fs-extra@9.0.13 from lock file
+2026-08-24T15:46:26.0152987Z npm error Missing: ajv@8.20.0 from lock file
+2026-08-24T15:46:26.0153782Z npm error Missing: asn1js@3.0.10 from lock file
+2026-08-24T15:46:26.0154847Z npm error Missing: async-exit-hook@2.0.1 from lock file
+2026-08-24T15:46:26.0155784Z npm error Missing: chromium-pickle-js@0.2.0 from lock file
+2026-08-24T15:46:26.0156638Z npm error Missing: ci-info@4.3.1 from lock file
+2026-08-24T15:46:26.0157432Z npm error Missing: dotenv@16.6.1 from lock file
+2026-08-24T15:46:26.0158269Z npm error Missing: dotenv-expand@11.0.7 from lock file
+2026-08-24T15:46:26.0159094Z npm error Missing: ejs@3.1.10 from lock file
+2026-08-24T15:46:26.0159961Z npm error Missing: electron-publish@26.15.3 from lock file
+2026-08-24T15:46:26.0160837Z npm error Missing: fs-extra@10.1.0 from lock file
+2026-08-24T15:46:26.0161698Z npm error Missing: hosted-git-info@4.1.0 from lock file
+2026-08-24T15:46:26.0162576Z npm error Missing: isbinaryfile@5.0.7 from lock file
+2026-08-24T15:46:26.0163613Z npm error Missing: js-yaml@4.3.1 from lock file
+2026-08-24T15:46:26.0164615Z npm error Missing: minimatch@10.2.6 from lock file
+2026-08-24T15:46:26.0165466Z npm error Missing: pkijs@3.4.0 from lock file
+2026-08-24T15:46:26.0166271Z npm error Missing: plist@3.1.0 from lock file
+2026-08-24T15:46:26.0167097Z npm error Missing: proper-lockfile@4.1.2 from lock file
+2026-08-24T15:46:26.0167975Z npm error Missing: resedit@1.7.2 from lock file
+2026-08-24T15:46:26.0168792Z npm error Missing: semver@7.7.4 from lock file
+2026-08-24T15:46:26.0169567Z npm error Missing: tar@7.5.22 from lock file
+2026-08-24T15:46:26.0170359Z npm error Missing: temp-file@3.4.0 from lock file
+2026-08-24T15:46:26.0171246Z npm error Missing: tiny-async-pool@1.3.0 from lock file
+2026-08-24T15:46:26.0172087Z npm error Missing: unzipper@0.12.5 from lock file
+2026-08-24T15:46:26.0172882Z npm error Missing: which@5.0.0 from lock file
+2026-08-24T15:46:26.0173655Z npm error Missing: commander@5.1.0 from lock file
+2026-08-24T15:46:26.0174747Z npm error Missing: glob@7.2.3 from lock file
+2026-08-24T15:46:26.0175563Z npm error Missing: fs-extra@9.1.0 from lock file
+2026-08-24T15:46:26.0176387Z npm error Missing: fs-extra@9.1.0 from lock file
+2026-08-24T15:46:26.0177215Z npm error Missing: promise-retry@2.0.1 from lock file
+2026-08-24T15:46:26.0178098Z npm error Missing: compare-version@0.1.2 from lock file
+2026-08-24T15:46:26.0178961Z npm error Missing: fs-extra@10.1.0 from lock file
+2026-08-24T15:46:26.0179804Z npm error Missing: isbinaryfile@4.0.10 from lock file
+2026-08-24T15:46:26.0180766Z npm error Missing: @malept/cross-spawn-promise@2.0.0 from lock file
+2026-08-24T15:46:26.0181853Z npm error Missing: node-abi@4.33.0 from lock file
+2026-08-24T15:46:26.0183005Z npm error Missing: node-api-version@0.2.1 from lock file
+2026-08-24T15:46:26.0184098Z npm error Missing: node-gyp@12.4.0 from lock file
+2026-08-24T15:46:26.0185030Z npm error Missing: read-binary-file-arch@1.0.6 from lock file
+2026-08-24T15:46:26.0185943Z npm error Missing: dir-compare@4.2.0 from lock file
+2026-08-24T15:46:26.0186806Z npm error Missing: minimatch@9.0.9 from lock file
+2026-08-24T15:46:26.0187634Z npm error Missing: fs-extra@9.1.0 from lock file
+2026-08-24T15:46:26.0188435Z npm error Missing: lodash@4.18.1 from lock file
+2026-08-24T15:46:26.0189263Z npm error Missing: tmp-promise@3.0.3 from lock file
+2026-08-24T15:46:26.0190233Z npm error Missing: @peculiar/asn1-schema@2.9.4 from lock file
+2026-08-24T15:46:26.0191223Z npm error Missing: @peculiar/json-schema@1.1.12 from lock file
+2026-08-24T15:46:26.0192132Z npm error Missing: @peculiar/utils@2.0.3 from lock file
+2026-08-24T15:46:26.0193010Z npm error Missing: webcrypto-core@1.9.2 from lock file
+2026-08-24T15:46:26.0194030Z npm error Missing: pvtsutils@1.3.6 from lock file
+2026-08-24T15:46:26.0194869Z npm error Missing: pvutils@1.2.0 from lock file
+2026-08-24T15:46:26.0195712Z npm error Missing: fs-extra@10.1.0 from lock file
+2026-08-24T15:46:26.0196581Z npm error Missing: http-proxy-agent@7.0.2 from lock file
+2026-08-24T15:46:26.0197507Z npm error Missing: https-proxy-agent@7.0.6 from lock file
+2026-08-24T15:46:26.0198376Z npm error Missing: js-yaml@4.3.1 from lock file
+2026-08-24T15:46:26.0199246Z npm error Missing: sanitize-filename@1.6.4 from lock file
+2026-08-24T15:46:26.0200189Z npm error Missing: source-map-support@0.5.21 from lock file
+2026-08-24T15:46:26.0201052Z npm error Missing: stat-mode@1.0.0 from lock file
+2026-08-24T15:46:26.0201872Z npm error Missing: sax@1.6.1 from lock file
+2026-08-24T15:46:26.0202679Z npm error Missing: fs-extra@10.1.0 from lock file
+2026-08-24T15:46:26.0203491Z npm error Missing: js-yaml@4.3.1 from lock file
+2026-08-24T15:46:26.0204462Z npm error Missing: dotenv@16.6.1 from lock file
+2026-08-24T15:46:26.0205273Z npm error Missing: jake@10.9.4 from lock file
+2026-08-24T15:46:26.0206166Z npm error Missing: electron-winstaller@5.4.0 from lock file
+2026-08-24T15:46:26.0207020Z npm error Missing: aws4@1.13.2 from lock file
+2026-08-24T15:46:26.0207811Z npm error Missing: form-data@4.0.6 from lock file
+2026-08-24T15:46:26.0208835Z npm error Missing: fs-extra@10.1.0 from lock file
+2026-08-24T15:46:26.0209652Z npm error Missing: mime@2.6.0 from lock file
+2026-08-24T15:46:26.0210545Z npm error Missing: @electron/windows-sign@1.2.2 from lock file
+2026-08-24T15:46:26.0211440Z npm error Missing: fs-extra@7.0.1 from lock file
+2026-08-24T15:46:26.0212252Z npm error Missing: temp@0.9.4 from lock file
+2026-08-24T15:46:26.0213089Z npm error Missing: cross-dirname@0.1.0 from lock file
+2026-08-24T15:46:26.0214247Z npm error Missing: postject@1.0.0-alpha.6 from lock file
+2026-08-24T15:46:26.0215257Z npm error Missing: asynckit@0.4.0 from lock file
+2026-08-24T15:46:26.0216132Z npm error Missing: combined-stream@1.0.8 from lock file
+2026-08-24T15:46:26.0216979Z npm error Missing: mime-types@2.1.35 from lock file
+2026-08-24T15:46:26.0217826Z npm error Missing: delayed-stream@1.0.0 from lock file
+2026-08-24T15:46:26.0218667Z npm error Missing: fs.realpath@1.0.0 from lock file
+2026-08-24T15:46:26.0219475Z npm error Missing: inflight@1.0.6 from lock file
+2026-08-24T15:46:26.0220311Z npm error Missing: path-is-absolute@1.0.1 from lock file
+2026-08-24T15:46:26.0221132Z npm error Missing: lru-cache@6.0.0 from lock file
+2026-08-24T15:46:26.0221920Z npm error Missing: agent-base@7.1.4 from lock file
+2026-08-24T15:46:26.0222702Z npm error Missing: async@3.2.6 from lock file
+2026-08-24T15:46:26.0223469Z npm error Missing: filelist@1.0.6 from lock file
+2026-08-24T15:46:26.0224421Z npm error Missing: minimatch@5.1.9 from lock file
+2026-08-24T15:46:26.0225225Z npm error Missing: semver@7.8.5 from lock file
+2026-08-24T15:46:26.0225997Z npm error Missing: semver@7.8.5 from lock file
+2026-08-24T15:46:26.0227048Z npm error Missing: exponential-backoff@3.1.3 from lock file
+2026-08-24T15:46:26.0227886Z npm error Missing: nopt@9.0.0 from lock file
+2026-08-24T15:46:26.0228645Z npm error Missing: proc-log@6.1.0 from lock file
+2026-08-24T15:46:26.0229407Z npm error Missing: semver@7.8.5 from lock file
+2026-08-24T15:46:26.0230179Z npm error Missing: undici@6.28.0 from lock file
+2026-08-24T15:46:26.0230942Z npm error Missing: which@6.0.1 from lock file
+2026-08-24T15:46:26.0231691Z npm error Missing: abbrev@4.0.0 from lock file
+2026-08-24T15:46:26.0232510Z npm error Missing: @noble/hashes@1.4.0 from lock file
+2026-08-24T15:46:26.0233342Z npm error Missing: bytestreamjs@2.0.1 from lock file
+2026-08-24T15:46:26.0234351Z npm error Missing: @xmldom/xmldom@0.8.15 from lock file
+2026-08-24T15:46:26.0235192Z npm error Missing: base64-js@1.5.1 from lock file
+2026-08-24T15:46:26.0236014Z npm error Missing: xmlbuilder@15.1.1 from lock file
+2026-08-24T15:46:26.0236824Z npm error Missing: commander@9.5.0 from lock file
+2026-08-24T15:46:26.0237638Z npm error Missing: err-code@2.0.3 from lock file
+2026-08-24T15:46:26.0238409Z npm error Missing: retry@0.12.0 from lock file
+2026-08-24T15:46:26.0239277Z npm error Missing: signal-exit@3.0.7 from lock file
+2026-08-24T15:46:26.0240209Z npm error Missing: mdast-util-newline-to-break@2.0.0 from lock file
+2026-08-24T15:46:26.0241101Z npm error Missing: pe-library@0.4.1 from lock file
+2026-08-24T15:46:26.0242050Z npm error Missing: truncate-utf8-bytes@1.0.2 from lock file
+2026-08-24T15:46:26.0242870Z npm error Missing: semver@7.8.5 from lock file
+2026-08-24T15:46:26.0243637Z npm error Missing: buffer-from@1.1.2 from lock file
+2026-08-24T15:46:26.0244616Z npm error Missing: @isaacs/fs-minipass@4.0.1 from lock file
+2026-08-24T15:46:26.0245402Z npm error Missing: chownr@3.0.0 from lock file
+2026-08-24T15:46:26.0246122Z npm error Missing: minipass@7.1.3 from lock file
+2026-08-24T15:46:26.0246872Z npm error Missing: minizlib@3.1.0 from lock file
+2026-08-24T15:46:26.0247631Z npm error Missing: yallist@5.0.0 from lock file
+2026-08-24T15:46:26.0248389Z npm error Missing: mkdirp@0.5.6 from lock file
+2026-08-24T15:46:26.0249146Z npm error Missing: rimraf@2.6.3 from lock file
+2026-08-24T15:46:26.0249892Z npm error Missing: fs-extra@10.1.0 from lock file
+2026-08-24T15:46:26.0250642Z npm error Missing: semver@5.7.2 from lock file
+2026-08-24T15:46:26.0251536Z npm error Missing: tmp@0.2.7 from lock file
+2026-08-24T15:46:26.0252349Z npm error Missing: utf8-byte-length@1.0.5 from lock file
+2026-08-24T15:46:26.0253155Z npm error Missing: bluebird@3.7.2 from lock file
+2026-08-24T15:46:26.0254184Z npm error Missing: duplexer2@0.1.4 from lock file
+2026-08-24T15:46:26.0254965Z npm error Missing: fs-extra@11.3.1 from lock file
+2026-08-24T15:46:26.0255745Z npm error Missing: node-int64@0.4.0 from lock file
+2026-08-24T15:46:26.0256557Z npm error Missing: readable-stream@2.3.8 from lock file
+2026-08-24T15:46:26.0257369Z npm error Missing: core-util-is@1.0.3 from lock file
+2026-08-24T15:46:26.0258214Z npm error Missing: isarray@1.0.0 from lock file
+2026-08-24T15:46:26.0259063Z npm error Missing: process-nextick-args@2.0.1 from lock file
+2026-08-24T15:46:26.0259905Z npm error Missing: safe-buffer@5.1.2 from lock file
+2026-08-24T15:46:26.0260729Z npm error Missing: string_decoder@1.1.1 from lock file
+2026-08-24T15:46:26.0261507Z npm error Missing: cliui@8.0.1 from lock file
+2026-08-24T15:46:26.0262305Z npm error Missing: get-caller-file@2.0.5 from lock file
+2026-08-24T15:46:26.0263154Z npm error Missing: require-directory@2.1.1 from lock file
+2026-08-24T15:46:26.0264154Z npm error Missing: string-width@4.2.3 from lock file
+2026-08-24T15:46:26.0264928Z npm error Missing: y18n@5.0.8 from lock file
+2026-08-24T15:46:26.0265716Z npm error Missing: yargs-parser@21.1.1 from lock file
+2026-08-24T15:46:26.0266516Z npm error Missing: string-width@4.2.3 from lock file
+2026-08-24T15:46:26.0267301Z npm error Missing: wrap-ansi@7.0.0 from lock file
+2026-08-24T15:46:26.0268158Z npm error Missing: string-width@4.2.3 from lock file
+2026-08-24T15:46:26.0269161Z npm error Missing: at-least-node@1.0.0 from lock file
+2026-08-24T15:46:26.0269960Z npm error Missing: brace-expansion@2.1.4 from lock file
+2026-08-24T15:46:26.0270735Z npm error Missing: fs-extra@8.1.0 from lock file
+2026-08-24T15:46:26.0271482Z npm error Missing: global-agent@3.0.0 from lock file
+2026-08-24T15:46:26.0272226Z npm error Missing: got@11.8.6 from lock file
+2026-08-24T15:46:26.0272913Z npm error Missing: semver@6.3.1 from lock file
+2026-08-24T15:46:26.0273627Z npm error Missing: boolean@3.2.0 from lock file
+2026-08-24T15:46:26.0274517Z npm error Missing: es6-error@4.1.1 from lock file
+2026-08-24T15:46:26.0275253Z npm error Missing: matcher@3.0.0 from lock file
+2026-08-24T15:46:26.0275947Z npm error Missing: roarr@2.15.4 from lock file
+2026-08-24T15:46:26.0276656Z npm error Missing: semver@7.8.5 from lock file
+2026-08-24T15:46:26.0277408Z npm error Missing: serialize-error@7.0.1 from lock file
+2026-08-24T15:46:26.0278218Z npm error Missing: @sindresorhus/is@4.6.0 from lock file
+2026-08-24T15:46:26.0279091Z npm error Missing: @szmarczak/http-timer@4.0.6 from lock file
+2026-08-24T15:46:26.0279993Z npm error Missing: @types/cacheable-request@6.0.3 from lock file
+2026-08-24T15:46:26.0280877Z npm error Missing: @types/responselike@1.0.3 from lock file
+2026-08-24T15:46:26.0281732Z npm error Missing: cacheable-lookup@5.0.4 from lock file
+2026-08-24T15:46:26.0282550Z npm error Missing: cacheable-request@7.0.4 from lock file
+2026-08-24T15:46:26.0283373Z npm error Missing: decompress-response@6.0.0 from lock file
+2026-08-24T15:46:26.0284345Z npm error Missing: http2-wrapper@1.0.3 from lock file
+2026-08-24T15:46:26.0285162Z npm error Missing: lowercase-keys@2.0.0 from lock file
+2026-08-24T15:46:26.0285954Z npm error Missing: p-cancelable@2.1.1 from lock file
+2026-08-24T15:46:26.0286714Z npm error Missing: responselike@2.0.1 from lock file
+2026-08-24T15:46:26.0287489Z npm error Missing: defer-to-connect@2.0.1 from lock file
+2026-08-24T15:46:26.0288389Z npm error Missing: @types/http-cache-semantics@4.2.0 from lock file
+2026-08-24T15:46:26.0289243Z npm error Missing: @types/keyv@3.1.4 from lock file
+2026-08-24T15:46:26.0290007Z npm error Missing: clone-response@1.0.3 from lock file
+2026-08-24T15:46:26.0290779Z npm error Missing: get-stream@5.2.0 from lock file
+2026-08-24T15:46:26.0291756Z npm error Missing: http-cache-semantics@4.2.0 from lock file
+2026-08-24T15:46:26.0292574Z npm error Missing: normalize-url@6.1.0 from lock file
+2026-08-24T15:46:26.0293344Z npm error Missing: mimic-response@1.0.1 from lock file
+2026-08-24T15:46:26.0294361Z npm error Missing: mimic-response@3.1.0 from lock file
+2026-08-24T15:46:26.0295138Z npm error Missing: quick-lru@5.1.1 from lock file
+2026-08-24T15:46:26.0295908Z npm error Missing: resolve-alpn@1.2.1 from lock file
+2026-08-24T15:46:26.0296654Z npm error Missing: detect-node@2.1.0 from lock file
+2026-08-24T15:46:26.0297449Z npm error Missing: json-stringify-safe@5.0.1 from lock file
+2026-08-24T15:46:26.0298270Z npm error Missing: semver-compare@1.0.0 from lock file
+2026-08-24T15:46:26.0299046Z npm error Missing: sprintf-js@1.1.3 from lock file
+2026-08-24T15:46:26.0299792Z npm error Missing: type-fest@0.13.1 from lock file
+2026-08-24T15:46:26.0300595Z npm error Missing: json-schema-traverse@1.0.0 from lock file
+2026-08-24T15:46:26.0301423Z npm error Missing: brace-expansion@5.0.9 from lock file
+2026-08-24T15:46:26.0302243Z npm error Missing: balanced-match@4.0.4 from lock file
+2026-08-24T15:46:26.0302992Z npm error Missing: isexe@3.1.5 from lock file
+2026-08-24T15:46:26.0303688Z npm error Missing: pump@3.0.4 from lock file
+2026-08-24T15:46:26.0304592Z npm error Missing: end-of-stream@1.4.5 from lock file
+2026-08-24T15:46:26.0305351Z npm error Missing: emoji-regex@8.0.0 from lock file
+2026-08-24T15:46:26.0306193Z npm error Missing: is-fullwidth-code-point@3.0.0 from lock file
+2026-08-24T15:46:26.0307016Z npm error Missing: jsonfile@4.0.0 from lock file
+2026-08-24T15:46:26.0307793Z npm error Missing: universalify@0.1.2 from lock file
+2026-08-24T15:46:26.0308577Z npm error Missing: brace-expansion@2.1.4 from lock file
+2026-08-24T15:46:26.0309492Z npm error Missing: mime-db@1.52.0 from lock file
+2026-08-24T15:46:26.0310200Z npm error Missing: yallist@4.0.0 from lock file
+2026-08-24T15:46:26.0310922Z npm error Missing: isexe@4.0.0 from lock file
+2026-08-24T15:46:26.0311666Z npm error Missing: emoji-regex@8.0.0 from lock file
+2026-08-24T15:46:26.0312408Z npm error Missing: emoji-regex@8.0.0 from lock file
+2026-08-24T15:46:26.0313142Z npm error Missing: jsonfile@4.0.0 from lock file
+2026-08-24T15:46:26.0314067Z npm error Missing: universalify@0.1.2 from lock file
+2026-08-24T15:46:26.0314680Z npm error
+2026-08-24T15:46:26.0315182Z npm error Clean install a project
+2026-08-24T15:46:26.0315693Z npm error
+2026-08-24T15:46:26.0316111Z npm error Usage:
+2026-08-24T15:46:26.0316545Z npm error npm ci
+2026-08-24T15:46:26.0316961Z npm error
+2026-08-24T15:46:26.0317401Z npm error Options:
+2026-08-24T15:46:26.0318269Z npm error [--install-strategy <hoisted|nested|shallow|linked>] [--legacy-bundling]
+2026-08-24T15:46:26.0319490Z npm error [--global-style] [--omit <dev|optional|peer> [--omit <dev|optional|peer> ...]]
+2026-08-24T15:46:26.0320742Z npm error [--include <prod|dev|optional|peer> [--include <prod|dev|optional|peer> ...]]
+2026-08-24T15:46:26.0322030Z npm error [--strict-peer-deps] [--foreground-scripts] [--ignore-scripts] [--no-audit]
+2026-08-24T15:46:26.0323001Z npm error [--no-bin-links] [--no-fund] [--dry-run]
+2026-08-24T15:46:26.0324108Z npm error [-w|--workspace <workspace-name> [-w|--workspace <workspace-name> ...]]
+2026-08-24T15:46:26.0325195Z npm error [-ws|--workspaces] [--include-workspace-root] [--install-links]
+2026-08-24T15:46:26.0325925Z npm error
+2026-08-24T15:46:26.0326628Z npm error aliases: clean-install, ic, install-clean, isntall-clean
+2026-08-24T15:46:26.0327301Z npm error
+2026-08-24T15:46:26.0327829Z npm error Run "npm help ci" for more info
+2026-08-24T15:46:26.0328951Z npm error A complete log of this run can be found in: /home/runner/.npm/_logs/2026-08-24T15_46_15_667Z-debug-0.log
+2026-08-24T15:46:26.0623874Z ##[error]Process completed with exit code 1.
+2026-08-24T15:46:26.0785522Z Node 20 is being deprecated. This workflow is running with Node 24 by default. If you need to temporarily use Node 20, you can set the ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION=true environment variable. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/
+2026-08-24T15:46:26.0786727Z Post job cleanup.
+2026-08-24T15:46:26.1760578Z [command]/usr/bin/git version
+2026-08-24T15:46:26.1829344Z git version 2.55.0
+2026-08-24T15:46:26.1891885Z Temporarily overriding HOME='/home/runner/work/_temp/8de784bc-09a3-4c0f-9190-c3a2c1553264' before making global git config changes
+2026-08-24T15:46:26.1893451Z Adding repository directory to the temporary git global config as a safe directory
+2026-08-24T15:46:26.1895084Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/MarkForge/MarkForge
+2026-08-24T15:46:26.1946817Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-08-24T15:46:26.2014603Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-08-24T15:46:26.2392913Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-08-24T15:46:26.2452168Z http.https://github.com/.extraheader
+2026-08-24T15:46:26.2497421Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-08-24T15:46:26.2623678Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-08-24T15:46:26.2997236Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-08-24T15:46:26.3037761Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-08-24T15:46:26.3553036Z Cleaning up orphan processes
+2026-08-24T15:46:26.3868912Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-node@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

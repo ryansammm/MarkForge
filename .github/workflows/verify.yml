@@ -1,11 +1,10 @@
 name: verify
 
-# Six sprints of tests protect this repository only when somebody remembers to run
-# them. `npm run verify` chains deps → typecheck → lint → test → build and was, until
-# now, a gate nothing enforced.
+# Gerbang kualitas: deps + encoding + typecheck + lint + test + build.
+# Menggunakan pnpm agar konsisten dengan lockfile utama (pnpm-lock.yaml).
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
   workflow_dispatch:
 
@@ -17,19 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: npm
+          cache: pnpm
 
-      - run: npm ci
+      # No R2 credentials here on purpose. The conformance suite includes R2 only
+      # when credentials are present, and a pull request from a fork must never
+      # reach a real bucket. The R2 write path is covered by r2-integration.yml.
+      - run: pnpm install --frozen-lockfile
 
-      # The whole gate, in the order the developer runs it locally. Deliberately not
-      # split into parallel jobs: the failures are ordered by how cheap they are to
-      # produce, and a typecheck error is not worth spending a build on.
-      - run: npm run verify
-        env:
-          # No R2 credentials here on purpose. The conformance suite includes R2 only
-          # when credentials are present, and a pull request from a fork must never
-          # reach a real bucket. The R2 write path is covered by r2-integration.yml.
-          APP_PASSWORD: ''
+      - run: pnpm verify
