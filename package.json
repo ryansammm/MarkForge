@@ -53,6 +53,7 @@
     "dist:portable": "node scripts/build-portable.mjs"
   },
   "dependencies": {
+    "@aws-sdk/checksums": "^3.1000.29",
     "@aws-sdk/client-s3": "^3.1104.0",
     "@base-ui/react": "^1.5.0",
     "@codemirror/autocomplete": "^6.20.3",
