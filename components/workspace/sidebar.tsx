@@ -152,7 +152,7 @@ export function Sidebar({
     try {
       const { copied } = await pick()
       if (copied === 0) return
-      toast.info(`Imported ${copied} item(s), rebuilding index—`)
+      toast.info(`Imported ${copied} item(s), rebuilding index…`)
       const response = await fetch('/api/storage?action=reindex', { method: 'POST' })
       if (!response.ok) throw new Error(`reindex failed (${response.status})`)
       await onAfterImport?.()
@@ -165,7 +165,7 @@ export function Sidebar({
   /** Explicit push of the local corpus to R2 - the only road to the cloud. */
   const runCloudSync = async () => {
     try {
-      toast.info('Syncing to cloud—')
+      toast.info('Syncing to cloud…')
       const res = await window.markforge!.syncToCloud()
       if (!res.ok) throw new Error(res.error ?? 'sync failed')
       toast.success(
@@ -180,7 +180,7 @@ export function Sidebar({
   const handleDrop = async (dataTransfer: DataTransfer) => {    try {
       const files = await collectDroppedFiles(dataTransfer)
       if (files.length === 0) return
-      toast.info(`Importing ${files.length} file(s)—`)
+      toast.info(`Importing ${files.length} file(s)…`)
       const payload = await Promise.all(
         files.map(async ({ path, file }) => ({ path, content: await file.text() }))
       )
@@ -613,7 +613,7 @@ export function Sidebar({
               className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
             >
               <FileDown className="size-3.5 shrink-0" />
-              <span>Import files—</span>
+              <span>Import files…</span>
             </button>
             <button
               type="button"
@@ -621,7 +621,7 @@ export function Sidebar({
               className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
             >
               <FolderInput className="size-3.5 shrink-0" />
-              <span>Import folder—</span>
+              <span>Import folder…</span>
             </button>
             <button
               type="button"
@@ -629,7 +629,7 @@ export function Sidebar({
               className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
             >
               <CloudUpload className="size-3.5 shrink-0" />
-              <span>Sync to cloud—</span>
+              <span>Sync to cloud…</span>
             </button>
           </>
         )}
@@ -676,7 +676,7 @@ export function Sidebar({
           <span>
             MarkForge v{APP_VERSION}
           </span>
-          <span>— {APP_SIGNATURE}</span>
+          <span>© {APP_SIGNATURE}</span>
         </div>
       </div>
       </aside>
