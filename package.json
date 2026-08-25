@@ -69,6 +69,7 @@
     "@orama/orama": "^3.1.18",
     "@swc/helpers": "^0.5.23",
     "@vercel/analytics": "1.6.1",
+    "@vercel/speed-insights": "^2.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
