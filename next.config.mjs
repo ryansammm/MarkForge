@@ -7,7 +7,7 @@
   tambahan, bukan pengganti.
 */
 const nextConfig = {
-  output: 'standalone',
+  output: process.env.VERCEL ? undefined : 'standalone',
   images: {
     unoptimized: true,
   },
