@@ -34,6 +34,7 @@ import { resolveImageSrc, uploadAsset } from '@/lib/workspace-api'
 import { MAX_ASSET_BYTES } from '@/lib/asset-limits'
 import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
+import { hideFrontmatterId } from './hide-frontmatter-id'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
 import { wikilinkCompletions } from './wikilink-complete'
@@ -311,6 +312,7 @@ export function MarkdownEditor({
         */
         onExpandImage: (src, alt) => setViewing({ src: resolveImageSrc(src), alt, source: src }),
       }),
+      hideFrontmatterId(),
       imageDrop({
         upload: uploadAsset,
         onError: (message) => toast.error(message),
