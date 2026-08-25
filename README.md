@@ -2,15 +2,15 @@
 
 > A browser-native workspace for a connected Markdown vault — where plain `.md`
 > files stay the source of truth, and any document can become a public URL in one
-> click. Runs on the web (Vercel) and on your desktop (Electron, portable exe).
+> click. Runs on the web (Vercel) and on your desktop (Electron).
 
 Your notes remain plain `.md` files you can open in vim, edit in Obsidian, and put
 in git. MarkForge adds an editor, a link graph, search, sharing and a recovery
 story on top of them — and never becomes the only thing that can read them.
 
 - **Web**: https://mark-forge-gamma.vercel.app (Cloudflare R2 storage, durable)
-- **Desktop**: portable Windows exe from [Releases](https://github.com/ryansammm/MarkForge/releases)
-- **Status**: v1.0.0 · CI verify + release pipeline active · audit 2026-08-25 clean
+- **Desktop**: `MarkForge.bat` (builds once, then launches the Electron app)
+- **Status**: v1.0.0 · CI verify active · audit 2026-08-25 clean
 
 ---
 
@@ -52,10 +52,10 @@ story on top of them — and never becomes the only thing that can read them.
 | | Backend | Durable |
 |---|---|---|
 | Vercel / cloud | Cloudflare R2 (S3 API) | ✅ |
-| Desktop exe | `%APPDATA%\MarkForge\notes` (plain files) | ✅ local |
+| Desktop | `%APPDATA%\MarkForge\notes` (plain files) | ✅ local |
 
-The desktop shell additionally offers **Sync to cloud** (dev builds) to push the
-local vault up to R2.
+The desktop shell additionally offers **Sync to cloud** to push the local vault
+up to R2 (requires `.env` with R2 credentials).
 
 ---
 
@@ -79,29 +79,28 @@ Without R2 vars the app runs on the filesystem backend automatically.
 
 ### Desktop (Windows)
 
+**Option A: Start Menu shortcut** (recommended)
+- Click "MarkForge" in Start Menu → auto-builds on first run, then launches.
+
+**Option B: Manual**
 ```powershell
-pnpm dist:portable     # BUILD_FOR_ELECTRON build + electron-builder
-# → dist\MarkForge-Portable-<ver>.exe   (single-file, no install)
-# → dist\win-unpacked\MarkForge.exe     (fastest way to run: no extraction)
+MarkForge.bat     # builds once, then launches Electron app
 ```
 
-The packaged app spawns its own Next.js standalone server (`resources/server`)
-on `127.0.0.1:3457` via Electron's embedded Node, then opens the window.
+**Option C: Direct** (instant, no build)
+```powershell
+dist\win-unpacked\MarkForge.exe
+```
+
+The desktop app spawns its own Next.js standalone server on `127.0.0.1:3457`
+via Electron's embedded Node, then opens the window.
 
 ### Verification before shipping
 
 ```powershell
 pnpm verify            # deps + encoding gate + tsc + eslint + full test suite + build
 node scripts/check-standalone.mjs   # boots .next/standalone and polls /api/health
-pnpm ui:verify         # Playwright UI checks against localhost:3000
 ```
-
-## Releasing
-
-1. Merge `dev` → `main` (fast CI verify runs on both).
-2. Tag: `git tag vX.Y.Z && git push origin vX.Y.Z`.
-3. GitHub Actions builds the portable exe on Windows runners and publishes it to
-   Releases (`scripts/build-portable.mjs`, same pipeline as local).
 
 ## Architecture in one paragraph
 
@@ -111,10 +110,8 @@ routes that talk to a `WorkspaceStore` abstraction with two `Bucket` backends:
 The Electron shell (`electron/main.cjs`) is a thin launcher: in dev it runs `next`,
 packaged it boots the traced standalone server as an embedded-Node child process
 and points Chromium at it. `scripts/after-pack.cjs` assembles `resources/server`
-and supplements the AWS SDK family (`@aws-sdk/*`, `@smithy/*`, `@aws/*`) from the
-pnpm store, because file tracing under pnpm's hoisted layout cannot see through
-Turbopack's externalized chunks. Specs live in `openspec/specs/`; historical
-change proposals in `openspec/changes/archive/`.
+and supplements the AWS SDK family from the pnpm store, because file tracing under
+pnpm's hoisted layout cannot see through Turbopack's externalized chunks.
 
 ## Repository layout
 
@@ -124,7 +121,7 @@ components/          editor, explorer, sidebar, workspace shell
 lib/server/          store abstraction: FsBucket, R2Bucket, WorkspaceStore
 lib/                 client-side index/search/frontmatter utilities
 electron/            main.cjs desktop launcher
-scripts/             build-portable, after-pack, check-encoding, sync-storage, …
+scripts/             after-pack, check-encoding, sync-storage, …
 tests/               tsx test suites (run via pnpm test)
 openspec/            spec-driven change history
 docs/                WORKFLOW.md, audit reports
