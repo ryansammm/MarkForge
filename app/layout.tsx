@@ -1,4 +1,5 @@
 import { Analytics } from '@vercel/analytics/next'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 import type { Metadata, Viewport } from 'next'
 import { Geist, Lora } from 'next/font/google'
 
@@ -49,7 +50,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           because a floating one landed on top of the controls already there.
         */}
         <PwaRuntime />
-        {process.env.NODE_ENV === 'production' && <Analytics />}
+        {process.env.NODE_ENV === 'production' && (
+          <>
+            <Analytics />
+            <SpeedInsights />
+          </>
+        )}
       </body>
     </html>
   )
