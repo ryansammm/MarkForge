@@ -116,7 +116,7 @@
   --accent-bg-muted: #dbeafe;
   --accent-badge-text: #1e40af;
   --icon-neutral: #8a8a86;
-  --selection-bg: oklch(.78 .12 250);
+  --selection-bg: oklch(.72 .18 250);
   --selection-fg: #1d1d1a;
   --code-bg: #dcdcd7;
   --code-fg: #1d1d1a;
@@ -140,7 +140,7 @@
   --accent-bg-muted: #3a3520;
   --accent-badge-text: #f0d84a;
   --icon-neutral: #8a8a86;
-  --selection-bg: oklch(.52 .12 90);
+  --selection-bg: oklch(.55 .18 90);
   --selection-fg: #f2f2f0;
 }
 
@@ -163,7 +163,7 @@
     --accent-bg-muted: #3a3520;
     --accent-badge-text: #f0d84a;
     --icon-neutral: #8a8a86;
-    --selection-bg: oklch(.52 .12 90);
+    --selection-bg: oklch(.55 .18 90);
     --selection-fg: #f2f2f0;
     --code-bg: #1a1a1a;
     --code-fg: #f2f2f0;
@@ -329,7 +329,7 @@ html, body, main, aside, article, header {
   --cm-on-accent: var(--primary-foreground);
   --cm-panel: var(--popover, var(--background));
   --cm-border: var(--border);
-  --cm-selection: color-mix(in oklch, var(--primary) 22%, transparent);
+  --cm-selection: var(--selection-bg);
   --cm-active-line: color-mix(in oklch, var(--muted) 55%, transparent);
   --cm-code: oklch(.48 .11 25);
   --cm-keyword: oklch(.46 .13 295);
