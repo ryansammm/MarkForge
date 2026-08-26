@@ -51,6 +51,8 @@ import {
  * One implementation makes that a property of the code rather than a hope.
  */
 
+import { grimoireIndexPath } from './grimoire'
+
 export const INDEX_FILE = 'index.json'
 
 export function computeEtag(content: string): string {
@@ -88,7 +90,24 @@ export class WorkspaceStore implements WritableFileStore {
    */
   private queue: Promise<unknown> = Promise.resolve()
 
-  constructor(readonly bucket: Bucket) {}
+  /**
+   * When set, all index and document operations are scoped to this grimoire.
+   * The index lives at `_grimoires/{grimoireId}/index.json` and documents are
+   * read/written under the grimoire's notes subdirectory.
+   */
+  readonly grimoireId?: string
+  /** The grimoire's folder name under notes/ — used as prefix for listKeys. */
+  readonly grimoireName?: string
+
+  constructor(readonly bucket: Bucket, opts?: { grimoireId?: string; grimoireName?: string }) {
+    this.grimoireId = opts?.grimoireId
+    this.grimoireName = opts?.grimoireName
+  }
+
+  /** The index file path for the current grimoire (or root). */
+  private indexFile(): string {
+    return this.grimoireId ? grimoireIndexPath(this.grimoireId) : INDEX_FILE
+  }
 
   // --- path safety ----------------------------------------------------------
 
@@ -190,11 +209,11 @@ export class WorkspaceStore implements WritableFileStore {
   }
 
   private async readIndex(): Promise<WorkspaceIndex> {
-    return this.parseIndex(await this.bucket.readMeta(INDEX_FILE))
+    return this.parseIndex(await this.bucket.readMeta(this.indexFile()))
   }
 
   private async writeIndex(index: WorkspaceIndex): Promise<void> {
-    await this.bucket.writeMeta(INDEX_FILE, JSON.stringify(index, null, 2))
+    await this.bucket.writeMeta(this.indexFile(), JSON.stringify(index, null, 2))
   }
 
   /**
@@ -213,12 +232,12 @@ export class WorkspaceStore implements WritableFileStore {
     let lastError: string | undefined
 
     for (let attempt = 0; attempt < INDEX_WRITE_ATTEMPTS; attempt++) {
-      const raw = await this.bucket.readMeta(INDEX_FILE)
+      const raw = await this.bucket.readMeta(this.indexFile())
       const index = this.parseIndex(raw)
       const result = patch(index)
       const body = JSON.stringify(index, null, 2)
 
-      if (await this.bucket.writeMetaIfUnchanged(INDEX_FILE, body, raw)) return result
+      if (await this.bucket.writeMetaIfUnchanged(this.indexFile(), body, raw)) return result
 
       lastError = 'another writer updated the index first'
       // A short, growing pause. Two instances retrying in lockstep would otherwise
@@ -835,15 +854,15 @@ export class WorkspaceStore implements WritableFileStore {
         ensureDirectory(index.tree, folder)
       }
 
-      for (const key of await this.bucket.listKeys()) {
+      // When in a grimoire, only index files under that grimoire's notes directory.
+      const prefix = this.grimoireName || undefined
+
+      for (const key of await this.bucket.listKeys(prefix)) {
         const raw = await this.bucket.readText(key)
         if (raw === null) continue
         applyUpsert(
           index,
           buildDocument(key, raw, {
-            // From storage, like everything else here. A reindex that stamped `now`
-            // would rewrite the edit history of the whole corpus — and the index is
-            // meant to be disposable precisely because rebuilding it changes nothing.
             updatedAt: await this.modifiedAt(key),
             etag: computeEtag(raw),
           })

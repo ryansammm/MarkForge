@@ -153,14 +153,27 @@ export function normalizePath(input: string): string {
 export class StaticFileStore implements FileStore {
   private indexCache: WorkspaceIndex | null = null
   private fetchPromise: Promise<WorkspaceIndex> | null = null
+  private grimoireId: string | null = null
 
   constructor(private indexUrl: string = '/index.json') {}
+
+  /** Update the grimoire ID and invalidate the index cache. */
+  setGrimoireId(id: string | null): void {
+    if (this.grimoireId === id) return
+    this.grimoireId = id
+    this.indexCache = null
+    this.fetchPromise = null
+  }
 
   async getIndex(): Promise<WorkspaceIndex> {
     if (this.indexCache) return this.indexCache
 
     if (!this.fetchPromise) {
-      this.fetchPromise = fetch(this.indexUrl)
+      const headers: Record<string, string> = this.grimoireId
+        ? { 'X-Grimoire-Id': this.grimoireId }
+        : {}
+
+      this.fetchPromise = fetch(this.indexUrl, { headers })
         .then((res) => {
           if (!res.ok) throw new Error(`Failed to load index.json: ${res.statusText}`)
           return res.json() as Promise<WorkspaceIndex>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { InvalidPathError } from '@/lib/file-store'
 import { captureError } from '@/lib/server/observability'
 
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const store = getStore()
+    const store = await resolveStore(request)
     const existing = new Set(await store.bucket.listKeys())
     let copied = 0
     let skipped = 0

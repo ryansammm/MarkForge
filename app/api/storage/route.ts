@@ -1,5 +1,6 @@
-import { NextResponse } from 'next/server'
-import { backendHealth, createBucket, getStore } from '@/lib/server/store'
+import { NextRequest, NextResponse } from 'next/server'
+import { backendHealth, createBucket } from '@/lib/server/store'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { R2Bucket } from '@/lib/server/r2-bucket'
 import { captureError } from '@/lib/server/observability'
 
@@ -81,8 +82,8 @@ export async function GET() {
  * across every prefix in the bucket. The suite is namespaced now; this is what puts a
  * deployment back afterwards.
  */
-export async function POST(request: Request) {
-  const action = new URL(request.url).searchParams.get('action')
+export async function POST(request: NextRequest) {
+  const action = request.nextUrl.searchParams.get('action')
   if (action !== 'reindex') {
     return NextResponse.json(
       { error: 'Unknown action. Use ?action=reindex', code: 'BAD_REQUEST' },
@@ -92,7 +93,7 @@ export async function POST(request: Request) {
 
   try {
     const started = Date.now()
-    const index = await getStore().reindex()
+    const index = await (await resolveStore(request)).reindex()
 
     return NextResponse.json(
       {

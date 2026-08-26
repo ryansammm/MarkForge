@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { executeRename, planRename, summarizeRename } from '@/lib/server/rename'
 import { InvalidPathError, NotFoundError } from '@/lib/file-store'
 import {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const store = getStore()
+    const store = await resolveStore(request)
     const plan = await planRename(store, body.from, body.to)
 
     if (request.nextUrl.searchParams.get('dryRun')) {

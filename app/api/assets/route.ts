@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { InvalidPathError } from '@/lib/file-store'
 import {
   MAX_ASSET_BYTES,
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
     }
 
     const filename = file instanceof File ? file.name : undefined
-    const result = await getStore().writeAsset({ bytes, contentType, filename })
+    const result = await (await resolveStore(request)).writeAsset({ bytes, contentType, filename })
 
     return NextResponse.json(result, { status: 201, headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
     const path = request.nextUrl.searchParams.get('path')
     if (!path) throw new InvalidPathError('', 'missing "path" query parameter')
 
-    const asset = await getStore().readAsset(path)
+    const asset = await (await resolveStore(request)).readAsset(path)
     if (!asset) {
       return NextResponse.json({ error: 'Not found', code: 'NOT_FOUND' }, { status: 404 })
     }

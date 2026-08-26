@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { InvalidPathError, NotFoundError } from '@/lib/file-store'
 import {
   MAX_CONTROL_BYTES,
@@ -48,9 +48,9 @@ function errorResponse(err: unknown): NextResponse {
   return NextResponse.json({ error: 'Internal error', code: 'INTERNAL' }, { status: 500 })
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const entries = await getStore().listTrash()
+    const entries = await (await resolveStore(request)).listTrash()
     return NextResponse.json({ entries }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     return errorResponse(err)
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Body must be { id: string }', code: 'BAD_REQUEST' }, { status: 400 })
     }
 
-    const result = await getStore().restoreFromTrash(body.id)
+    const result = await (await resolveStore(request)).restoreFromTrash(body.id)
     return NextResponse.json(result, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     return errorResponse(err)
@@ -85,7 +85,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json(
-      await getStore().purgeTrash(raw === null ? {} : { retentionDays: Number(raw) })
+      await (await resolveStore(request)).purgeTrash(raw === null ? {} : { retentionDays: Number(raw) })
     )
   } catch (err) {
     return errorResponse(err)

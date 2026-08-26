@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { ConflictError, InvalidPathError, NotFoundError } from '@/lib/file-store'
 import {
   MAX_CONTROL_BYTES,
@@ -52,7 +52,7 @@ export async function PUT(request: NextRequest) {
     const limited = enforceWriteRate(request)
     if (limited) return limited
 
-    return NextResponse.json(await getStore().createDirectory(requirePath(request)))
+    return NextResponse.json(await (await resolveStore(request)).createDirectory(requirePath(request)))
   } catch (err) {
     return errorResponse(err)
   }
@@ -63,7 +63,7 @@ export async function DELETE(request: NextRequest) {
     const limited = enforceWriteRate(request)
     if (limited) return limited
 
-    return NextResponse.json(await getStore().removeDirectory(requirePath(request)))
+    return NextResponse.json(await (await resolveStore(request)).removeDirectory(requirePath(request)))
   } catch (err) {
     return errorResponse(err)
   }
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(await getStore().moveDirectory(body.from, body.to))
+    return NextResponse.json(await (await resolveStore(request)).moveDirectory(body.from, body.to))
   } catch (err) {
     return errorResponse(err)
   }

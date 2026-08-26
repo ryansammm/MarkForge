@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
 import { ConflictError, InvalidPathError, NotFoundError } from '@/lib/file-store'
 import {
   MAX_CONTROL_BYTES,
@@ -10,6 +9,7 @@ import {
 } from '@/lib/server/request-limits'
 import { captureError } from '@/lib/server/observability'
 import { getSearchIndex } from '@/lib/server/search'
+import { resolveStore } from '@/lib/server/resolve-store'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -73,7 +73,8 @@ function ifMatch(request: NextRequest): string | undefined {
 
 export async function GET(request: NextRequest) {
   try {
-    const result = await getStore().readDocument(requirePath(request))
+    const store = await resolveStore(request)
+    const result = await store.readDocument(requirePath(request))
     if (!result) {
       return NextResponse.json({ error: 'Not found', code: 'NOT_FOUND' }, { status: 404 })
     }
@@ -109,7 +110,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const result = await getStore().write(path, body.content, { ifMatch: ifMatch(request) })
+    const result = await (await resolveStore(request)).write(path, body.content, { ifMatch: ifMatch(request) })
 
     // So a document is findable the instant it is saved. Every other mutation — a
     // rename, a folder move, a restore, a write on another instance — is caught by
@@ -134,7 +135,7 @@ export async function DELETE(request: NextRequest) {
     const limited = enforceWriteRate(request)
     if (limited) return limited
 
-    const result = await getStore().remove(requirePath(request), { ifMatch: ifMatch(request) })
+    const result = await (await resolveStore(request)).remove(requirePath(request), { ifMatch: ifMatch(request) })
     getSearchIndex().noteRemoved(result.path)
     // `trashId` is what makes the delete undoable — see /api/trash.
     return NextResponse.json({ ok: true, ...result })
@@ -157,7 +158,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const result = await getStore().move(body.from, body.to, { ifMatch: ifMatch(request) })
+    const result = await (await resolveStore(request)).move(body.from, body.to, { ifMatch: ifMatch(request) })
 
     return NextResponse.json(result, {
       headers: { ETag: `"${result.etag}"`, 'Cache-Control': 'no-store' },

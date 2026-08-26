@@ -56,6 +56,7 @@ import { PwaInstallButton } from '@/components/pwa-install'
 import { TRASH_RETENTION_DAYS } from '@/lib/trash'
 import { usePersistedFlag, usePersistedSize } from '@/lib/use-persisted'
 import { cn } from '@/lib/utils'
+import { getActiveGrimoireId, setActiveGrimoireId } from '@/lib/grimoire-client'
 
 /** The context rail's width, and the range its handle can drag through. */
 const RAIL_WIDTH = { default: 288, min: 220, max: 560 } as const
@@ -173,6 +174,7 @@ export function WorkspaceApp() {
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
   /** Drawer state below md. Closed by default so a phone opens on the document. */
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [activeGrimoireId, setActiveGrimoire] = useState<string | null>(getActiveGrimoireId)
   /** Context rail, remembered across sessions and across tabs. */
   const [railOpen, setRailOpen] = usePersistedFlag('morrow:rail-open', true)
   /**
@@ -231,6 +233,19 @@ export function WorkspaceApp() {
   const [dialogError, setDialogError] = useState<string | null>(null)
 
   const fileStore = useMemo(() => new StaticFileStore('/api/index'), [])
+
+  // Update fileStore grimoire ID when it changes
+  useEffect(() => {
+    fileStore.setGrimoireId(activeGrimoireId)
+  }, [fileStore, activeGrimoireId])
+
+  const handleSelectGrimoire = useCallback((id: string) => {
+    setActiveGrimoireId(id)
+    setActiveGrimoire(id)
+    // Reload index for the new grimoire
+    setIndexData(null)
+    setLoading(true)
+  }, [])
 
   /** Reading or editing, for the tab on screen. */
   const setMode = useCallback(
@@ -1039,6 +1054,8 @@ export function WorkspaceApp() {
         onClose={() => setSidebarOpen(false)}
         width={sidebarWidth}
         onWidthChange={setSidebarWidth}
+        activeGrimoireId={activeGrimoireId}
+        onSelectGrimoire={handleSelectGrimoire}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">

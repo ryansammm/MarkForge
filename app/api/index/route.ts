@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
 import { backendHealth } from '@/lib/server/store'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { captureError } from '@/lib/server/observability'
+import type { NextRequest } from 'next/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -17,9 +18,10 @@ export const dynamic = 'force-dynamic'
  * Reading through the store instead means the UI sees whatever the configured
  * backend actually holds.
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const index = await getStore().getIndex()
+    const store = await resolveStore(request)
+    const index = await store.getIndex()
     const health = backendHealth()
 
     return NextResponse.json(index, {

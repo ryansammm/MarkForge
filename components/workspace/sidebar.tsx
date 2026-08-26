@@ -30,6 +30,7 @@ import { openHandlers } from './tab-gestures'
 import { ResizeHandle } from './resize-handle'
 import { collectDroppedFiles } from './explorer-drop'
 import { usePersistedList } from '@/lib/use-persisted'
+import { GrimoireSwitcher } from './grimoire-switcher'
 
 /**
  * Sidebar width, and the range it can be dragged through.
@@ -78,6 +79,10 @@ interface SidebarProps {
   /** Width in pixels, applied from md up. Below that this is a fixed-width drawer. */
   width: number
   onWidthChange: (width: number) => void
+  /** Grimoire state */
+  activeGrimoireId: string | null
+  onSelectGrimoire: (id: string) => void
+  onGrimoireCreated?: (grimoire: { id: string; name: string }) => void
 }
 
 /**
@@ -132,6 +137,9 @@ export function Sidebar({
   onClose,
   width,
   onWidthChange,
+  activeGrimoireId,
+  onSelectGrimoire,
+  onGrimoireCreated,
 }: SidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
   // Depth counter, not a boolean: enter/leave fire for every child element, and a
@@ -518,6 +526,12 @@ export function Sidebar({
           <span className="truncate text-sm font-semibold tracking-tight">MarkForge</span>
         </div>
       </header>
+
+      <GrimoireSwitcher
+        activeGrimoireId={activeGrimoireId}
+        onSelect={onSelectGrimoire}
+        onCreated={onGrimoireCreated ?? (() => {})}
+      />
 
       <div className="px-3 pb-3">
         <button
