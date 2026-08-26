@@ -118,6 +118,8 @@
   --icon-neutral: #8a8a86;
   --selection-bg: oklch(.78 .12 250);
   --selection-fg: #1d1d1a;
+  --code-bg: #dcdcd7;
+  --code-fg: #1d1d1a;
 }
 
 /* --- dark (brief values, verbatim) --------------------------------------- */
@@ -163,6 +165,8 @@
     --icon-neutral: #8a8a86;
     --selection-bg: oklch(.52 .12 90);
     --selection-fg: #f2f2f0;
+    --code-bg: #1a1a1a;
+    --code-fg: #f2f2f0;
   }
 }
 
@@ -203,7 +207,9 @@
 
 /* Inline code, which the plugin leaves as bare text with backtick pseudo-elements. */
 .prose :where(code):not(:where(pre code)) {
-  @apply rounded border bg-muted px-1.5 py-0.5 font-mono text-[0.85em] font-normal;
+  background: var(--code-bg);
+  color: var(--code-fg);
+  @apply rounded border px-1.5 py-0.5 font-mono text-[0.85em] font-normal;
 }
 .prose :where(code):not(:where(pre code))::before,
 .prose :where(code):not(:where(pre code))::after { content: none; }
