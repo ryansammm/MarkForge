@@ -116,6 +116,8 @@
   --accent-bg-muted: #dbeafe;
   --accent-badge-text: #1e40af;
   --icon-neutral: #8a8a86;
+  --selection-bg: oklch(.78 .12 250);
+  --selection-fg: #1d1d1a;
 }
 
 /* --- dark (brief values, verbatim) --------------------------------------- */
@@ -136,6 +138,8 @@
   --accent-bg-muted: #3a3520;
   --accent-badge-text: #f0d84a;
   --icon-neutral: #8a8a86;
+  --selection-bg: oklch(.52 .12 90);
+  --selection-fg: #f2f2f0;
 }
 
 /* OS-level dark preference applies even before hydration adds the class. */
@@ -157,13 +161,15 @@
     --accent-bg-muted: #3a3520;
     --accent-badge-text: #f0d84a;
     --icon-neutral: #8a8a86;
+    --selection-bg: oklch(.52 .12 90);
+    --selection-fg: #f2f2f0;
   }
 }
 
 @layer base {
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground; }
-  ::selection { @apply bg-accent text-accent-foreground; }
+  ::selection { background: var(--selection-bg); color: var(--selection-fg); }
   button, a { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50; }
 }
 
