@@ -9,20 +9,16 @@ import {
 import type { EditorState } from '@codemirror/state'
 
 /**
- * Hides the `id:` line from the frontmatter in the editor.
+ * Hides `id:`, `created:`, and the `---` delimiters from the frontmatter.
  *
- * The `id` is internal metadata (assigned on first save, never overwritten)
- * and has no editing value. The line stays in the document buffer — the
- * server still sees it, and reconciliation is unaffected — but the user
- * never sees or interacts with it.
- *
- * When the cursor enters the hidden line, the raw `id: ...` is revealed
- * (atomic ranges skip over it during navigation).
+ * `title`, `tags`, `updated`, `aliases` etc. remain visible and editable.
+ * The hidden lines stay in the document buffer — the server still sees them,
+ * and reconciliation is unaffected.
  */
 
-const HIDDEN_ID = 'cm-frontmatter-id-hidden'
+const HIDE_RE = /^(id|created)\s*:/i
 
-class HiddenIdWidget extends WidgetType {
+class HiddenLineWidget extends WidgetType {
   toDOM() {
     const span = document.createElement('span')
     span.style.display = 'none'
@@ -33,35 +29,37 @@ class HiddenIdWidget extends WidgetType {
   }
 }
 
-function findIdLine(state: EditorState): number | null {
+function buildDecorations(state: EditorState): DecorationSet {
   const total = state.doc.lines
-  const limit = Math.min(total, 10)
-  for (let i = 1; i <= limit; i++) {
+  if (total < 2) return Decoration.none
+
+  const first = state.doc.line(1)
+  if (first.text !== '---') return Decoration.none
+
+  const ranges: { from: number; to: number }[] = []
+
+  // Opening delimiter
+  ranges.push({ from: first.from, to: first.to })
+
+  const limit = Math.min(total, 20)
+  for (let i = 2; i <= limit; i++) {
     const line = state.doc.line(i)
     if (line.text === '---') {
-      if (i >= total) return null
-      for (let j = i + 1; j <= Math.min(i + 10, total); j++) {
-        const fm = state.doc.line(j)
-        if (fm.text === '---') return null
-        if (/^id\s*:/i.test(fm.text)) return j
-      }
-      return null
+      // Closing delimiter
+      ranges.push({ from: line.from, to: line.to })
+      break
+    }
+    if (HIDE_RE.test(line.text)) {
+      ranges.push({ from: line.from, to: line.to })
     }
   }
-  return null
-}
 
-function buildDecorations(state: EditorState): DecorationSet {
-  const lineNum = findIdLine(state)
-  if (!lineNum) return Decoration.none
+  if (ranges.length === 0) return Decoration.none
 
-  const line = state.doc.line(lineNum)
-  const deco = Decoration.replace({
-    widget: new HiddenIdWidget(),
-    inclusive: true,
-  })
-
-  return Decoration.set([deco.range(line.from, line.to)])
+  const deco = new HiddenLineWidget()
+  return Decoration.set(
+    ranges.map((r) => Decoration.replace({ widget: deco, inclusive: true }).range(r.from, r.to))
+  )
 }
 
 export function hideFrontmatterId() {

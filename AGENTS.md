@@ -30,3 +30,9 @@ Correct ways to edit:
 - Desktop app: `pnpm desktop` / `pnpm desktop:start`.
 - Spec-driven work lives in `openspec/`; check `openspec list` before inventing
   scope.
+
+## Git workflow
+
+- **Push to `dev` during development.** Only push to `main` when there are no
+  open issues and the change is verified.
+- `main` = production-ready. `dev` = active development.
