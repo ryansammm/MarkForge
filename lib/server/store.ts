@@ -58,26 +58,35 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
     throw new GrimoireNotFoundError(`Grimoire not found: ${grimoireId}`)
   }
 
-  // One-time migration: if this is the only grimoire and root has orphaned files, pull them in
-  if (registry.grimoires.length === 1) {
-    const grimoireKeys = await bucket.listKeys(grimoire.name)
-    const rootKeys = await bucket.listKeys()
+  // An external grimoire backs its own folder. Root a dedicated bucket there so
+  // document keys are relative to that folder (no "<name>/" prefix); the index
+  // still lives in the shared meta namespace.
+  const external = Boolean(grimoire.path && process.env.MARKFORGE_OFFLINE === '1')
+  const grimoireBucket = external
+    ? new FsBucket({ notesDir: grimoire.path!, metaDir: process.env.META_DIR })
+    : bucket
+
+  // One-time migration: if this is the only grimoire and root has orphaned files, pull them in.
+  // Only meaningful for the legacy subfolder model.
+  if (!external && registry.grimoires.length === 1) {
+    const grimoireKeys = await grimoireBucket.listKeys(grimoire.name)
+    const rootKeys = await grimoireBucket.listKeys()
     const orphaned = rootKeys.filter((k) => !k.startsWith(grimoire.name + '/'))
     if (orphaned.length > 0 && grimoireKeys.length === 0) {
       devLog.info('store', 'migrate-orphaned', { count: orphaned.length })
       for (const key of orphaned) {
-        const content = await bucket.readText(key)
+        const content = await grimoireBucket.readText(key)
         if (content !== null) {
-          await bucket.writeText(grimoire.name + '/' + key, content)
+          await grimoireBucket.writeText(grimoire.name + '/' + key, content)
         }
       }
     }
   }
 
-  devLog.info('store', 'grimoire-creating-store', { name: grimoire.name })
-  const store = new WorkspaceStore(bucket, {
+  devLog.info('store', 'grimoire-creating-store', { name: grimoire.name, external })
+  const store = new WorkspaceStore(grimoireBucket, {
     grimoireId: grimoire.id,
-    grimoireName: grimoire.name,
+    grimoireName: external ? '' : grimoire.name,
   })
 
   // Auto-reindex if index doesn't exist yet (new grimoire or migration)

@@ -15,29 +15,11 @@ app.setName('MarkForge')
 const DATA_ROOT = app.getPath('userData')
 const DEFAULT_NOTES_DIR = path.join(DATA_ROOT, 'notes')
 const DEFAULT_META_DIR = path.join(DATA_ROOT, 'meta')
-// The grimoire root folder the user chose. Persisted so the app reopens the same
-// folder every launch — no re-import, no re-adding files. Edited in place on disk.
-const ROOT_CONFIG_PATH = path.join(DATA_ROOT, 'grimoire-root.json')
 let NOTES_DIR = DEFAULT_NOTES_DIR
 let META_DIR = DEFAULT_META_DIR
 const ASSET_PREFIX = 'assets'
 
 // ── Grimoire root selection (full offline, local only) ──────────────────────
-function loadRoot() {
-  try {
-    const cfg = JSON.parse(fs.readFileSync(ROOT_CONFIG_PATH, 'utf-8'))
-    if (cfg && typeof cfg.notesDir === 'string') return cfg
-  } catch {
-    // No saved root yet — first run.
-  }
-  return null
-}
-
-function saveRoot(notesDir) {
-  fs.mkdirSync(path.dirname(ROOT_CONFIG_PATH), { recursive: true })
-  fs.writeFileSync(ROOT_CONFIG_PATH, JSON.stringify({ notesDir, metaDir: META_DIR }), 'utf-8')
-}
-
 function pickRootDir() {
   const res = dialog.showOpenDialogSync(null, {
     title: 'Pilih folder grimoire MarkForge',
@@ -119,25 +101,26 @@ function startServer(notesDir) {
   return server
 }
 
-/** Kill the running server and start a fresh one pointed at a new grimoire root. */
-function restartServer(notesDir) {
-  if (server) {
-    try {
-      server.kill()
-    } catch {
-      // already gone
-    }
-    server = null
+/** Register a folder as a grimoire via the API; the registry persists it. */
+async function addGrimoireViaApi(dir) {
+  const name = path.basename(dir)
+  try {
+    const res = await fetch(`${BASE}/api/grimoires`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, path: dir }),
+    })
+    if (!res.ok) console.error('[markforge] add grimoire failed:', res.status)
+  } catch (err) {
+    console.error('[markforge] add grimoire error:', err)
   }
-  startServer(notesDir)
 }
 
-/** Pick a folder, persist it as the grimoire root, and reload the app against it. */
-function openGrimoire() {
+/** Pick a folder, register it as a grimoire, and reload the app against it. */
+async function openGrimoire() {
   const dir = pickRootDir()
   if (!dir) return
-  saveRoot(dir)
-  restartServer(dir)
+  await addGrimoireViaApi(dir)
   if (win) win.reload()
 }
 
@@ -188,29 +171,16 @@ ipcMain.handle('markforge:choose-folder', async () => {
   return { copied }
 })
 
-/** Pick a local folder, persist it as the grimoire root, and reload. */
-ipcMain.handle('markforge:open-grimoire', () => {
-  openGrimoire()
-  return Promise.resolve({ ok: true })
+/** Pick a local folder, register it as a grimoire, and reload. */
+ipcMain.handle('markforge:open-grimoire', async () => {
+  await openGrimoire()
+  return { ok: true }
 })
 
 async function main() {
   await app.whenReady()
 
-  // Restore or choose the grimoire root folder. Editing happens in place on disk,
-  // and the choice is remembered so the app reopens the same folder every launch.
-  let root = loadRoot()
-  if (!root || !fs.existsSync(root.notesDir)) {
-    const dir = pickRootDir()
-    if (!dir) {
-      app.quit()
-      return
-    }
-    saveRoot(dir)
-    root = { notesDir: dir, metaDir: META_DIR }
-  }
-  NOTES_DIR = root.notesDir
-  META_DIR = root.metaDir || DEFAULT_META_DIR
+  // Grimoire folders persist in the registry under META_DIR; ensure the dirs exist.
   fs.mkdirSync(NOTES_DIR, { recursive: true })
   fs.mkdirSync(META_DIR, { recursive: true })
 
@@ -235,6 +205,19 @@ async function main() {
     console.error('[markforge] server did not become ready:', err)
     app.quit()
     return
+  }
+
+  // First run (or every grimoire removed): let the user pick their main folder.
+  // The choice is remembered across launches via the registry, not a separate file.
+  try {
+    const res = await fetch(`${BASE}/api/grimoires`)
+    const data = res.ok ? await res.json() : null
+    if (!data || data.grimoires.length === 0) {
+      const dir = pickRootDir()
+      if (dir) await addGrimoireViaApi(dir)
+    }
+  } catch (err) {
+    console.error('[markforge] first-run grimoire check failed:', err)
   }
 
   win = new BrowserWindow({

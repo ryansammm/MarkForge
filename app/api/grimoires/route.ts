@@ -37,9 +37,23 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    let externalPath: string | undefined
+    if (typeof body.path === 'string' && body.path.trim()) {
+      const p = body.path.trim()
+      // Accept absolute paths only (Windows drive or POSIX root) so a relative
+      // name can never be mistaken for a folder to back a grimoire.
+      if (!/^[A-Za-z]:[\\/]/.test(p) && !p.startsWith('/')) {
+        return NextResponse.json(
+          { error: 'path must be an absolute folder path', code: 'BAD_REQUEST' },
+          { status: 400 }
+        )
+      }
+      externalPath = p
+    }
+
     const bucket = getStore().bucket
     devLog.info('api/grimoires', 'create-got-bucket', { bucketKind: bucket.kind })
-    const grimoire = await createGrimoire(bucket, body.name.trim())
+    const grimoire = await createGrimoire(bucket, body.name.trim(), { path: externalPath })
     devLog.info('api/grimoires', 'create-done', { id: grimoire.id })
     return NextResponse.json(grimoire, { status: 201 })
   } catch (err) {

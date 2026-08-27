@@ -6,6 +6,7 @@
  * `_grimoires/{id}/index.json` in the meta namespace.
  */
 
+import * as fs from 'fs'
 import { randomUUID } from 'crypto'
 import type { Bucket } from './bucket'
 import { devLog } from './dev-log'
@@ -15,6 +16,8 @@ export interface Grimoire {
   name: string
   createdAt: string
   lastActive: string
+  /** Absolute folder on disk for grimoires backed by an external directory (offline). When absent, notes live under NOTES_DIR/<name>/. */
+  path?: string
 }
 
 export interface GrimoireRegistry {
@@ -47,7 +50,8 @@ export async function writeRegistry(
 
 export async function createGrimoire(
   bucket: Bucket,
-  name: string
+  name: string,
+  opts?: { path?: string }
 ): Promise<Grimoire> {
   devLog.info('grimoire', 'create-read-registry')
   const registry = await readRegistry(bucket)
@@ -57,18 +61,36 @@ export async function createGrimoire(
     throw new Error(`Grimoire "${name}" already exists`)
   }
 
+  if (opts?.path) {
+    let stat: fs.Stats | undefined
+    try {
+      stat = fs.statSync(opts.path)
+    } catch {
+      throw new Error(`Folder not found: ${opts.path}`)
+    }
+    if (!stat.isDirectory()) throw new Error(`Not a folder: ${opts.path}`)
+  }
+
   const now = new Date().toISOString()
   const grimoire: Grimoire = {
     id: randomUUID().slice(0, 12),
     name,
     createdAt: now,
     lastActive: now,
+    ...(opts?.path ? { path: opts.path } : {}),
   }
 
   registry.grimoires.push(grimoire)
   registry.lastActiveId = grimoire.id
   devLog.info('grimoire', 'create-write-registry')
   await writeRegistry(bucket, registry)
+
+  // An external grimoire backs a folder that already exists on disk — nothing to
+  // create, and no root-level orphans to pull in.
+  if (opts?.path) {
+    devLog.info('grimoire', 'create-external', { id: grimoire.id, path: opts.path })
+    return grimoire
+  }
 
   // Create the notes directory for the new grimoire
   devLog.info('grimoire', 'create-folder', { name })
@@ -129,8 +151,11 @@ export async function deleteGrimoire(
 
   const grimoire = registry.grimoires[idx]
 
-  // Delete the notes directory
-  await bucket.deleteFolder(grimoire.name)
+  // External grimoires point at a real folder the user owns — never delete it,
+  // only drop the registry entry and its index.
+  if (!grimoire.path) {
+    await bucket.deleteFolder(grimoire.name)
+  }
 
   // Delete the index
   await bucket.deleteMeta(grimoireIndexPath(id))
