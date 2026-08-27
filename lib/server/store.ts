@@ -22,6 +22,9 @@ export class GrimoireNotFoundError extends Error {
 export type BackendKind = 'r2' | 'filesystem'
 
 export function createBucket(): Bucket {
+  // Full-offline builds never reach for a remote bucket, regardless of any R2_*
+  // environment that may be present (e.g. a stale .env copied from a web deploy).
+  if (process.env.MARKFORGE_OFFLINE === '1') return new FsBucket()
   return r2ConfigFromEnv() ? new R2Bucket() : new FsBucket()
 }
 
@@ -111,6 +114,7 @@ export function backendHealth(): {
   durable: boolean
   warning?: string
 } {
+  if (process.env.MARKFORGE_OFFLINE === '1') return { kind: 'filesystem', durable: true }
   if (r2ConfigFromEnv()) return { kind: 'r2', durable: true }
 
   const ephemeral = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)

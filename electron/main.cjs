@@ -1,6 +1,6 @@
 'use strict'
 
-const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, Menu, dialog, ipcMain, shell } = require('electron')
 const { spawn } = require('child_process')
 const fs = require('fs')
 const http = require('http')
@@ -13,9 +13,39 @@ app.setName('MarkForge')
 // pinned before getPath('userData') because an unpackaged Electron falls back
 // to the package name ("my-project") - a rename would orphan the corpus.
 const DATA_ROOT = app.getPath('userData')
-const NOTES_DIR = path.join(DATA_ROOT, 'notes')
-const META_DIR = path.join(DATA_ROOT, 'meta')
+const DEFAULT_NOTES_DIR = path.join(DATA_ROOT, 'notes')
+const DEFAULT_META_DIR = path.join(DATA_ROOT, 'meta')
+// The grimoire root folder the user chose. Persisted so the app reopens the same
+// folder every launch — no re-import, no re-adding files. Edited in place on disk.
+const ROOT_CONFIG_PATH = path.join(DATA_ROOT, 'grimoire-root.json')
+let NOTES_DIR = DEFAULT_NOTES_DIR
+let META_DIR = DEFAULT_META_DIR
 const ASSET_PREFIX = 'assets'
+
+// ── Grimoire root selection (full offline, local only) ──────────────────────
+function loadRoot() {
+  try {
+    const cfg = JSON.parse(fs.readFileSync(ROOT_CONFIG_PATH, 'utf-8'))
+    if (cfg && typeof cfg.notesDir === 'string') return cfg
+  } catch {
+    // No saved root yet — first run.
+  }
+  return null
+}
+
+function saveRoot(notesDir) {
+  fs.mkdirSync(path.dirname(ROOT_CONFIG_PATH), { recursive: true })
+  fs.writeFileSync(ROOT_CONFIG_PATH, JSON.stringify({ notesDir, metaDir: META_DIR }), 'utf-8')
+}
+
+function pickRootDir() {
+  const res = dialog.showOpenDialogSync(null, {
+    title: 'Pilih folder grimoire MarkForge',
+    message: 'Pilih folder yang berisi (atau akan berisi) catatan .md kamu',
+    properties: ['openDirectory'],
+  })
+  return res && res.length ? res[0] : null
+}
 
 let server = null
 let win = null
@@ -40,18 +70,28 @@ function waitUntilReady(url, timeoutMs) {
   })
 }
 
-function startServer() {
+function startServer(notesDir) {
+  NOTES_DIR = notesDir || NOTES_DIR
+  // Full offline: never talk to R2, no matter what the environment says. The
+  // web-deploy .env may carry R2 credentials, and Next would pick them up.
+  const offline = {
+    MARKFORGE_OFFLINE: '1',
+    R2_ACCOUNT_ID: '',
+    R2_ACCESS_KEY_ID: '',
+    R2_SECRET_ACCESS_KEY: '',
+    R2_BUCKET: '',
+  }
   // ── Packaged (portable exe) ──────────────────────────────────────────────
   // Runs the Next standalone server with Electron's own embedded Node
   // (ELECTRON_RUN_AS_NODE): no system Node, no pnpm, no terminal. The server
   // folder ships in resources/server, assembled by scripts/prepare-electron.mjs.
   if (app.isPackaged) {
     const serverDir = path.join(process.resourcesPath, 'server')
-    process.env.MARKFORG_SYNC = '0' // tsx-based cloud push needs the repo; hidden in packaged builds
     server = spawn(process.execPath, [path.join(serverDir, 'server.js')], {
       cwd: serverDir,
       env: {
         ...process.env,
+        ...offline,
         ELECTRON_RUN_AS_NODE: '1',
         NODE_ENV: 'production',
         PORT: String(PORT),
@@ -64,20 +104,9 @@ function startServer() {
   } else {
     // ── Development (repo checkout) ────────────────────────────────────────
     const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
-    // The repo's .env carries R2 credentials for the deployed web app, and Next
-    // loads it automatically - which would silently turn this local instance into
-    // a cloud-backed one, every save round-tripping to another hemisphere. Next
-    // only fills variables that are NOT already present, so pre-setting empties
-    // pins them off; the backend treats '' as unset.
-    const localOnly = {
-      R2_ACCOUNT_ID: '',
-      R2_ACCESS_KEY_ID: '',
-      R2_SECRET_ACCESS_KEY: '',
-      R2_BUCKET: '',
-    }
     server = spawn(npx, ['next', 'dev', '-p', String(PORT)], {
       cwd: path.join(__dirname, '..'),
-      env: { ...process.env, ...localOnly, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
+      env: { ...process.env, ...offline, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
       // Windows refuses to spawn .cmd shims without a shell since Node 20.12.
@@ -88,6 +117,28 @@ function startServer() {
   server.stderr.on('data', (d) => process.stderr.write(`[next] ${d}`))
   server.on('exit', (code) => console.log(`[next] exited with ${code}`))
   return server
+}
+
+/** Kill the running server and start a fresh one pointed at a new grimoire root. */
+function restartServer(notesDir) {
+  if (server) {
+    try {
+      server.kill()
+    } catch {
+      // already gone
+    }
+    server = null
+  }
+  startServer(notesDir)
+}
+
+/** Pick a folder, persist it as the grimoire root, and reload the app against it. */
+function openGrimoire() {
+  const dir = pickRootDir()
+  if (!dir) return
+  saveRoot(dir)
+  restartServer(dir)
+  if (win) win.reload()
 }
 
 function copyFileToWorkspace(srcPath, relativeName) {
@@ -137,75 +188,45 @@ ipcMain.handle('markforge:choose-folder', async () => {
   return { copied }
 })
 
-/** Reads the repo .env - the one place cloud credentials legitimately live.
- *  Packaged builds look next to the exe resources instead (copied at build time). */
-function readRepoEnv() {
-  const candidates = app.isPackaged
-    ? [path.join(process.resourcesPath, '.env')]
-    : [path.join(__dirname, '..', '.env')]
-  const out = {}
-  for (const envPath of candidates) {
-    try {
-      for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
-        const [key, ...rest] = line.split('=')
-        if (key && rest.length) out[key.trim()] = rest.join('=').trim()
-      }
-      break
-    } catch {
-      // Try the next candidate; caller reports cloud as unconfigured if none work.
-    }
-  }
-  return out
-}
-
-/**
- * Push the local corpus to R2 on demand. Runs scripts/push-to-cloud.ts in a
- * child with cloud credentials injected; the workspace server itself never
- * sees them, so browsing/editing stays purely local.
- */
-ipcMain.handle('markforge:sync-to-cloud', async () => {
-  const env = readRepoEnv()
-  if (!env.R2_ACCOUNT_ID || !env.R2_ACCESS_KEY_ID || !env.R2_SECRET_ACCESS_KEY || !env.R2_BUCKET) {
-    return { ok: false, error: 'Cloud not configured - R2_* missing from .env' }
-  }
-  const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
-  return new Promise((resolve) => {
-    const child = spawn(
-      npx,
-      ['tsx', 'scripts/push-to-cloud.ts', '--dir', NOTES_DIR],
-      {
-        cwd: path.join(__dirname, '..'),
-        env: { ...process.env, ...env },
-        stdio: ['ignore', 'pipe', 'pipe'],
-        windowsHide: true,
-        shell: process.platform === 'win32',
-      }
-    )
-    let out = ''
-    let errOut = ''
-    child.stdout.on('data', (d) => (out += d))
-    child.stderr.on('data', (d) => (errOut += d))
-    child.on('exit', (code) => {
-      if (code !== 0) {
-        resolve({ ok: false, error: `sync failed (${code}): ${errOut.trim().slice(-200)}` })
-        return
-      }
-      try {
-        const line = out.trim().split(/\r?\n/).pop()
-        resolve({ ok: true, ...JSON.parse(line) })
-      } catch {
-        resolve({ ok: false, error: 'unexpected sync output' })
-      }
-    })
-  })
+/** Pick a local folder, persist it as the grimoire root, and reload. */
+ipcMain.handle('markforge:open-grimoire', () => {
+  openGrimoire()
+  return Promise.resolve({ ok: true })
 })
 
 async function main() {
   await app.whenReady()
+
+  // Restore or choose the grimoire root folder. Editing happens in place on disk,
+  // and the choice is remembered so the app reopens the same folder every launch.
+  let root = loadRoot()
+  if (!root || !fs.existsSync(root.notesDir)) {
+    const dir = pickRootDir()
+    if (!dir) {
+      app.quit()
+      return
+    }
+    saveRoot(dir)
+    root = { notesDir: dir, metaDir: META_DIR }
+  }
+  NOTES_DIR = root.notesDir
+  META_DIR = root.metaDir || DEFAULT_META_DIR
   fs.mkdirSync(NOTES_DIR, { recursive: true })
   fs.mkdirSync(META_DIR, { recursive: true })
 
-  startServer()
+  const menu = Menu.buildFromTemplate([
+    {
+      label: 'File',
+      submenu: [
+        { label: 'Buka folder grimoire…', click: () => openGrimoire() },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+  ])
+  Menu.setApplicationMenu(menu)
+
+  startServer(NOTES_DIR)
   try {
     await waitUntilReady(BASE, 60000)
   } catch (err) {

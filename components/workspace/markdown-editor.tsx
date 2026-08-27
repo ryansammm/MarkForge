@@ -324,6 +324,7 @@ export function MarkdownEditor({
       }),
       autocompletion({
         override: [wikilinkCompletions(() => docsRef.current), slashCommands()],
+        activateOnTyping: true,
         closeOnBlur: true,
         icons: false,
       }),

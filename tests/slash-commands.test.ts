@@ -10,10 +10,10 @@ import {
 /**
  * Slash-menu contract.
  *
- * The trigger must be conservative (line start or after whitespace only - a URL
- * like https://x/y must never summon the menu), filtering must respect the query,
- * and the applied edit must replace exactly the "/token" range with the cursor
- * landing on the snippet's caret marker.
+ * The trigger must be conservative (line start, after whitespace, or after
+ * punctuation - but never inside a word like a/b or a URL like https://x/y),
+ * filtering must respect the query, and the applied edit must replace exactly the
+ * "/token" range with the cursor landing on the snippet's caret marker.
  */
 
 function assert(condition: unknown, message: string): asserts condition {

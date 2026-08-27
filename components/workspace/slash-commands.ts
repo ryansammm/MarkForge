@@ -3,10 +3,11 @@ import type { Completion, CompletionContext, CompletionResult } from '@codemirro
 /**
  * Notion-style `/` menu for inserting Markdown structures.
  *
- * The trigger is deliberately conservative: the slash must start a line or follow
- * whitespace, so URLs and code that happen to contain slashes never summon the
- * menu. Items are plain snippets - no nested parsing - because every structure
- * here is one the live-preview already renders.
+ * The trigger fires at line start, after whitespace, or after a non-word,
+ * non-colon character, so URLs (`https://`) and word-joined slashes (`a/b`)
+ * never summon the menu while `./` or `(/` still do. Items are plain snippets -
+ * no nested parsing - because every structure here is one the live-preview
+ * already renders.
  */
 
 export interface SlashItem {
@@ -37,11 +38,14 @@ export const SLASH_ITEMS: SlashItem[] = [
 ]
 
 /**
- * Finds an active slash query in the text between the line start and the cursor.
+ * Finds an active slash query in the text before the cursor.
  * Returns where the "/token" begins and what has been typed after it.
  */
 export function slashContextBefore(textBeforeCursor: string): { from: number; query: string } | null {
-  const match = /(?:^|\s)\/([\w-]*)$/.exec(textBeforeCursor)
+  // Trigger on line start, after whitespace, or after a non-word, non-colon
+  // character (e.g. after `(`, `.`, `>`). Still refuses word-joined slashes
+  // (`a/b`) and URLs (`https://`), which keep their natural meaning.
+  const match = /(?:^|[^A-Za-z0-9_:/])\/([\w-]*)$/.exec(textBeforeCursor)
   if (!match) return null
   const tokenStart = textBeforeCursor.length - match[1].length - 1
   return { from: tokenStart, query: match[1] }

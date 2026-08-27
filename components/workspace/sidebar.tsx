@@ -4,7 +4,6 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import {
   ChevronDown,
   ChevronRight,
-  CloudUpload,
   FileDown,
   FilePlus,
   FileText,
@@ -47,7 +46,7 @@ interface DesktopBridge {
   desktop: boolean
   chooseFiles: () => Promise<{ copied: number }>
   chooseFolder: () => Promise<{ copied: number }>
-  syncToCloud: () => Promise<{ ok: boolean; copied?: number; skipped?: number; error?: string }>
+  openGrimoire: () => Promise<{ ok: boolean }>
 }
 
 declare global {
@@ -167,20 +166,6 @@ export function Sidebar({
       toast.success(`Import complete — ${copied} item(s) added`)
     } catch (err) {
       toast.error(`Import failed: ${(err as Error).message}`)
-    }
-  }
-
-  /** Explicit push of the local corpus to R2 - the only road to the cloud. */
-  const runCloudSync = async () => {
-    try {
-      toast.info('Syncing to cloud…')
-      const res = await window.markforge!.syncToCloud()
-      if (!res.ok) throw new Error(res.error ?? 'sync failed')
-      toast.success(
-        `Cloud updated — ${res.copied} uploaded, ${res.skipped} already in sync`
-      )
-    } catch (err) {
-      toast.error(`Cloud sync failed: ${(err as Error).message}`)
     }
   }
 
@@ -639,11 +624,11 @@ export function Sidebar({
             </button>
             <button
               type="button"
-              onClick={() => void runCloudSync()}
+              onClick={() => void window.markforge!.openGrimoire()}
               className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
             >
-              <CloudUpload className="size-3.5 shrink-0" />
-              <span>Sync to cloud…</span>
+              <FolderOpen className="size-3.5 shrink-0" />
+              <span>Buka folder grimoire…</span>
             </button>
           </>
         )}
