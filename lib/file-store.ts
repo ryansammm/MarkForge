@@ -71,6 +71,12 @@ export interface WriteOptions {
 /** Sentinel for `ifMatch` meaning "this must be a new file". */
 export const CREATE_ONLY = '*none*'
 
+type IndexErrorBody = { error?: string; code?: string }
+interface StatusError extends Error {
+  status?: number
+  code?: string
+}
+
 export interface RemoveResult {
   path: string
   /**
@@ -176,13 +182,13 @@ export class StaticFileStore implements FileStore {
       this.fetchPromise = fetch(this.indexUrl, { headers })
         .then((res) => {
           if (!res.ok) {
-            return res.json().then((body: any) => {
+            return res.json().then((body: IndexErrorBody) => {
               const err = new Error(body?.error || `Failed to load index.json: ${res.statusText}`)
-              ;(err as any).status = res.status
-              ;(err as any).code = body?.code
+              ;(err as StatusError).status = res.status
+              ;(err as StatusError).code = body?.code
               throw err
             }).catch((parseErr) => {
-              if ((parseErr as any)?.status) throw parseErr
+              if ((parseErr as StatusError)?.status) throw parseErr
               throw new Error(`Failed to load index.json: ${res.statusText}`)
             })
           }

@@ -5,6 +5,10 @@ import { WorkspaceStore } from './workspace-store'
 import { readRegistry } from './grimoire'
 import { devLog } from './dev-log'
 
+export class GrimoireNotFoundError extends Error {
+  readonly code = 'GRIMOIRE_NOT_FOUND'
+}
+
 /**
  * Picks a storage backend.
  *
@@ -48,9 +52,7 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
   const grimoire = registry.grimoires.find((g) => g.id === grimoireId)
   if (!grimoire) {
     devLog.error('store', 'grimoire-not-found', { grimoireId, available: registry.grimoires.map(g => g.id) })
-    const err = new Error(`Grimoire not found: ${grimoireId}`)
-    ;(err as any).code = 'GRIMOIRE_NOT_FOUND'
-    throw err
+    throw new GrimoireNotFoundError(`Grimoire not found: ${grimoireId}`)
   }
 
   // One-time migration: if this is the only grimoire and root has orphaned files, pull them in

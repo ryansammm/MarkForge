@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3'
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3'
 import { readFileSync } from 'fs'
 
 const envLines = readFileSync('.env', 'utf-8').split('\n')
@@ -11,14 +11,14 @@ for (const line of envLines) {
 const c = new S3Client({
   region: 'auto',
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
-  credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID, secretAccessKey: process.env.R2_SECRET_ACCESS_KEY },
+  credentials: { accessKeyId: process.env.R2_ACCESS_KEY_ID ?? '', secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '' },
   forcePathStyle: true,
 })
 
 async function main() {
   // Check R2 registry
   const r = await c.send(new GetObjectCommand({ Bucket: 'markdown', Key: '_meta/grimoires.json' }))
-  const body = await r.Body.transformToString()
+  const body = await r.Body?.transformToString()
   console.log('=== R2 Registry ===')
   console.log(body)
 

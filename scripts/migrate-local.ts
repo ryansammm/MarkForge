@@ -1,6 +1,17 @@
-import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, renameSync, unlinkSync, existsSync, rmSync } from 'fs'
-import { join, relative } from 'path'
+import { readFileSync, writeFileSync, readdirSync, mkdirSync, renameSync, existsSync, rmSync } from 'fs'
+import { join } from 'path'
 import { randomUUID } from 'crypto'
+
+interface GrimoireEntry {
+  id: string
+  name: string
+  createdAt: string
+  lastActive: string
+}
+interface MigrationRegistry {
+  grimoires: GrimoireEntry[]
+  lastActiveId?: string | null
+}
 
 const META = 'C:\\Users\\Xyks\\AppData\\Roaming\\MarkForge\\meta'
 const NOTES = 'C:\\Users\\Xyks\\AppData\\Roaming\\MarkForge\\notes'
@@ -23,8 +34,8 @@ function main() {
 
   // Read current registry
   const regPath = join(META, 'grimoires.json')
-  const registry = JSON.parse(readFileSync(regPath, 'utf-8'))
-  console.log('Current grimoires:', registry.grimoires.map((g: any) => g.name).join(', '))
+  const registry = JSON.parse(readFileSync(regPath, 'utf-8')) as MigrationRegistry
+  console.log('Current grimoires:', registry.grimoires.map((g) => g.name).join(', '))
 
   // Create Work and Origin
   const now = new Date().toISOString()

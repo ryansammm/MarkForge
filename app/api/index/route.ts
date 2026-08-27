@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { backendHealth } from '@/lib/server/store'
+import { backendHealth, GrimoireNotFoundError } from '@/lib/server/store'
 import { resolveStore } from '@/lib/server/resolve-store'
 import { captureError } from '@/lib/server/observability'
 import { devLog } from '@/lib/server/dev-log'
@@ -48,7 +48,7 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     devLog.error('api/index', 'failed', { error: String(err) })
     captureError(err, { scope: 'api/index', event: 'unhandled' })
-    const status = (err as any)?.code === 'GRIMOIRE_NOT_FOUND' ? 404 : 500
-    return NextResponse.json({ error: (err as Error).message, code: (err as any)?.code ?? 'INTERNAL' }, { status })
+    const status = err instanceof GrimoireNotFoundError ? 404 : 500
+    return NextResponse.json({ error: (err as Error).message, code: err instanceof GrimoireNotFoundError ? 'GRIMOIRE_NOT_FOUND' : 'INTERNAL' }, { status })
   }
 }

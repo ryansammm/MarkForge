@@ -224,7 +224,7 @@ async function run() {
   // --- trash ----------------------------------------------------------------
 
   const trash = await import('../app/api/trash/route')
-  const trashGET = trash.GET as unknown as () => Promise<Response>
+  const trashGET = ((req: never) => trash.GET(req as never)) as unknown as (req: Request) => Promise<Response>
   const trashPOST = trash.POST as unknown as Handler
 
   await check('DELETE reports a trash id, and the entry is listed', async () => {
@@ -234,7 +234,7 @@ async function run() {
     const body = (await res.json()) as { ok: boolean; trashId: string | null }
     assert(body.trashId, 'no trash id — the delete cannot be undone')
 
-    const listed = (await (await trashGET()).json()) as { entries: Array<{ id: string; label: string }> }
+    const listed = (await (await trashGET(request('http://localhost/api/trash') as never)).json()) as { entries: Array<{ id: string; label: string }> }
     assert(
       listed.entries.some((entry) => entry.id === body.trashId && entry.label === 'Recoverable.md'),
       'the deleted document is not in the trash listing'

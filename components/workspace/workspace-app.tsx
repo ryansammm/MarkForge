@@ -282,7 +282,7 @@ export function WorkspaceApp() {
         if (paths.length > 0) dispatchTabs({ type: 'open', path: paths[0] })
       } catch (err) {
         // Stale grimoire ID in localStorage — clear and let GrimoireSwitcher re-select
-        if ((err as any)?.code === 'GRIMOIRE_NOT_FOUND') {
+        if ((err as { code?: string })?.code === 'GRIMOIRE_NOT_FOUND') {
           pushLog('Grimoire not found — clearing stale selection')
           setActiveGrimoireId(null)
           setActiveGrimoire(null)

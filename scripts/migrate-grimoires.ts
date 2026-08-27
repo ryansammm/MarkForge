@@ -30,15 +30,15 @@ const client = new S3Client({
   region: 'auto',
   endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY,
+    accessKeyId: process.env.R2_ACCESS_KEY_ID ?? '',
+    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY ?? '',
   },
   forcePathStyle: true,
 })
 
-async function listAll(prefix) {
-  const keys = []
-  let token
+async function listAll(prefix: string) {
+  const keys: string[] = []
+  let token: string | undefined
   do {
     const result = await client.send(
       new ListObjectsV2Command({ Bucket: BUCKET, Prefix: prefix, ContinuationToken: token })
@@ -51,14 +51,14 @@ async function listAll(prefix) {
   return keys
 }
 
-async function readText(key) {
+async function readText(key: string) {
   try {
     const result = await client.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
-    return await result.Body?.transformToString()
+    return (await result.Body?.transformToString()) ?? null
   } catch { return null }
 }
 
-async function writeText(key, body) {
+async function writeText(key: string, body: string) {
   await client.send(new PutObjectCommand({
     Bucket: BUCKET, Key: key, Body: body,
     ContentLength: Buffer.byteLength(body, 'utf8'),
@@ -66,7 +66,7 @@ async function writeText(key, body) {
   }))
 }
 
-async function deleteObject(key) {
+async function deleteObject(key: string) {
   await client.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
 }
 
@@ -78,7 +78,7 @@ async function main() {
   console.log(`Found ${allKeys.length} total objects under notes/`)
 
   // Classify: folders vs root files
-  const folders = new Set()
+  const folders = new Set<string>()
   const rootFiles = []
   for (const fullKey of allKeys) {
     const rel = fullKey.replace(`${NOTES_PREFIX}/`, '')
@@ -97,7 +97,7 @@ async function main() {
 
   // 2. Show planned moves
   const workFolders = ['GDI', 'K2']
-  const originFolders = [...folders].filter((f) => !workFolders.includes(f))
+  const originFolders = [...folders].filter((f: string) => !workFolders.includes(f))
 
   console.log('Plan:')
   console.log(`  Work:   ${workFolders.filter((f) => folders.has(f)).join(', ') || '(empty)'}`)
@@ -105,7 +105,7 @@ async function main() {
   console.log()
 
   // 3. Create Work and Origin grimoire directories
-  const putFolder = (name) => client.send(new PutObjectCommand({
+  const putFolder = (name: string) => client.send(new PutObjectCommand({
     Bucket: BUCKET, Key: `${NOTES_PREFIX}/${name}/.keep`, Body: '', ContentLength: 0,
   }))
 
@@ -118,7 +118,7 @@ async function main() {
       { id: randomUUID().slice(0, 12), name: 'Work', createdAt: new Date().toISOString(), lastActive: new Date().toISOString() },
       { id: randomUUID().slice(0, 12), name: 'Origin', createdAt: new Date().toISOString(), lastActive: new Date().toISOString() },
     ],
-    lastActiveId: null,
+    lastActiveId: null as string | null,
   }
   registry.lastActiveId = registry.grimoires[0].id
 
@@ -211,9 +211,9 @@ async function main() {
   console.log(`Origin: ${originCount} objects`)
   console.log(`Total:  ${finalKeys.length} objects`)
 
-  const regRaw = await readText(`${META_PREFIX}/grimoires.json`)
+  const regRaw = (await readText(`${META_PREFIX}/grimoires.json`)) ?? '{}'
   const reg = JSON.parse(regRaw)
-  console.log(`Registry: ${reg.grimoires.map((g) => g.name).join(', ')}`)
+  console.log(`Registry: ${reg.grimoires.map((g: { name: string }) => g.name).join(', ')}`)
   console.log('\nDone!')
 }
 
