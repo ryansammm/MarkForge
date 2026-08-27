@@ -3,6 +3,7 @@ import { FsBucket } from './fs-bucket'
 import { R2Bucket, r2ConfigFromEnv } from './r2-bucket'
 import { WorkspaceStore } from './workspace-store'
 import { readRegistry } from './grimoire'
+import { devLog } from './dev-log'
 
 /**
  * Picks a storage backend.
@@ -35,18 +36,54 @@ export function getStore(): WorkspaceStore {
  */
 export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceStore> {
   const existing = grimoireStores.get(grimoireId)
-  if (existing) return existing
+  if (existing) {
+    devLog.info('store', 'grimoire-cached', { grimoireId })
+    return existing
+  }
 
+  devLog.info('store', 'grimoire-creating', { grimoireId })
   const bucket = createBucket()
+  devLog.info('store', 'grimoire-reading-registry')
   const registry = await readRegistry(bucket)
   const grimoire = registry.grimoires.find((g) => g.id === grimoireId)
-  if (!grimoire) throw new Error(`Grimoire not found: ${grimoireId}`)
+  if (!grimoire) {
+    devLog.error('store', 'grimoire-not-found', { grimoireId, available: registry.grimoires.map(g => g.id) })
+    const err = new Error(`Grimoire not found: ${grimoireId}`)
+    ;(err as any).code = 'GRIMOIRE_NOT_FOUND'
+    throw err
+  }
 
+  // One-time migration: if this is the only grimoire and root has orphaned files, pull them in
+  if (registry.grimoires.length === 1) {
+    const grimoireKeys = await bucket.listKeys(grimoire.name)
+    const rootKeys = await bucket.listKeys()
+    const orphaned = rootKeys.filter((k) => !k.startsWith(grimoire.name + '/'))
+    if (orphaned.length > 0 && grimoireKeys.length === 0) {
+      devLog.info('store', 'migrate-orphaned', { count: orphaned.length })
+      for (const key of orphaned) {
+        const content = await bucket.readText(key)
+        if (content !== null) {
+          await bucket.writeText(grimoire.name + '/' + key, content)
+        }
+      }
+    }
+  }
+
+  devLog.info('store', 'grimoire-creating-store', { name: grimoire.name })
   const store = new WorkspaceStore(bucket, {
     grimoireId: grimoire.id,
     grimoireName: grimoire.name,
   })
+
+  // Auto-reindex if index doesn't exist yet (new grimoire or migration)
+  const existingIndex = await bucket.readMeta(`_grimoires/${grimoire.id}/index.json`)
+  if (!existingIndex) {
+    devLog.info('store', 'grimoire-auto-reindex', { grimoireId, name: grimoire.name })
+    await store.reindex()
+  }
+
   grimoireStores.set(grimoireId, store)
+  devLog.info('store', 'grimoire-store-ready', { grimoireId })
   return store
 }
 

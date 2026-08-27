@@ -126,6 +126,10 @@ function cloneIndex(index: WorkspaceIndex): WorkspaceIndex {
 
 export function WorkspaceApp() {
   const [indexData, setIndexData] = useState<WorkspaceIndex | null>(null)
+  const [devLogs, setDevLogs] = useState<string[]>([])
+  const pushLog = useCallback((msg: string) => {
+    setDevLogs((prev) => [...prev, `${new Date().toLocaleTimeString()} ${msg}`])
+  }, [])
   /**
    * Which documents are open, and where each has been.
    *
@@ -240,12 +244,15 @@ export function WorkspaceApp() {
   }, [fileStore, activeGrimoireId])
 
   const handleSelectGrimoire = useCallback((id: string) => {
+    // Skip if selecting the same grimoire
+    if (id === activeGrimoireId) return
+    setDevLogs([])
     setActiveGrimoireId(id)
     setActiveGrimoire(id)
     // Reload index for the new grimoire
     setIndexData(null)
     setLoading(true)
-  }, [])
+  }, [activeGrimoireId])
 
   /** Reading or editing, for the tab on screen. */
   const setMode = useCallback(
@@ -256,7 +263,9 @@ export function WorkspaceApp() {
   useEffect(() => {
     async function loadWorkspaceData() {
       try {
+        pushLog(`Fetching index${activeGrimoireId ? ` (grimoire: ${activeGrimoireId})` : ' (default)'}`)
         const index = await fileStore.getIndex()
+        pushLog(`Index loaded: ${Object.keys(index.documents).length} docs, ${index.tree.length} tree items`)
         setIndexData(index)
 
         // Restored here rather than inside the hook because deciding what still
@@ -264,6 +273,7 @@ export function WorkspaceApp() {
         // since the last session are dropped on the way in.
         const restored = readStoredTabs((path) => path in index.documents)
         if (restored) {
+          pushLog(`Restored ${restored.tabs.length} tabs`)
           dispatchTabs({ type: 'restore', state: restored })
           return
         }
@@ -271,13 +281,21 @@ export function WorkspaceApp() {
         const paths = Object.keys(index.documents)
         if (paths.length > 0) dispatchTabs({ type: 'open', path: paths[0] })
       } catch (err) {
+        // Stale grimoire ID in localStorage — clear and let GrimoireSwitcher re-select
+        if ((err as any)?.code === 'GRIMOIRE_NOT_FOUND') {
+          pushLog('Grimoire not found — clearing stale selection')
+          setActiveGrimoireId(null)
+          setActiveGrimoire(null)
+          return
+        }
+        pushLog(`Error: ${err instanceof Error ? err.message : String(err)}`)
         console.error('Failed to load workspace index:', err)
       } finally {
         setLoading(false)
       }
     }
     loadWorkspaceData()
-  }, [fileStore, dispatchTabs])
+  }, [fileStore, dispatchTabs, activeGrimoireId, pushLog])
 
   /**
    * Warns when writes will not survive.
@@ -1013,6 +1031,13 @@ export function WorkspaceApp() {
         <div className="flex flex-col items-center gap-3">
           <div className="size-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
           <p className="text-xs text-muted-foreground">Loading workspace index...</p>
+          {devLogs.length > 0 && (
+            <div className="mt-2 max-w-sm rounded-md border bg-muted/50 p-2 font-mono text-[10px] text-muted-foreground">
+              {devLogs.map((log, i) => (
+                <div key={i}>{log}</div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     )

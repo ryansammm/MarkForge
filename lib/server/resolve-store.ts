@@ -1,6 +1,7 @@
 import { type NextRequest } from 'next/server'
 import { getStore, getGrimoireStore } from '@/lib/server/store'
 import type { WorkspaceStore } from '@/lib/server/workspace-store'
+import { devLog } from './dev-log'
 
 /**
  * Resolves the workspace store for the current request.
@@ -10,6 +11,12 @@ import type { WorkspaceStore } from '@/lib/server/workspace-store'
  */
 export async function resolveStore(request: NextRequest): Promise<WorkspaceStore> {
   const grimoireId = request.headers.get('x-grimoire-id')
-  if (grimoireId) return getGrimoireStore(grimoireId)
+  if (grimoireId) {
+    devLog.info('resolve-store', 'grimoire-request', { grimoireId })
+    const store = await getGrimoireStore(grimoireId)
+    devLog.info('resolve-store', 'grimoire-store-ready')
+    return store
+  }
+  devLog.info('resolve-store', 'default-store')
   return getStore()
 }

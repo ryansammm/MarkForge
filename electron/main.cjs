@@ -75,7 +75,7 @@ function startServer() {
       R2_SECRET_ACCESS_KEY: '',
       R2_BUCKET: '',
     }
-    server = spawn(npx, ['next', 'start', '-p', String(PORT)], {
+    server = spawn(npx, ['next', 'dev', '-p', String(PORT)], {
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, ...localOnly, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },
       stdio: ['ignore', 'pipe', 'pipe'],

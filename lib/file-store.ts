@@ -175,7 +175,17 @@ export class StaticFileStore implements FileStore {
 
       this.fetchPromise = fetch(this.indexUrl, { headers })
         .then((res) => {
-          if (!res.ok) throw new Error(`Failed to load index.json: ${res.statusText}`)
+          if (!res.ok) {
+            return res.json().then((body: any) => {
+              const err = new Error(body?.error || `Failed to load index.json: ${res.statusText}`)
+              ;(err as any).status = res.status
+              ;(err as any).code = body?.code
+              throw err
+            }).catch((parseErr) => {
+              if ((parseErr as any)?.status) throw parseErr
+              throw new Error(`Failed to load index.json: ${res.statusText}`)
+            })
+          }
           return res.json() as Promise<WorkspaceIndex>
         })
         .then((index) => {

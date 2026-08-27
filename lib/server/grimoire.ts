@@ -8,6 +8,7 @@
 
 import { randomUUID } from 'crypto'
 import type { Bucket } from './bucket'
+import { devLog } from './dev-log'
 
 export interface Grimoire {
   id: string
@@ -48,9 +49,11 @@ export async function createGrimoire(
   bucket: Bucket,
   name: string
 ): Promise<Grimoire> {
+  devLog.info('grimoire', 'create-read-registry')
   const registry = await readRegistry(bucket)
 
   if (registry.grimoires.some((g) => g.name === name)) {
+    devLog.warn('grimoire', 'create-already-exists', { name })
     throw new Error(`Grimoire "${name}" already exists`)
   }
 
@@ -64,10 +67,31 @@ export async function createGrimoire(
 
   registry.grimoires.push(grimoire)
   registry.lastActiveId = grimoire.id
+  devLog.info('grimoire', 'create-write-registry')
   await writeRegistry(bucket, registry)
 
   // Create the notes directory for the new grimoire
+  devLog.info('grimoire', 'create-folder', { name })
   await bucket.createFolder(name)
+
+  // First grimoire: migrate orphaned root files into it
+  if (registry.grimoires.length === 1) {
+    devLog.info('grimoire', 'migrate-root-files', { name })
+    const rootKeys = await bucket.listKeys()
+    let migrated = 0
+    for (const key of rootKeys) {
+      // Skip files already inside a grimoire folder
+      if (key.startsWith(name + '/')) continue
+      const content = await bucket.readText(key)
+      if (content === null) continue
+      const dest = name + '/' + key
+      await bucket.writeText(dest, content)
+      migrated++
+    }
+    devLog.info('grimoire', 'migrate-done', { migrated })
+  }
+
+  devLog.info('grimoire', 'create-done', { id: grimoire.id })
 
   return grimoire
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import { BookOpen, ChevronDown, Plus, Pencil, Trash2, Check } from 'lucide-react'
+import { BookOpen, ChevronDown, Plus, Pencil, Trash2, Check, Settings, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +29,7 @@ export function GrimoireSwitcher({
   onCreated,
 }: GrimoireSwitcherProps) {
   const [open, setOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [grimoires, setGrimoires] = useState<Grimoire[]>([])
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -131,22 +132,37 @@ export function GrimoireSwitcher({
 
   return (
     <div className="relative px-2 py-1" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm transition-colors hover:bg-sidebar-accent"
-      >
-        <BookOpen className="size-4 shrink-0 text-muted-foreground" />
-        <span className="min-w-0 flex-1 truncate text-left font-medium">
-          {activeGrimoire?.name ?? 'Select Grimoire'}
-        </span>
-        <ChevronDown
-          className={cn(
-            'size-3.5 shrink-0 text-muted-foreground transition-transform',
-            open && 'rotate-180'
-          )}
-        />
-      </button>
+      <div className="flex h-8 items-center gap-1 rounded-md px-2 text-sm transition-colors hover:bg-sidebar-accent">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="flex min-w-0 flex-1 items-center gap-2"
+        >
+          <BookOpen className="size-4 shrink-0 text-muted-foreground" />
+          <span className="min-w-0 flex-1 truncate text-left font-medium">
+            {activeGrimoire?.name ?? 'Select Grimoire'}
+          </span>
+          <ChevronDown
+            className={cn(
+              'size-3.5 shrink-0 text-muted-foreground transition-transform',
+              open && 'rotate-180'
+            )}
+          />
+        </button>
+        {activeGrimoire && (
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsOpen(!settingsOpen)
+              setOpen(false)
+            }}
+            className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+            title="Grimoire settings"
+          >
+            <Settings className="size-3.5" />
+          </button>
+        )}
+      </div>
 
       {open && (
         <div className="absolute left-2 right-2 top-full z-50 mt-1 rounded-lg border bg-popover shadow-md">
@@ -236,6 +252,81 @@ export function GrimoireSwitcher({
                 <span>New Grimoire…</span>
               </button>
             )}
+          </div>
+        </div>
+      )}
+
+      {settingsOpen && activeGrimoire && (
+        <div className="absolute left-2 right-2 top-full z-50 mt-1 rounded-lg border bg-popover p-3 shadow-md">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Grimoire Settings</span>
+            <button
+              type="button"
+              onClick={() => setSettingsOpen(false)}
+              className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="mb-1 block text-xs text-muted-foreground">Name</label>
+              <input
+                type="text"
+                defaultValue={activeGrimoire.name}
+                onBlur={async (e) => {
+                  const newName = e.target.value.trim()
+                  if (!newName || newName === activeGrimoire.name) return
+                  const res = await fetch(`/api/grimoires/${activeGrimoire.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newName }),
+                  })
+                  if (res.ok) {
+                    setGrimoires((prev) => prev.map((g) => g.id === activeGrimoire.id ? { ...g, name: newName } : g))
+                    toast.success('Renamed')
+                  } else {
+                    const err = await res.json()
+                    toast.error(err.error || 'Failed to rename')
+                    e.target.value = activeGrimoire.name
+                  }
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
+                }}
+                className="h-7 w-full rounded border bg-background px-2 text-sm outline-none ring-ring/50 focus:ring-2"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Calendar className="size-3" />
+              <span>Created {new Date(activeGrimoire.createdAt).toLocaleDateString()}</span>
+            </div>
+
+            <div className="border-t pt-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!confirm(`Delete grimoire "${activeGrimoire.name}"? This cannot be undone.`)) return
+                  const res = await fetch(`/api/grimoires/${activeGrimoire.id}`, { method: 'DELETE' })
+                  if (res.ok) {
+                    setGrimoires((prev) => prev.filter((g) => g.id !== activeGrimoire.id))
+                    const next = grimoires.find((g) => g.id !== activeGrimoire.id)
+                    if (next) onSelect(next.id)
+                    setSettingsOpen(false)
+                    toast.success(`Deleted "${activeGrimoire.name}"`)
+                  } else {
+                    const err = await res.json()
+                    toast.error(err.error || 'Failed to delete')
+                  }
+                }}
+                className="flex h-7 w-full items-center gap-2 rounded px-2 text-sm text-destructive transition-colors hover:bg-destructive/10"
+              >
+                <Trash2 className="size-3.5" />
+                <span>Delete Grimoire</span>
+              </button>
+            </div>
           </div>
         </div>
       )}
