@@ -2,7 +2,7 @@ import type { MarkdownDocument, WriteResult } from './file-store'
 import type { RenamePlan, RenameReport } from './server/rename'
 import type { TrashEntry } from './trash'
 import type { ShareScope, ShareSummary } from './share'
-import { grimoireHeaders } from './grimoire-client'
+import { getActiveGrimoireId, grimoireHeaders } from './grimoire-client'
 
 /**
  * Typed client for the workspace routes.
@@ -118,9 +118,15 @@ export function uploadAsset(file: File) {
  * Obsidian or a git checkout would resolve — so every renderer has to map it through
  * here to get something a browser can load. That mapping is the only place the app's
  * URL shape is allowed to leak into a view.
+ *
+ * When a grimoire is active its id rides along as a query param, because an `<img src>`
+ * built from the result cannot set a request header; the assets route resolves the
+ * grimoire store from `?grimoireId=`.
  */
 export function assetUrl(path: string): string {
-  return `/api/assets?path=${encodeURIComponent(path)}`
+  const grimoireId = getActiveGrimoireId()
+  const base = `/api/assets?path=${encodeURIComponent(path)}`
+  return grimoireId ? `${base}&grimoireId=${encodeURIComponent(grimoireId)}` : base
 }
 
 /**

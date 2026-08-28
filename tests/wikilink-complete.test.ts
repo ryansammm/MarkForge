@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import {
   MAX_SUGGESTIONS,
   rankCandidates,
@@ -167,6 +168,6 @@ export function runWikilinkCompleteTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runWikilinkCompleteTests() ? 0 : 1)
-}
+it('wikilink-complete suite', async () => {
+  if (!(await runWikilinkCompleteTests())) throw new Error('wikilink-complete suite FAILED')
+}, 60000)

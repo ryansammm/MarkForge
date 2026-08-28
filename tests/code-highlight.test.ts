@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { highlightCode, languageLabel, MAX_HIGHLIGHT_BYTES } from '../components/workspace/code-highlight'
 
 /**
@@ -171,6 +172,6 @@ export async function runCodeHighlightTests(): Promise<boolean> {
   return false
 }
 
-if (require.main === module) {
-  runCodeHighlightTests().then((ok) => process.exit(ok ? 0 : 1))
-}
+it('code-highlight suite', async () => {
+  if (!(await runCodeHighlightTests())) throw new Error('code-highlight suite FAILED')
+}, 60000)

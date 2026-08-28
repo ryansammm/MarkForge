@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { MemoryBucket } from '../lib/server/bucket'
 import { WorkspaceStore } from '../lib/server/workspace-store'
 import { SearchIndex, SEARCH_FILE, snippetFor } from '../lib/server/search'
@@ -281,6 +282,6 @@ export async function runSearchTests(): Promise<boolean> {
   return false
 }
 
-if (require.main === module) {
-  runSearchTests().then((ok) => process.exit(ok ? 0 : 1))
-}
+it('search suite', async () => {
+  if (!(await runSearchTests())) throw new Error('search suite FAILED')
+}, 60000)

@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import {
   createTabsReducer,
   EMPTY_TABS,
@@ -506,8 +507,8 @@ function runTabTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runTabTests() ? 0 : 1)
-}
+it('tabs suite', async () => {
+  if (!(await runTabTests())) throw new Error('tabs suite FAILED')
+}, 60000)
 
 export { runTabTests }

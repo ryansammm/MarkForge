@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSearchIndex } from '@/lib/server/search'
+import { resolveStore } from '@/lib/server/resolve-store'
 import { captureError } from '@/lib/server/observability'
 import { WRITE_LIMIT, checkRateLimit, clientKey } from '@/lib/server/rate-limit'
 
@@ -36,7 +37,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ hits: [] }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
-    const hits = await getSearchIndex().query(term, limit)
+    // Search the active grimoire (via X-Grimoire-Id / ?grimoireId), not always root.
+    const store = await resolveStore(request)
+    const hits = await getSearchIndex(store).query(term, limit)
     return NextResponse.json({ hits }, { headers: { 'Cache-Control': 'no-store' } })
   } catch (err) {
     captureError(err, { scope: 'api/search', event: 'query-failed' })

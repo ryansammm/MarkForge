@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -899,8 +900,8 @@ async function run() {
   return false
 }
 
-if (require.main === module) {
-  run().then((ok) => process.exit(ok ? 0 : 1))
-}
+it('assets suite', async () => {
+  if (!(await run())) throw new Error('assets suite FAILED')
+}, 60000)
 
 export { run as runAssetTests }

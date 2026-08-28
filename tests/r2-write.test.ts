@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { R2Bucket } from '../lib/server/r2-bucket'
 import { WorkspaceStore, computeEtag } from '../lib/server/workspace-store'
 import { ConflictError } from '../lib/file-store'
@@ -291,9 +292,8 @@ export async function runR2WriteTests(): Promise<boolean> {
   return false
 }
 
-if (require.main === module) {
-  runR2WriteTests().then((ok) => {
-    if (skipped) process.exit(0)
-    process.exit(ok ? 0 : 1)
-  })
-}
+it('r2-write suite', async () => {
+  const ok = await runR2WriteTests()
+  if (skipped) return // no R2_TEST_BUCKET — reported as skipped, not a failure
+  if (!ok) throw new Error('r2-write suite FAILED')
+}, 120000)

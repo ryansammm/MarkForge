@@ -1,3 +1,4 @@
+import path from 'path'
 import type { Bucket } from './bucket'
 import { FsBucket } from './fs-bucket'
 import { R2Bucket, r2ConfigFromEnv } from './r2-bucket'
@@ -58,27 +59,38 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
     throw new GrimoireNotFoundError(`Grimoire not found: ${grimoireId}`)
   }
 
-  // An external grimoire backs its own folder. Root a dedicated bucket there so
-  // document keys are relative to that folder (no "<name>/" prefix); the index
-  // still lives in the shared meta namespace.
-  const external = Boolean(grimoire.path && process.env.MARKFORGE_OFFLINE === '1')
-  const grimoireBucket = external
-    ? new FsBucket({ notesDir: grimoire.path!, metaDir: process.env.META_DIR })
-    : bucket
+  // Every offline grimoire backs its own folder. An external grimoire points at a
+  // real folder the user owns; a subfolder grimoire lives under the shared notes
+  // root. Rooting a dedicated bucket there means document keys are relative to that
+  // folder (no "<name>/" prefix), which is what keeps a grimoire's writes out of the
+  // ROOT namespace — the shared-bucket + grimoireName-prefix model leaked every write
+  // into root because the prefix was only ever applied by reindex(), never by
+  // read/write/move. The index still lives in the shared meta namespace either way.
+  const offline = process.env.MARKFORGE_OFFLINE === '1'
+  const external = Boolean(grimoire.path && offline)
+  const rootNotesDir = process.env.NOTES_DIR || path.join(process.cwd(), 'notes')
+  const grimoireBucket =
+    external || offline
+      ? new FsBucket({
+          notesDir: external ? grimoire.path! : path.join(rootNotesDir, grimoire.name),
+          metaDir: process.env.META_DIR,
+        })
+      : bucket
 
-  // One-time migration: if this is the only grimoire and root has orphaned files, pull them in.
-  // Only meaningful for the legacy subfolder model.
-  if (!external && registry.grimoires.length === 1) {
-    const grimoireKeys = await grimoireBucket.listKeys(grimoire.name)
-    const rootKeys = await grimoireBucket.listKeys()
-    const orphaned = rootKeys.filter((k) => !k.startsWith(grimoire.name + '/'))
-    if (orphaned.length > 0 && grimoireKeys.length === 0) {
+  // Legacy orphan pull: when this is the only grimoire, its folder is empty, and the
+  // shared notes root still has loose top-level notes (from before grimoires existed),
+  // adopt them. Operates across the two buckets — the root bucket that can see the
+  // loose notes, and the grimoire's dedicated bucket that receives them.
+  if (offline && !external && registry.grimoires.length === 1) {
+    const orphaned = (await bucket.listKeys()).filter(
+      (k) => !k.includes('/') && k.toLowerCase().endsWith('.md')
+    )
+    const hasContent = (await grimoireBucket.listKeys()).length > 0
+    if (orphaned.length > 0 && !hasContent) {
       devLog.info('store', 'migrate-orphaned', { count: orphaned.length })
       for (const key of orphaned) {
-        const content = await grimoireBucket.readText(key)
-        if (content !== null) {
-          await grimoireBucket.writeText(grimoire.name + '/' + key, content)
-        }
+        const content = await bucket.readText(key)
+        if (content !== null) await grimoireBucket.writeText(key, content)
       }
     }
   }
@@ -86,7 +98,6 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
   devLog.info('store', 'grimoire-creating-store', { name: grimoire.name, external })
   const store = new WorkspaceStore(grimoireBucket, {
     grimoireId: grimoire.id,
-    grimoireName: external ? '' : grimoire.name,
   })
 
   // Auto-reindex if index doesn't exist yet (new grimoire or migration)

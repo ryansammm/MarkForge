@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -403,13 +404,10 @@ async function run() {
   return false
 }
 
-run()
-  .then((ok) => {
+it('API suite', async () => {
+  try {
+    if (!(await run())) throw new Error('API suite FAILED')
+  } finally {
     fs.rmSync(workspace, { recursive: true, force: true })
-    process.exit(ok ? 0 : 1)
-  })
-  .catch((err) => {
-    console.error(err)
-    fs.rmSync(workspace, { recursive: true, force: true })
-    process.exit(1)
-  })
+  }
+}, 60000)

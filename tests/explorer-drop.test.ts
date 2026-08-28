@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { collectDroppedFiles } from '../components/workspace/explorer-drop'
 
 /**
@@ -103,7 +104,6 @@ async function main() {
   console.log('explorer-drop tests passed')
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+it('explorer-drop suite', async () => {
+  await main()
+}, 60000)

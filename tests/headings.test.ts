@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { extractHeadings } from '../lib/markdown/headings'
 
 /**
@@ -141,6 +142,6 @@ export function runHeadingTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runHeadingTests() ? 0 : 1)
-}
+it('headings suite', async () => {
+  if (!(await runHeadingTests())) throw new Error('headings suite FAILED')
+}, 60000)

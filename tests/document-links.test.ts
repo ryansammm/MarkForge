@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { classifyHref, resolveRelativePath } from '../lib/resolve-link'
 import type { MarkdownDocument } from '../lib/file-store'
 
@@ -184,6 +185,6 @@ export function runDocumentLinkTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runDocumentLinkTests() ? 0 : 1)
-}
+it('document-links suite', async () => {
+  if (!(await runDocumentLinkTests())) throw new Error('document-links suite FAILED')
+}, 60000)

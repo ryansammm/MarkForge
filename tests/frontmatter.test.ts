@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import {
   splitFrontmatter,
   validateFrontmatter,
@@ -221,6 +222,6 @@ export function runFrontmatterTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runFrontmatterTests() ? 0 : 1)
-}
+it('frontmatter suite', async () => {
+  if (!(await runFrontmatterTests())) throw new Error('frontmatter suite FAILED')
+}, 60000)

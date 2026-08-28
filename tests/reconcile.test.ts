@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { minimalEdit, reconcileEdit } from '../components/workspace/reconcile'
 
 /**
@@ -172,6 +173,6 @@ export function runReconcileTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runReconcileTests() ? 0 : 1)
-}
+it('reconcile suite', async () => {
+  if (!(await runReconcileTests())) throw new Error('reconcile suite FAILED')
+}, 60000)

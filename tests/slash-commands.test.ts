@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { EditorState } from '@codemirror/state'
 import { CompletionContext } from '@codemirror/autocomplete'
 import {
@@ -70,7 +71,6 @@ async function main() {
   console.log('slash-commands tests passed')
 }
 
-main().catch((err) => {
-  console.error(err)
-  process.exit(1)
-})
+it('slash-commands suite', async () => {
+  await main()
+}, 60000)

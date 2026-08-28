@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import vm from 'node:vm'
@@ -321,8 +322,8 @@ async function run() {
   return false
 }
 
-if (require.main === module) {
-  run().then((ok) => process.exit(ok ? 0 : 1))
-}
+it('service-worker suite', async () => {
+  if (!(await run())) throw new Error('service-worker suite FAILED')
+}, 60000)
 
 export { run as runServiceWorkerTests }

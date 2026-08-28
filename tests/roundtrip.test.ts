@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import * as fs from 'fs'
 import * as path from 'path'
 import { formatDocument, parseMarkdown, getWikiLinks } from '../lib/markdown/serializer'
@@ -205,6 +206,6 @@ export function runRoundtripTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runRoundtripTests() ? 0 : 1)
-}
+it('roundtrip suite', async () => {
+  if (!(await runRoundtripTests())) throw new Error('roundtrip suite FAILED')
+}, 60000)

@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { defaultUrlTransform } from 'react-markdown'
 import {
   isWorkspaceHref,
@@ -151,6 +152,6 @@ export function runWikilinkHrefTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runWikilinkHrefTests() ? 0 : 1)
-}
+it('wikilink-href suite', async () => {
+  if (!(await runWikilinkHrefTests())) throw new Error('wikilink-href suite FAILED')
+}, 60000)

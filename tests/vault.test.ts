@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
@@ -933,6 +934,6 @@ async function run() {
 
 export const runVaultTests = run
 
-if (require.main === module) {
-  run().then((ok) => process.exit(ok ? 0 : 1))
-}
+it('vault suite', async () => {
+  if (!(await run())) throw new Error('vault suite FAILED')
+}, 60000)

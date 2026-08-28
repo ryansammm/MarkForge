@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import {
   MAX_SCALE,
   clampPan,
@@ -340,6 +341,6 @@ export function runImageZoomTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runImageZoomTests() ? 0 : 1)
-}
+it('image-zoom suite', async () => {
+  if (!(await runImageZoomTests())) throw new Error('image-zoom suite FAILED')
+}, 60000)

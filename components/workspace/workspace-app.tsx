@@ -27,6 +27,7 @@ import { applyAddDir, applyRemove, applyRemoveDir, applyUpsert } from '@/lib/ind
 import { useDocumentSave } from '@/lib/use-document-save'
 import { readStoredTabs, useTabSession } from '@/lib/use-tab-session'
 import {
+  EMPTY_TABS,
   IN_PLACE,
   canGoBack,
   canGoForward,
@@ -56,7 +57,7 @@ import { PwaInstallButton } from '@/components/pwa-install'
 import { TRASH_RETENTION_DAYS } from '@/lib/trash'
 import { usePersistedFlag, usePersistedSize } from '@/lib/use-persisted'
 import { cn } from '@/lib/utils'
-import { getActiveGrimoireId, setActiveGrimoireId } from '@/lib/grimoire-client'
+import { getActiveGrimoireId, setActiveGrimoireId, grimoireHeaders } from '@/lib/grimoire-client'
 
 /** The context rail's width, and the range its handle can drag through. */
 const RAIL_WIDTH = { default: 288, min: 220, max: 560 } as const
@@ -249,10 +250,21 @@ export function WorkspaceApp() {
     setDevLogs([])
     setActiveGrimoireId(id)
     setActiveGrimoire(id)
+    // Drop the previous grimoire's cached bytes and open tabs so no stale content
+    // from another grimoire surfaces (the read effect only refetches when
+    // freshPath !== activePath, which switching tabs would otherwise skip).
+    // loadWorkspaceData then refetches the index for the new grimoire.
+    setSources({})
+    setFreshPath(null)
+    setConflicted(new Set())
+    setSourceError(null)
+    setReconciled(null)
+    scrollRef.current = {}
+    dispatchTabs({ type: 'restore', state: EMPTY_TABS })
     // Reload index for the new grimoire
     setIndexData(null)
     setLoading(true)
-  }, [activeGrimoireId])
+  }, [activeGrimoireId, dispatchTabs])
 
   /** Reading or editing, for the tab on screen. */
   const setMode = useCallback(
@@ -799,7 +811,7 @@ export function WorkspaceApp() {
    * is small; refetching it is the honest option.
    */
   const reloadIndex = useCallback(async () => {
-    const response = await fetch('/api/index', { cache: 'no-store' })
+    const response = await fetch('/api/index', { cache: 'no-store', headers: grimoireHeaders() })
     if (!response.ok) return
     setIndexData((await response.json()) as WorkspaceIndex)
   }, [])

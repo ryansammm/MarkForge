@@ -110,12 +110,13 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const result = await (await resolveStore(request)).write(path, body.content, { ifMatch: ifMatch(request) })
+    const store = await resolveStore(request)
+    const result = await store.write(path, body.content, { ifMatch: ifMatch(request) })
 
     // So a document is findable the instant it is saved. Every other mutation — a
     // rename, a folder move, a restore, a write on another instance — is caught by
     // the search index reconciling against document etags a few seconds later.
-    getSearchIndex().noteWritten(
+    getSearchIndex(store).noteWritten(
       result.path,
       result.document.content ?? '',
       result.document.title,
@@ -135,8 +136,9 @@ export async function DELETE(request: NextRequest) {
     const limited = enforceWriteRate(request)
     if (limited) return limited
 
-    const result = await (await resolveStore(request)).remove(requirePath(request), { ifMatch: ifMatch(request) })
-    getSearchIndex().noteRemoved(result.path)
+    const store = await resolveStore(request)
+    const result = await store.remove(requirePath(request), { ifMatch: ifMatch(request) })
+    getSearchIndex(store).noteRemoved(result.path)
     // `trashId` is what makes the delete undoable — see /api/trash.
     return NextResponse.json({ ok: true, ...result })
   } catch (err) {

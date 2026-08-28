@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { EditorSelection, EditorState, type StateCommand, type Transaction } from '@codemirror/state'
 import { markdown, markdownLanguage } from '@codemirror/lang-markdown'
 import { ensureSyntaxTree } from '@codemirror/language'
@@ -378,6 +379,6 @@ export function runLivePreviewTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runLivePreviewTests() ? 0 : 1)
-}
+it('live-preview suite', async () => {
+  if (!(await runLivePreviewTests())) throw new Error('live-preview suite FAILED')
+}, 60000)

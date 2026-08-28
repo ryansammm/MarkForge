@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import { captureError, log, logSecurityEvent, redact, scrubMessage } from '../lib/server/observability'
 
 /**
@@ -178,6 +179,6 @@ export function runObservabilityTests(): boolean {
   return false
 }
 
-if (require.main === module) {
-  process.exit(runObservabilityTests() ? 0 : 1)
-}
+it('observability suite', async () => {
+  if (!(await runObservabilityTests())) throw new Error('observability suite FAILED')
+}, 60000)

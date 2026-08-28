@@ -1,3 +1,4 @@
+import { it } from 'vitest'
 import {
   SESSION_TTL_SECONDS,
   mintSession,
@@ -220,6 +221,6 @@ export async function runSessionTests(): Promise<boolean> {
   return false
 }
 
-if (require.main === module) {
-  runSessionTests().then((ok) => process.exit(ok ? 0 : 1))
-}
+it('session suite', async () => {
+  if (!(await runSessionTests())) throw new Error('session suite FAILED')
+}, 60000)
