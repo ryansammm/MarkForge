@@ -69,12 +69,15 @@ function startServer() {
     // a cloud-backed one, every save round-tripping to another hemisphere. Next
     // only fills variables that are NOT already present, so pre-setting empties
     // pins them off; the backend treats '' as unset.
-    const localOnly = {
-      R2_ACCOUNT_ID: '',
-      R2_ACCESS_KEY_ID: '',
-      R2_SECRET_ACCESS_KEY: '',
-      R2_BUCKET: '',
-    }
+    // Offline is the default. Set MARKFORGE_ONLINE=1 to keep R2 from .env (cloud mode).
+    const localOnly = process.env.MARKFORGE_ONLINE === '1'
+      ? {}
+      : {
+          R2_ACCOUNT_ID: '',
+          R2_ACCESS_KEY_ID: '',
+          R2_SECRET_ACCESS_KEY: '',
+          R2_BUCKET: '',
+        }
     server = spawn(npx, ['next', 'dev', '-p', String(PORT)], {
       cwd: path.join(__dirname, '..'),
       env: { ...process.env, ...localOnly, NOTES_DIR: NOTES_DIR, META_DIR: META_DIR },

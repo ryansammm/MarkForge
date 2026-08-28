@@ -1,6 +1,6 @@
 @echo off
 rem MarkForge desktop dev mode - Electron + Next.js dev server
-cd /d D:\Origin\Library\markdown-workspace
+cd /d "%~dp0"
 
 rem Kill ALL orphan node processes (next dev servers, stale electron, etc.)
 taskkill /IM node.exe /F >nul 2>&1
