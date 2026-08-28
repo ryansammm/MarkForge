@@ -32,6 +32,19 @@ function logError(where, err) {
 process.on('uncaughtException', (e) => logError('uncaughtException', e))
 process.on('unhandledRejection', (e) => logError('unhandledRejection', e))
 
+// Startup trace: shows exactly how far the app gets before any crash.
+function trace(msg) {
+  try {
+    fs.appendFileSync(ERROR_LOG, `[${new Date().toISOString()}] trace: ${msg}\n`)
+  } catch {
+    // ignore
+  }
+}
+// Most common cause of an Electron window vanishing <1s on Windows is a GPU
+// process crash. Disable GPU as a first-line workaround.
+app.commandLine.appendSwitch('disable-gpu')
+trace('main.cjs loaded')
+
 // ── Grimoire root selection (full offline, local only) ──────────────────────
 function pickRootDir() {
   const res = dialog.showOpenDialogSync(null, {
@@ -192,9 +205,11 @@ ipcMain.handle('markforge:open-grimoire', async () => {
 
 async function main() {
   await app.whenReady()
+  trace('app ready')
 
   app.on('render-process-gone', (_e, _wc, details) => logError('render-process-gone', details))
   app.on('child-process-gone', (_e, details) => logError('child-process-gone', details))
+  app.on('gpu-process-crashed', (_e, killed) => logError('gpu-process-crashed', { killed }))
 
   // Grimoire folders persist in the registry under META_DIR; ensure the dirs exist.
   fs.mkdirSync(NOTES_DIR, { recursive: true })
@@ -213,15 +228,18 @@ async function main() {
   Menu.setApplicationMenu(menu)
 
   startServer(NOTES_DIR)
+  trace('server starting')
   try {
     await waitUntilReady(BASE, 60000)
   } catch (err) {
     // Silent by design: popups mid-game are worse than a dead window. The
     // failure is fully visible in the log file instead.
     console.error('[markforge] server did not become ready:', err)
+    trace('server NOT ready, quitting')
     app.quit()
     return
   }
+  trace('server ready')
 
   // First run (or every grimoire removed): let the user pick their main folder.
   // The choice is remembered across launches via the registry, not a separate file.
@@ -249,7 +267,9 @@ async function main() {
       nodeIntegration: false,
     },
   })
+  trace('window created')
   win.loadURL(BASE)
+  trace('window loading ' + BASE)
   // Surface renderer-side errors in our log - a silent console is how the
   // slash-menu bug stayed invisible for an entire session.
   win.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
