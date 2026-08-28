@@ -19,6 +19,10 @@ if not exist "node_modules" (
 )
 
 echo [MarkForge] Starting... progress is logged to markforge-launch.local.log
+
+REM Free port 3457 in case a previous crashed launch left a server behind
+for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr :3457 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
+
 if not exist ".next" (
   echo [MarkForge] Building the app (first time only, may take a minute)...
   call pnpm desktop > markforge-launch.local.log 2>&1
