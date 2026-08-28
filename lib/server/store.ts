@@ -1,3 +1,4 @@
+import path from 'path'
 import type { Bucket } from './bucket'
 import { FsBucket } from './fs-bucket'
 import { R2Bucket, r2ConfigFromEnv } from './r2-bucket'
@@ -55,26 +56,44 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
     throw new GrimoireNotFoundError(`Grimoire not found: ${grimoireId}`)
   }
 
-  // One-time migration: if this is the only grimoire and root has orphaned files, pull them in
-  if (registry.grimoires.length === 1) {
-    const grimoireKeys = await bucket.listKeys(grimoire.name)
-    const rootKeys = await bucket.listKeys()
-    const orphaned = rootKeys.filter((k) => !k.startsWith(grimoire.name + '/'))
-    if (orphaned.length > 0 && grimoireKeys.length === 0) {
+  // Local (filesystem) backend: root a dedicated bucket at the grimoire's own
+  // notes folder so document keys are relative to it (no "<name>/" prefix). This
+  // keeps a grimoire's writes out of the ROOT namespace. The old shared-bucket +
+  // grimoireName-prefix model leaked every write into root because the prefix was
+  // only applied by reindex(), never by read/write/move.
+  // Cloud (R2) cannot root a dedicated bucket per grimoire; there "grimoireName"
+  // drives a consistent key prefix instead (see WorkspaceStore.grimoireName).
+  const filesystem = !r2ConfigFromEnv()
+  const rootNotesDir = process.env.NOTES_DIR || path.join(process.cwd(), 'notes')
+  const grimoireBucket = filesystem
+    ? new FsBucket({
+        notesDir: path.join(rootNotesDir, grimoire.name),
+        metaDir: process.env.META_DIR,
+      })
+    : bucket
+
+  // Legacy orphan pull: when this is the only grimoire, its folder is empty, and the
+  // shared notes root still has loose top-level notes (from before grimoires existed),
+  // adopt them. Operates across the two buckets — the root bucket that sees the loose
+  // notes, and the grimoire's dedicated bucket that receives them.
+  if (filesystem && registry.grimoires.length === 1) {
+    const orphaned = (await bucket.listKeys()).filter(
+      (k) => !k.includes('/') && k.toLowerCase().endsWith('.md')
+    )
+    const hasContent = (await grimoireBucket.listKeys()).length > 0
+    if (orphaned.length > 0 && !hasContent) {
       devLog.info('store', 'migrate-orphaned', { count: orphaned.length })
       for (const key of orphaned) {
         const content = await bucket.readText(key)
-        if (content !== null) {
-          await bucket.writeText(grimoire.name + '/' + key, content)
-        }
+        if (content !== null) await grimoireBucket.writeText(key, content)
       }
     }
   }
 
-  devLog.info('store', 'grimoire-creating-store', { name: grimoire.name })
-  const store = new WorkspaceStore(bucket, {
+  devLog.info('store', 'grimoire-creating-store', { name: grimoire.name, filesystem })
+  const store = new WorkspaceStore(grimoireBucket, {
     grimoireId: grimoire.id,
-    grimoireName: grimoire.name,
+    grimoireName: filesystem ? '' : grimoire.name,
   })
 
   // Auto-reindex if index doesn't exist yet (new grimoire or migration)
