@@ -4,6 +4,7 @@ REM Your notes stay in local folders you choose; no account, no cloud, no R2.
 setlocal
 cd /d "%~dp0"
 set MARKFORGE_OFFLINE=1
+set ELECTRON_ENABLE_LOGGING=1
 
 where pnpm >nul 2>nul || (
   echo [MarkForge] pnpm not found. Install it first:  npm i -g pnpm
@@ -27,5 +28,5 @@ if not exist ".next" (
 
 echo.
 echo [MarkForge] MarkForge has exited. Last log lines:
-powershell -NoProfile -Command "Get-Content markforge-launch.local.log -Tail 30 -ErrorAction SilentlyContinue"
+powershell -NoProfile -Command "Get-Content markforge-launch.local.log -Tail 40 -ErrorAction SilentlyContinue"
 pause
