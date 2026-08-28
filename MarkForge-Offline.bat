@@ -20,7 +20,11 @@ if not exist "node_modules" (
 
 echo [MarkForge] Starting... progress is logged to markforge-launch.local.log
 
-REM Free port 3457 in case a previous crashed launch left a server behind
+REM Kill orphaned MarkForge processes left by a previous (crashed) run.
+REM Matched by our project path so unrelated Electron apps (Discord, VS Code) are safe.
+powershell -NoProfile -Command "$procs = Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'electron.exe' -and $_.ExecutablePath -like '*MarkForge*') -or ($_.Name -eq 'node.exe' -and $_.CommandLine -like '*next dev*' -and $_.ExecutablePath -like '*MarkForge*') }; $k = 0; foreach ($p in $procs) { try { Stop-Process -Id $p.ProcessId -Force; $k++ } catch {} }; Write-Host ('[MarkForge] killed ' + $k + ' orphan process(es)')"
+
+REM Free port 3457 in case a non-MarkForge server still holds it
 for /f "tokens=5" %%a in ('netstat -ano 2^>nul ^| findstr :3457 ^| findstr LISTENING') do taskkill /f /pid %%a >nul 2>&1
 
 if not exist ".next" (
