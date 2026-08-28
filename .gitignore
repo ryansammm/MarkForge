@@ -52,3 +52,16 @@ ci-failed.log
 
 # opencode internal session state — churns every session, not source
 .opencode/
+
+# Local test/E2E artifacts — logs, screenshots, and transient outputs, not source
+bat_out.log
+e2e-server.log
+e2e.log
+typecheck.log
+verify-fase4.log
+verify-fase4.txt
+markforge-smoke.png
+markforge-smoke.result.json
+run.log
+run.err
+opencode-e2e/
