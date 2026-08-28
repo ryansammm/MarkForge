@@ -64,10 +64,11 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
   // Cloud (R2) cannot root a dedicated bucket per grimoire; there "grimoireName"
   // drives a consistent key prefix instead (see WorkspaceStore.grimoireName).
   const filesystem = !r2ConfigFromEnv()
+  const external = Boolean(grimoire.path && filesystem)
   const rootNotesDir = process.env.NOTES_DIR || path.join(process.cwd(), 'notes')
   const grimoireBucket = filesystem
     ? new FsBucket({
-        notesDir: path.join(rootNotesDir, grimoire.name),
+        notesDir: external ? grimoire.path! : path.join(rootNotesDir, grimoire.name),
         metaDir: process.env.META_DIR,
       })
     : bucket
@@ -76,7 +77,7 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
   // shared notes root still has loose top-level notes (from before grimoires existed),
   // adopt them. Operates across the two buckets — the root bucket that sees the loose
   // notes, and the grimoire's dedicated bucket that receives them.
-  if (filesystem && registry.grimoires.length === 1) {
+  if (filesystem && !external && registry.grimoires.length === 1) {
     const orphaned = (await bucket.listKeys()).filter(
       (k) => !k.includes('/') && k.toLowerCase().endsWith('.md')
     )

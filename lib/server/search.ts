@@ -68,6 +68,17 @@ export class SearchIndex {
 
   constructor(private readonly store: WorkspaceStore) {}
 
+  /**
+   * The corpus snapshot key, scoped per grimoire.
+   *
+   * Root keeps the historical `search.json`. Grimoires get their own key so their
+   * snapshots (and the shared/meta keyspace they live in) never collide with each
+   * other or with the root corpus.
+   */
+  private get snapshotKey(): string {
+    return this.store.grimoireId ? `_grimoires/${this.store.grimoireId}/search.json` : SEARCH_FILE
+  }
+
   /** Records a write immediately, so a document is findable the moment it is saved. */
   noteWritten(path: string, body: string, title: string, etag?: string): void {
     if (!this.loaded) return
@@ -122,7 +133,7 @@ export class SearchIndex {
     const started = Date.now()
 
     if (!this.loaded) {
-      const raw = await this.store.bucket.readMeta(SEARCH_FILE)
+      const raw = await this.store.bucket.readMeta(this.snapshotKey)
       if (raw) {
         try {
           const parsed = JSON.parse(raw) as CorpusFile
@@ -200,7 +211,7 @@ export class SearchIndex {
   /** Writes the snapshot so the next cold start does not have to re-read the corpus. */
   async persist(): Promise<void> {
     const file: CorpusFile = { version: 1, documents: [...this.corpus.values()] }
-    await this.store.bucket.writeMeta(SEARCH_FILE, JSON.stringify(file))
+    await this.store.bucket.writeMeta(this.snapshotKey, JSON.stringify(file))
     this.drift = 0
     log('info', { scope: 'search', event: 'snapshot-written', documents: this.corpus.size })
   }
@@ -262,15 +273,26 @@ export function snippetFor(text: string, term: string, width = 160): string {
   return `${start > 0 ? '…' : ''}${source.slice(start, end).trim()}${end < source.length ? '…' : ''}`
 }
 
-let shared: SearchIndex | null = null
+const searchIndexes = new Map<string, SearchIndex>()
 
-export function getSearchIndex(): SearchIndex {
-  if (!shared) shared = new SearchIndex(getStore())
-  return shared
+/**
+ * A search index backed by the given store, cached per grimoire (root = one entry).
+ *
+ * Because a grimoire has its own corpus and snapshot (see `snapshotKey`), search must
+ * not share the root store's index — querying a grimoire must search that grimoire.
+ */
+export function getSearchIndex(store: WorkspaceStore = getStore()): SearchIndex {
+  const key = store.grimoireId ?? '__root__'
+  let index = searchIndexes.get(key)
+  if (!index) {
+    index = new SearchIndex(store)
+    searchIndexes.set(key, index)
+  }
+  return index
 }
 
 /** Test seam. */
 export function resetSearchIndex(): void {
-  shared?.reset()
-  shared = null
+  for (const index of searchIndexes.values()) index.reset()
+  searchIndexes.clear()
 }
