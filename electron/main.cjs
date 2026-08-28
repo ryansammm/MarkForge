@@ -19,6 +19,19 @@ let NOTES_DIR = DEFAULT_NOTES_DIR
 let META_DIR = DEFAULT_META_DIR
 const ASSET_PREFIX = 'assets'
 
+// Crash diagnostics: Electron's own stderr is often lost when the app detaches,
+// so persist fatal errors to a file we control.
+const ERROR_LOG = path.join(DEFAULT_META_DIR, 'markforge-error.log')
+function logError(where, err) {
+  try {
+    fs.appendFileSync(ERROR_LOG, `[${new Date().toISOString()}] ${where}: ${err && err.stack ? err.stack : String(err)}\n`)
+  } catch {
+    // last resort: nothing else we can do
+  }
+}
+process.on('uncaughtException', (e) => logError('uncaughtException', e))
+process.on('unhandledRejection', (e) => logError('unhandledRejection', e))
+
 // ── Grimoire root selection (full offline, local only) ──────────────────────
 function pickRootDir() {
   const res = dialog.showOpenDialogSync(null, {
@@ -179,6 +192,9 @@ ipcMain.handle('markforge:open-grimoire', async () => {
 
 async function main() {
   await app.whenReady()
+
+  app.on('render-process-gone', (_e, _wc, details) => logError('render-process-gone', details))
+  app.on('child-process-gone', (_e, details) => logError('child-process-gone', details))
 
   // Grimoire folders persist in the registry under META_DIR; ensure the dirs exist.
   fs.mkdirSync(NOTES_DIR, { recursive: true })
