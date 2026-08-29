@@ -66,3 +66,6 @@ markforge-smoke.result.json
 run.log
 run.err
 opencode-e2e/
+
+# Session logs - moved off repo root into logs/ for non-source artifacts
+logs/
