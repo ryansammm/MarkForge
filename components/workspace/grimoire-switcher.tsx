@@ -332,6 +332,7 @@ export function GrimoireSwitcher({
                     if (res.ok) {
                       setGrimoires((prev) => prev.map((g) => g.id === activeGrimoire.id ? { ...g, path: p } : g))
                       toast.success('Root folder set')
+                      window.location.reload()
                     } else {
                       const err = await res.json()
                       toast.error(err.error || 'Failed to set root folder')
