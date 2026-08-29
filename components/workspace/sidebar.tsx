@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useSyncExternalStore } from 'react'
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import {
   ChevronDown,
   ChevronRight,
@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FileTreeNode, MarkdownDocument } from '@/lib/file-store'
+import { grimoireHeaders } from '@/lib/grimoire-client'
 import { APP_SIGNATURE, APP_VERSION } from '@/lib/version'
 import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
@@ -66,6 +67,8 @@ interface SidebarProps {
   onCreateFolder: (parentDir: string) => void
   onRenameNode: (node: FileTreeNode) => void
   onDeleteNode: (node: FileTreeNode) => void
+  /** Move a document into a folder (drag & drop). `to` already includes the filename. */
+  onMoveDocument?: (from: string, to: string) => Promise<void>
   onOpenTrash: () => void
   onOpenPasswords: () => void
   onSignOut: () => void
@@ -128,6 +131,7 @@ export function Sidebar({
   onCreateFolder,
   onRenameNode,
   onDeleteNode,
+  onMoveDocument,
   onOpenTrash,
   onOpenPasswords,
   onSignOut,
@@ -145,6 +149,10 @@ export function Sidebar({
   // Depth counter, not a boolean: enter/leave fire for every child element, and a
   // boolean flickers the highlight off while crossing gaps between rows.
   const [dragDepth, setDragDepth] = useState(0)
+  // In-tree drag: the document row being dragged (ref, so dragstart needs no rerender)
+  // and the folder row currently highlighted as the drop target.
+  const dragSource = useRef<string | null>(null)
+  const [dropTarget, setDropTarget] = useState<string | null>(null)
   // Pinned documents, remembered per device in localStorage.
   const [pinnedPaths, togglePinned] = usePersistedList('markforge.pinned-docs')
   // The Electron bridge exists only in the desktop shell. useSyncExternalStore
@@ -161,7 +169,10 @@ export function Sidebar({
       const { copied } = await pick()
       if (copied === 0) return
       toast.info(`Imported ${copied} item(s), rebuilding index…`)
-      const response = await fetch('/api/storage?action=reindex', { method: 'POST' })
+      const response = await fetch('/api/storage?action=reindex', {
+        method: 'POST',
+        headers: grimoireHeaders(),
+      })
       if (!response.ok) throw new Error(`reindex failed (${response.status})`)
       await onAfterImport?.()
       toast.success(`Import complete — ${copied} item(s) added`)
@@ -194,7 +205,7 @@ export function Sidebar({
       )
       const response = await fetch('/api/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...grimoireHeaders() },
         body: JSON.stringify({ files: payload }),
       })
       if (!response.ok) {
@@ -211,6 +222,26 @@ export function Sidebar({
     } catch (err) {
       toast.error(`Drop import failed: ${(err as Error).message}`)
     }
+  }
+
+  /**
+   * True when the dragged payload is files from outside the app (OS, another page).
+   * In-tree moves carry only `text/plain`; distinguishing keeps the "drop to import"
+   * overlay and the import handler off internal drags.
+   */
+  const isForeignFiles = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer.types).includes('Files')
+
+  /** In-tree drop of a document row onto a folder row → move it there. */
+  const handleDocDrop = async (targetPath: string) => {
+    const from = dragSource.current
+    setDropTarget(null)
+    dragSource.current = null
+    if (!from) return
+    const name = from.split('/').pop() ?? from
+    const to = `${targetPath}/${name}`
+    if (to === from) return
+    await onMoveDocument?.(from, to)
   }
 
   // Escape closes the drawer, which is the one affordance a phone user cannot
@@ -292,13 +323,38 @@ export function Sidebar({
       const isExpanded = expandedFolders[node.path] === true // Default collapsed
 
       if (node.isDir) {
+        const isDropTarget = dropTarget === node.path
         return (
-          <div key={node.path} className="flex flex-col gap-0.5">
+          <div
+            key={node.path}
+            className={cn('flex flex-col gap-0.5 rounded-md', isDropTarget && 'bg-sidebar-accent/60')}
+          >
             <div
               className={cn(
                 ROW,
-                'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground'
+                'text-muted-foreground hover:bg-sidebar-accent hover:text-foreground',
+                isDropTarget && 'ring-1 ring-inset ring-primary'
               )}
+              onDragOver={(event) => {
+                if (!dragSource.current) return
+                event.preventDefault()
+                event.dataTransfer.dropEffect = 'move'
+                setDropTarget(node.path)
+              }}
+onDragEnter={() => {
+  if (!dragSource.current) return
+  setDropTarget(node.path)
+}}
+              onDragLeave={(event) => {
+                if (event.currentTarget.contains(event.relatedTarget as Node)) return
+                if (dropTarget === node.path) setDropTarget(null)
+              }}
+              onDrop={(event) => {
+                if (!dragSource.current) return
+                event.preventDefault()
+                event.stopPropagation()
+                void handleDocDrop(node.path)
+              }}
             >
               <button
                 type="button"
@@ -390,8 +446,19 @@ export function Sidebar({
       return (
         <div
           key={node.path}
+          draggable
+          onDragStart={(event) => {
+            dragSource.current = node.path
+            event.dataTransfer.effectAllowed = 'move'
+            event.dataTransfer.setData('text/plain', node.path)
+          }}
+          onDragEnd={() => {
+            dragSource.current = null
+            setDropTarget(null)
+          }}
           className={cn(
             ROW,
+            'cursor-grab active:cursor-grabbing',
             isActive
               ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-xs'
               : 'text-muted-foreground hover:bg-sidebar-accent/50 hover:text-foreground'
@@ -492,17 +559,24 @@ export function Sidebar({
           open ? 'translate-x-0 shadow-xl' : '-translate-x-full',
           dragDepth > 0 && 'ring-2 ring-inset ring-primary'
         )}
-        onDragEnter={(event) => {
-          event.preventDefault()
-          setDragDepth((depth) => depth + 1)
-        }}
-        onDragOver={(event) => event.preventDefault()}
-        onDragLeave={() => setDragDepth((depth) => Math.max(0, depth - 1))}
-        onDrop={(event) => {
-          event.preventDefault()
-          setDragDepth(0)
-          void handleDrop(event.dataTransfer)
-        }}
+onDragEnter={(event) => {
+  if (!isForeignFiles(event)) return
+  event.preventDefault()
+  setDragDepth((depth) => depth + 1)
+}}
+onDragOver={(event) => {
+  if (isForeignFiles(event)) event.preventDefault()
+}}
+onDragLeave={(event) => {
+  if (!isForeignFiles(event)) return
+  setDragDepth((depth) => Math.max(0, depth - 1))
+}}
+onDrop={(event) => {
+  if (!isForeignFiles(event)) return
+  event.preventDefault()
+  setDragDepth(0)
+  void handleDrop(event.dataTransfer)
+}}
       >
         {dragDepth > 0 && (
           <div className="pointer-events-none absolute inset-x-3 top-16 z-10 rounded-md border border-dashed border-primary bg-background/90 px-3 py-2 text-center text-xs font-medium text-primary">

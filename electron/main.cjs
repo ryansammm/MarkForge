@@ -1,7 +1,7 @@
 'use strict'
 
 const { app, BrowserWindow, dialog, ipcMain, shell } = require('electron')
-const { spawn } = require('child_process')
+const { spawn, spawnSync } = require('child_process')
 const fs = require('fs')
 const http = require('http')
 const path = require('path')
@@ -258,7 +258,9 @@ process.on('exit', () => {
   if (!server || server.killed) return
   if (process.platform === 'win32') {
     // shell:true means server.pid is the cmd shim; /T takes the whole tree with it.
-    spawn('taskkill', ['/pid', String(server.pid), '/T', '/F'], { windowsHide: true })
+    // spawnSync, not spawn: the exit handler must not return before taskkill has run,
+    // or the next-dev tree outlives Electron and holds the port as an orphan.
+    spawnSync('taskkill', ['/pid', String(server.pid), '/T', '/F'], { windowsHide: true })
   } else {
     server.kill()
   }

@@ -36,6 +36,7 @@ import {
 } from '@/lib/tabs'
 import { resolveWikiLink } from '@/lib/resolve-link'
 import { keyboardIsClaimed } from '@/lib/modal-keys'
+import { grimoireHeaders } from '@/lib/grimoire-client'
 import * as api from '@/lib/workspace-api'
 import { Sidebar, SIDEBAR_WIDTH } from './sidebar'
 import { ResizeHandle } from './resize-handle'
@@ -799,10 +800,38 @@ export function WorkspaceApp() {
    * is small; refetching it is the honest option.
    */
   const reloadIndex = useCallback(async () => {
-    const response = await fetch('/api/index', { cache: 'no-store' })
+    const response = await fetch('/api/index', { cache: 'no-store', headers: grimoireHeaders() })
     if (!response.ok) return
     setIndexData((await response.json()) as WorkspaceIndex)
   }, [])
+
+  /**
+   * Drag & drop a document into a folder, from the sidebar.
+   *
+   * The same link-safe path as a rename (title is unchanged, so nothing rewrites);
+   * a mover that skipped `/api/rename` would break wikilinks pointing at the document.
+   */
+  const moveDocumentInto = useCallback(
+    async (from: string, to: string) => {
+      flushPendingSave()
+      const { report, summary } = await api.renameDocument(from, to)
+      await reloadIndex()
+
+      if (!report.renamed) {
+        toast.error(report.renameError ?? 'The move failed.', { duration: Infinity, closeButton: true })
+        return
+      }
+
+      dispatchTabs({ type: 'pathRenamed', from, to })
+      if (report.failedCount > 0) {
+        toast.error(summary, { duration: Infinity, closeButton: true })
+      } else {
+        const folder = to.includes('/') ? to.slice(0, to.lastIndexOf('/')) : 'root'
+        toast.success(`Moved into ${folder}`)
+      }
+    },
+    [flushPendingSave, reloadIndex, dispatchTabs]
+  )
 
   const submitDialog = useCallback(
     async (value: string) => {
@@ -1070,6 +1099,7 @@ export function WorkspaceApp() {
         onCreateFolder={openNewFolder}
         onRenameNode={openRename}
         onDeleteNode={openDelete}
+        onMoveDocument={moveDocumentInto}
         onOpenTrash={() => setTrashOpen(true)}
         onOpenPasswords={() => setPasswordsOpen(true)}
         onSignOut={() => void signOut()}

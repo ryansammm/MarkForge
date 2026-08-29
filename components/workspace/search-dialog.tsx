@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { FileText, Loader2, Search as SearchIcon, X } from 'lucide-react'
 import type { SearchHit } from '@/lib/search'
 import type { OpenIntent } from '@/lib/tabs'
+import { grimoireHeaders } from '@/lib/grimoire-client'
 import { openHandlers } from './tab-gestures'
 
 /**
@@ -51,7 +52,7 @@ export function SearchDialog({ open, onClose, onSelectDoc }: SearchDialogProps) 
     const timer = setTimeout(() => {
       setSearching(true)
 
-      fetch(`/api/search?q=${encodeURIComponent(term)}`, { cache: 'no-store' })
+      fetch(`/api/search?q=${encodeURIComponent(term)}`, { cache: 'no-store', headers: grimoireHeaders() })
         .then(async (response) => {
           if (!response.ok) throw new Error(`Search failed (${response.status})`)
           return (await response.json()) as { hits: SearchHit[] }
