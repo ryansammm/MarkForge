@@ -181,3 +181,18 @@ export async function setActiveGrimoire(
 
   return grimoire
 }
+
+export async function setGrimoireRoot(
+  bucket: Bucket,
+  id: string,
+  path: string
+): Promise<Grimoire> {
+  const registry = await readRegistry(bucket)
+  const grimoire = registry.grimoires.find((g) => g.id === id)
+  if (!grimoire) throw new Error(`Grimoire not found: ${id}`)
+
+  grimoire.path = path
+  await writeRegistry(bucket, registry)
+
+  return grimoire
+}

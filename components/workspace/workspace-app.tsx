@@ -177,6 +177,8 @@ export function WorkspaceApp() {
   const [loading, setLoading] = useState(true)
   /** Set when the backend reports that writes will not survive. Never dismissible. */
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
+  /** Backend kind — drives the offline root-folder gate. */
+  const [storageKind, setStorageKind] = useState<string | null>(null)
   /** Drawer state below md. Closed by default so a phone opens on the document. */
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeGrimoireId, setActiveGrimoire] = useState<string | null>(getActiveGrimoireId)
@@ -311,11 +313,14 @@ export function WorkspaceApp() {
 
     fetch('/api/health', { cache: 'no-store' })
       .then((res) => res.json())
-      .then((health: { durable?: boolean; warning?: string }) => {
-        if (cancelled || health.durable !== false) return
-        setStorageWarning(
-          health.warning ?? 'Storage is not durable on this deployment — edits may not survive.'
-        )
+      .then((health: { durable?: boolean; warning?: string; kind?: string }) => {
+        if (cancelled) return
+        if (typeof health.kind === 'string') setStorageKind(health.kind)
+        if (health.durable === false) {
+          setStorageWarning(
+            health.warning ?? 'Storage is not durable on this deployment — edits may not survive.'
+          )
+        }
       })
       .catch(() => {
         // A health check that cannot be reached is not itself a reason to alarm

@@ -153,6 +153,9 @@ export function Sidebar({
   // and the folder row currently highlighted as the drop target.
   const dragSource = useRef<string | null>(null)
   const [dropTarget, setDropTarget] = useState<string | null>(null)
+  // True while an in-tree drag hovers the empty tree area, where a drop moves
+  // the document back to the workspace root.
+  const [droppingRoot, setDroppingRoot] = useState(false)
   // Pinned documents, remembered per device in localStorage.
   const [pinnedPaths, togglePinned] = usePersistedList('markforge.pinned-docs')
   // The Electron bridge exists only in the desktop shell. useSyncExternalStore
@@ -236,10 +239,11 @@ export function Sidebar({
   const handleDocDrop = async (targetPath: string) => {
     const from = dragSource.current
     setDropTarget(null)
+    setDroppingRoot(false)
     dragSource.current = null
     if (!from) return
     const name = from.split('/').pop() ?? from
-    const to = `${targetPath}/${name}`
+    const to = targetPath ? `${targetPath}/${name}` : name
     if (to === from) return
     await onMoveDocument?.(from, to)
   }
@@ -655,9 +659,38 @@ onDrop={(event) => {
         </div>
       )}
       <nav
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-4"
+        className={cn(
+          'flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-4',
+          droppingRoot && 'ring-2 ring-inset ring-primary/60 rounded-lg'
+        )}
         aria-label="Workspace documents"
         onKeyDown={onTreeKeyDown}
+        /*
+          Dropping a document onto the empty tree area moves it back to the root.
+          Folder rows stopPropagation on their own drop; a drop anywhere else in the
+          tree that reaches here is a move-to-root intent.
+        */
+        onDragOver={(event) => {
+          if (!dragSource.current) return
+          event.preventDefault()
+          event.dataTransfer.dropEffect = 'move'
+        }}
+        onDragEnter={(event) => {
+          if (!dragSource.current) return
+          if (event.currentTarget !== event.target) return
+          setDroppingRoot(true)
+        }}
+        onDragLeave={(event) => {
+          if (!dragSource.current) return
+          if (event.currentTarget.contains(event.relatedTarget as Node)) return
+          setDroppingRoot(false)
+        }}
+        onDrop={(event) => {
+          if (!dragSource.current) return
+          event.preventDefault()
+          setDroppingRoot(false)
+          void handleDocDrop('')
+        }}
       >
         <div className="mb-2 flex items-center justify-between gap-1 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Documents</span>

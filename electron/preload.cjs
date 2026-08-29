@@ -6,5 +6,6 @@ contextBridge.exposeInMainWorld('markforge', {
   desktop: true,
   chooseFiles: () => ipcRenderer.invoke('markforge:choose-files'),
   chooseFolder: () => ipcRenderer.invoke('markforge:choose-folder'),
+  selectDirectory: () => ipcRenderer.invoke('markforge:select-directory'),
   syncToCloud: () => ipcRenderer.invoke('markforge:sync-to-cloud'),
 })

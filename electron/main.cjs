@@ -140,6 +140,15 @@ ipcMain.handle('markforge:choose-folder', async () => {
   return { copied }
 })
 
+ipcMain.handle('markforge:select-directory', async () => {
+  const res = await dialog.showOpenDialog(win, {
+    title: 'Select grimoire root folder',
+    properties: ['openDirectory'],
+  })
+  if (res.canceled) return null
+  return res.filePaths[0]
+})
+
 /** Reads the repo .env - the one place cloud credentials legitimately live.
  *  Packaged builds look next to the exe resources instead (copied at build time). */
 function readRepoEnv() {

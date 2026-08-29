@@ -5,6 +5,7 @@ import {
   renameGrimoire,
   deleteGrimoire,
   setActiveGrimoire,
+  setGrimoireRoot,
 } from '@/lib/server/grimoire'
 import { captureError } from '@/lib/server/observability'
 
@@ -54,8 +55,23 @@ export async function PUT(
       return NextResponse.json(grimoire)
     }
 
+    if (typeof body.path === 'string' && body.path.trim()) {
+      const p = body.path.trim()
+      if (!/^[A-Za-z]:[\\/]/.test(p) && !p.startsWith('/')) {
+        return NextResponse.json(
+          { error: 'path must be an absolute folder path', code: 'BAD_REQUEST' },
+          { status: 400 }
+        )
+      }
+      const grimoire = await setGrimoireRoot(bucket, id, p)
+      return NextResponse.json(grimoire)
+    }
+
     return NextResponse.json(
-      { error: 'Body must be { name: string } or { active: true }', code: 'BAD_REQUEST' },
+      {
+        error: 'Body must be { name: string }, { active: true }, or { path: string }',
+        code: 'BAD_REQUEST',
+      },
       { status: 400 }
     )
   } catch (err) {

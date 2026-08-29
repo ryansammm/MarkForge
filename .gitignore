@@ -52,6 +52,7 @@ ci-failed.log
 
 # opencode internal session state — churns every session, not source
 .opencode/
+opencode.json
 
 # Local test/E2E artifacts — logs, screenshots, and transient outputs, not source
 bat_out.log
