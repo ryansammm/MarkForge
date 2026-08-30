@@ -37,7 +37,7 @@ import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
 import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
 import { BlockMenu } from './block-menu'
-import { blockHasId, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate } from '@/lib/blocks-transforms'
+import { blockHasId, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
 import { newBlockId } from '@/lib/blocks'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
@@ -98,6 +98,56 @@ async function runCopyLink(view: EditorView, docPath: string): Promise<void> {
   const ok = await copyLink(view.state, docPath)
   if (ok) toast.success('Link copied')
   else toast.error('Block has no id yet — apply a colour or duplicate it first')
+}
+
+/**
+ * Drop handler for the block-drag-and-drop gesture. The handle writes
+ * a JSON payload (`{from, to, blockId}`) to `dataTransfer`; we look up
+ * the drop offset via `view.posAtCoords` and dispatch a cut + insert
+ * through `moveBlock`.
+ */
+function blockDropHandlers() {
+  return EditorView.domEventHandlers({
+    dragover(event, view) {
+      const types = event.dataTransfer?.types
+      if (!types || !Array.from(types).includes('application/x-mkf-block')) return
+      event.preventDefault()
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
+      const coords = { x: event.clientX, y: event.clientY }
+      const pos = view.posAtCoords(coords)
+      if (pos == null) return
+      // Highlight the line the cursor would land on.
+      view.contentDOM.classList.add('cm-block-drop-active')
+    },
+    dragleave(_event, view) {
+      view.contentDOM.classList.remove('cm-block-drop-active')
+    },
+    drop(event, view) {
+      const data = event.dataTransfer?.getData('application/x-mkf-block')
+      if (!data) return
+      event.preventDefault()
+      view.contentDOM.classList.remove('cm-block-drop-active')
+      let payload: { from: number; to: number; blockId: string | null }
+      try {
+        payload = JSON.parse(data) as { from: number; to: number; blockId: string | null }
+      } catch {
+        return
+      }
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
+      if (pos == null) return
+      // Snap the drop point to the nearest block boundary (start of a
+      // paragraph). The line at `pos` may be inside a paragraph, in
+      // which case the user wants the block dropped just above that
+      // line.
+      const dropAt = pos
+      const move = moveBlock(view.state, payload.from, payload.to, dropAt)
+      if (!move) return
+      view.dispatch(move.cut)
+      const spec = move.insert(view.state)
+      if (spec) view.dispatch(spec)
+      view.focus()
+    },
+  })
 }
 
 /**
@@ -209,6 +259,8 @@ const editorTheme = EditorView.theme({
   },
   '.cm-block-handle:hover': { opacity: '1' },
   '.cm-line:hover > .cm-block-handle, .cm-line:focus-within > .cm-block-handle': { opacity: '1' },
+  '.cm-block-handle-dragging': { opacity: '1', cursor: 'grabbing' },
+  '.cm-content.cm-block-drop-active': { cursor: 'copy' },
   '.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--cm-accent)', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
@@ -403,6 +455,7 @@ export function MarkdownEditor({
         onExpandImage: (src, alt) => setViewing({ src: resolveImageSrc(src), alt, source: src }),
       }),
       hideFrontmatterId(),
+      blockDropHandlers(),
       imageDrop({
         upload: uploadAsset,
         onError: (message) => toast.error(message),

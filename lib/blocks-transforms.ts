@@ -250,3 +250,50 @@ export function currentBlockMeta(state: EditorState) {
 void Text
 // Re-export so callers do not have to import from blocks directly.
 export { formatBlockMeta }
+
+/**
+ * Move a paragraph range to a new location in the document.
+ *
+ * Returns two specs in sequence: first cut the source range, then
+ * insert the trimmed block text at the (post-cut) drop offset with
+ * blank-line separators so the block model stays valid. The caller
+ * dispatches them in order against the same `EditorView`; the second
+ * spec is computed against the doc state after the first applies.
+ *
+ * Dropping inside the source range is a no-op (returns null).
+ */
+export function moveBlock(
+  state: EditorState,
+  sourceFrom: number,
+  sourceTo: number,
+  dropAt: number
+): { cut: TransactionSpec; insert: (postCut: EditorState) => TransactionSpec | null } | null {
+  const total = state.doc.length
+  if (sourceFrom < 0 || sourceTo > total || sourceFrom >= sourceTo) return null
+
+  const blockText = state.doc.sliceString(sourceFrom, sourceTo)
+  const trimmed = blockText.replace(/^\n+|\n+$/g, '')
+  if (trimmed === '') return null
+
+  const cutLen = sourceTo - sourceFrom
+  const adjustedDrop = dropAt > sourceTo ? dropAt - cutLen : dropAt
+
+  const cut: TransactionSpec = {
+    changes: { from: sourceFrom, to: sourceTo, insert: '' },
+  }
+
+  const insert = (postCut: EditorState): TransactionSpec | null => {
+    // Clamp into the post-cut doc.
+    const len = postCut.doc.length
+    const at = Math.max(0, Math.min(adjustedDrop, len))
+    const before = postCut.doc.sliceString(0, at)
+    const after = postCut.doc.sliceString(at)
+    const leadSep = before === '' || before.endsWith('\n\n') ? '' : '\n\n'
+    const trailSep = after === '' || after.startsWith('\n\n') ? '' : '\n\n'
+    const insertion = `${leadSep}${trimmed}${trailSep}`
+    return { changes: { from: at, insert: insertion } }
+  }
+
+  return { cut, insert }
+}
+
