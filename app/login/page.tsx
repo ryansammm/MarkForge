@@ -59,10 +59,23 @@ function LoginForm() {
           if (!loading && pin.length === 6) void submit()
         }}
         label="PIN"
-        placeholder="123456"
+        placeholder="······"
         error={error || null}
         disabled={loading}
       />
+
+      {/*
+        The default is on the server (`DEFAULT_APP_PIN`), not in the form
+        itself — putting it in the placeholder would teach a shoulder surfer
+        the only PIN worth trying. The hint below is the one place it is
+        safe to say: the default exists, the user is told it, and the form
+        itself does not leak it.
+      */}
+      <p className="text-center text-[11px] text-muted-foreground">
+        First time using the app? Leave the PIN as the default{' '}
+        <span className="font-mono font-medium text-foreground">123456</span>{' '}
+        unless you have set one in Settings.
+      </p>
 
       <button
         type="button"

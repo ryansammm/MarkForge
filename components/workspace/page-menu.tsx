@@ -80,7 +80,14 @@ export function PageMenu({
   const [moveOpen, setMoveOpen] = React.useState(false)
 
   return (
-    <div className="absolute right-4 top-4 z-10 flex items-center gap-1">
+    /*
+      `sticky` rather than `absolute` so the menu stays in view as the document
+      scrolls. An absolutely positioned button is anchored to the article, not
+      the viewport, and the page menu disappears the moment the document is
+      scrolled — which is most of the time for a long note. The `top-4` offset
+      keeps a finger of breathing room between the menu and the read border.
+    */
+    <div className="sticky top-4 z-10 flex items-center gap-1">
       <Popover.Root open={moveOpen} onOpenChange={setMoveOpen}>
         <Popover.Trigger
           className={cn(

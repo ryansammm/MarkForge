@@ -539,10 +539,18 @@ export function MarkdownEditor({
         { key: 'Mod-i', preventDefault: true, run: toggleItalic },
         { key: 'Mod-`', preventDefault: true, run: toggleInlineCode },
         { key: 'Mod-Shift-x', preventDefault: true, run: toggleStrikethrough },
-        // Block menu shortcuts. Listed before `defaultKeymap` so they win
-        // — the editor's own keys otherwise take precedence.
+        /*
+          Block menu shortcuts. Listed before `defaultKeymap` so they win
+          — the editor's own keys otherwise take precedence.
+
+          `Mod-d` was the original choice but it collides with the browser's
+          "bookmark this page". `Mod-Shift-d` is the same gesture with the
+          shift qualifier, and no major browser uses that chord. Same logic
+          for `Mod-Shift-k` over `Mod-Shift-p` (private-window in Firefox /
+          Chrome devtools palette).
+        */
         {
-          key: 'Mod-d',
+          key: 'Mod-Shift-d',
           preventDefault: true,
           run: (view) => {
             view.dispatch(duplicate(view.state))
@@ -619,7 +627,7 @@ export function MarkdownEditor({
         // keyboard shortcut so the user does not have to reach for the
         // handle.
         {
-          key: 'Mod-Shift-p',
+          key: 'Mod-Shift-k',
           preventDefault: true,
           run: (view) => {
             const sel = view.state.selection.main

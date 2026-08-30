@@ -43,6 +43,7 @@ import {
 } from '@/lib/tabs'
 import { resolveWikiLink } from '@/lib/resolve-link'
 import { keyboardIsClaimed } from '@/lib/modal-keys'
+import { fireShortcutAction } from '@/lib/shortcut-bus'
 import { grimoireHeaders } from '@/lib/grimoire-client'
 import * as api from '@/lib/workspace-api'
 import { moveBlockBetweenDocs } from '@/lib/blocks'
@@ -182,6 +183,15 @@ export function WorkspaceApp() {
    * Cmd+P, and rebinding all of them every time a tab is focused is work for nothing.
    */
   const tabsRef = useRef(tabSession)
+  /**
+   * `createDocumentAt` is declared further down the file, after the keydown
+   * handler that wants to call it. A ref keeps the handler's dep array
+   * empty (so the listener does not get re-bound on every save) without a
+   * `no-use-before-define` violation.
+   */
+  const createDocumentAtRef = useRef<(parentDir: string, title: string, body?: string) => Promise<unknown>>(
+    () => Promise.resolve()
+  )
 
   /**
    * The desktop-window tab bar (Electron only).
@@ -484,6 +494,22 @@ export function WorkspaceApp() {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
         e.preventDefault()
         dispatchTabs({ type: 'toggleMode' })
+      }
+      /*
+        `Mod-N` is the conventional "new" shortcut. The browser tries to open
+        a new window for it and `preventDefault` only sometimes works — Chrome
+        and Firefox at least let JS stop the default in a keydown listener
+        inside the document, which is where this fires. `Mod-Shift-N` would
+        otherwise be "new private window" in Firefox / "new incognito" in
+        Chrome, but the same `preventDefault` covers it.
+      */
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        void createDocumentAtRef.current('', 'Untitled', '')
+      }
+      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        fireShortcutAction('open-new-grimoire')
       }
       /*
         Opens the vault. Deliberately not a toggle, unlike Cmd+K: the passwords
@@ -970,6 +996,12 @@ export function WorkspaceApp() {
     },
     [patchIndex, dispatchTabs, setMode, putSource]
   )
+
+  // Keep the ref in sync with the latest createDocumentAt so the global
+  // keydown handler can call it without re-binding on every save.
+  useEffect(() => {
+    createDocumentAtRef.current = createDocumentAt
+  }, [createDocumentAt])
 
   /**
    * Refetches the whole index after an operation that re-keyed many documents.
@@ -1790,7 +1822,7 @@ export function WorkspaceApp() {
         }}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="relative flex flex-1 flex-col overflow-hidden">
         {/*
           Not dismissible, and above everything. Somebody whose writes are being
           discarded needs to keep being told, not to be told once while they are
@@ -1807,43 +1839,53 @@ export function WorkspaceApp() {
         )}
 
         {/*
-          Above the header, not below it: the breadcrumb, the Edit button and the save
-          indicator all describe the active tab, so the thing that chooses which tab
-          that is has to come first.
-
-          Hidden at one tab. A single-document session should not spend 36 pixels of
-          height being told it has one document open.
+          One row. Tabs (when there is more than one) sit on the left, the
+          page actions on the right. Single-document sessions lose the tab
+          portion of the row, which used to be a separate `h-9` strip above
+          this header. A 36-pixel tab row that just says "you have one tab
+          open" is noise; inlining it lets the rest of the workspace stretch
+          one more line into view.
         */}
-        {tabs.length > 1 && (
-          <TabStrip
-            tabs={tabs}
-            activeId={tabSession.activeId}
-            documents={indexData?.documents || {}}
-            conflicted={conflicted}
-            onSelect={(id) => {
-              flushPendingSave()
-              dispatchTabs({ type: 'activate', id })
-            }}
-            onClose={(id) => {
-              flushPendingSave()
-              dispatchTabs({ type: 'close', id })
-            }}
-            onCloseOthers={(id) => {
-              flushPendingSave()
-              dispatchTabs({ type: 'closeOthers', id })
-            }}
-            onCloseToRight={(id) => {
-              flushPendingSave()
-              dispatchTabs({ type: 'closeToRight', id })
-            }}
-            // No flush: reordering does not change which document is open.
-            onReorder={(from, to) => dispatchTabs({ type: 'reorder', from, to })}
-            onNew={() => openSearch(true)}
-          />
-        )}
+        <header className="flex h-10 items-center justify-between gap-3 border-b bg-background/80 backdrop-blur pl-2 pr-3">
+          <div className="flex min-w-0 items-center gap-1">
+            {/*
+              The tab strip is mounted for every session but its `display`
+              collapses when there is a single document — the strip itself
+              already does that (see components/workspace/tab-strip.tsx). We
+              always render the slot so the right-side controls do not shift
+              sideways as a second tab opens.
+            */}
+            {tabs.length > 1 ? (
+              <div className="-mb-px self-end">
+                <TabStrip
+                  flush
+                  tabs={tabs}
+                  activeId={tabSession.activeId}
+                  documents={indexData?.documents || {}}
+                  conflicted={conflicted}
+                  onSelect={(id) => {
+                    flushPendingSave()
+                    dispatchTabs({ type: 'activate', id })
+                  }}
+                  onClose={(id) => {
+                    flushPendingSave()
+                    dispatchTabs({ type: 'close', id })
+                  }}
+                  onCloseOthers={(id) => {
+                    flushPendingSave()
+                    dispatchTabs({ type: 'closeOthers', id })
+                  }}
+                  onCloseToRight={(id) => {
+                    flushPendingSave()
+                    dispatchTabs({ type: 'closeToRight', id })
+                  }}
+                  // No flush: reordering does not change which document is open.
+                  onReorder={(from, to) => dispatchTabs({ type: 'reorder', from, to })}
+                  onNew={() => openSearch(true)}
+                />
+              </div>
+            ) : null}
 
-        <header className="flex h-14 items-center justify-between gap-4 border-b px-6 bg-background/80 backdrop-blur">
-          <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
@@ -2179,17 +2221,17 @@ export function WorkspaceApp() {
             a document on top of the active tab. Renders nothing when
             `sidePeekPath` is null. Closes on Esc or the X button.
           */}
-          {sidePeekPath && (
-            <SidePeek
-              path={sidePeekPath}
-              documents={indexData?.documents || {}}
-              source={sources[sidePeekPath] ?? null}
-              onClose={() => setSidePeekPath(null)}
-              onNavigateWikilink={handleNavigateWikilink}
-              onNavigatePath={navigateTo}
-            />
-          )}
         </div>
+        {sidePeekPath && (
+          <SidePeek
+            path={sidePeekPath}
+            documents={indexData?.documents || {}}
+            source={sources[sidePeekPath] ?? null}
+            onClose={() => setSidePeekPath(null)}
+            onNavigateWikilink={handleNavigateWikilink}
+            onNavigatePath={navigateTo}
+          />
+        )}
       </div>
 
       <SearchDialog

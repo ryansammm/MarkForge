@@ -20,7 +20,12 @@ export interface PinKeypadProps {
   value: string
   onChange: (value: string) => void
   label: string
-  /** Visual hint shown in each empty cell. Never the real default. */
+  /**
+   * Visual hint shown in each empty cell. Defaults to a neutral dot per
+   * cell — putting the real default in here would teach a shoulder surfer
+   * the only PIN worth trying, and the form already shows the default in
+   * a one-liner below the keypad on /login.
+   */
   placeholder?: string
   autoFocus?: boolean
   error?: string | null
@@ -33,7 +38,7 @@ export function PinKeypad({
   value,
   onChange,
   label,
-  placeholder = '123456',
+  placeholder = '••••••',
   autoFocus = true,
   error = null,
   disabled = false,

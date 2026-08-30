@@ -7,7 +7,14 @@ import { tabPath, type Tab } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
 
 interface TabStripProps {
+  /** Tabs. */
   tabs: Tab[]
+  /**
+   * When `true`, drops the strip's own border and matches the parent's
+   * background. Used when the strip is inlined into the workspace header
+   * rather than sitting in its own row.
+   */
+  flush?: boolean
   activeId: string | null
   /** The index, for titles. */
   documents: Record<string, MarkdownDocument>
@@ -61,6 +68,7 @@ export function TabStrip({
   onCloseToRight,
   onReorder,
   onNew,
+  flush,
 }: TabStripProps) {
   const listRef = useRef<HTMLUListElement>(null)
   const activeRef = useRef<HTMLLIElement>(null)
@@ -123,7 +131,12 @@ export function TabStrip({
   }
 
   return (
-    <div className="relative flex h-9 shrink-0 items-stretch border-b bg-sidebar/40">
+    <div
+      className={cn(
+        'relative flex h-9 shrink-0 items-stretch',
+        flush ? 'bg-transparent' : 'border-b bg-sidebar/40'
+      )}
+    >
       <ul ref={listRef} className="flex min-w-0 flex-1 items-stretch overflow-x-auto" aria-label="Open documents">
         {tabs.map((tab, index) => {
           const path = tabPath(tab)

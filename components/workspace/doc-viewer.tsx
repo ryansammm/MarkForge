@@ -161,25 +161,27 @@ export function DocViewer({
       onScroll={(event) => path && onScroll?.(path, event.currentTarget.scrollTop)}
       className="relative flex-1 overflow-y-auto px-8 py-10"
     >
-        {pageMenu ? (
-        <PageMenu
-          document={document}
-          body={body}
-          tree={tree}
-          onCopy={pageMenu.onCopy}
-          onDuplicate={pageMenu.onDuplicate}
-          onMoveTo={pageMenu.onMoveTo}
-          onTrash={pageMenu.onTrash}
-          onSetView={pageMenu.onSetView}
-          onSetWidth={pageMenu.onSetWidth}
-          isLocked={pageMenu.isLocked}
-          onLock={pageMenu.onLock}
-          onUnlock={pageMenu.onUnlock}
-          onImport={pageMenu.onImport}
-          onExport={pageMenu.onExport}
-        />
-      ) : null}
       <div className={cn('mx-auto space-y-6', maxWidth)}>
+        {pageMenu ? (
+          <div className="flex justify-end">
+            <PageMenu
+              document={document}
+              body={body}
+              tree={tree}
+              onCopy={pageMenu.onCopy}
+              onDuplicate={pageMenu.onDuplicate}
+              onMoveTo={pageMenu.onMoveTo}
+              onTrash={pageMenu.onTrash}
+              onSetView={pageMenu.onSetView}
+              onSetWidth={pageMenu.onSetWidth}
+              isLocked={pageMenu.isLocked}
+              onLock={pageMenu.onLock}
+              onUnlock={pageMenu.onUnlock}
+              onImport={pageMenu.onImport}
+              onExport={pageMenu.onExport}
+            />
+          </div>
+        ) : null}
         <Breadcrumb current={document} allDocs={allDocs} onNavigate={onNavigatePath} />
 
         {/* Header Metadata */}

@@ -30,8 +30,8 @@ import { openHandlers } from './tab-gestures'
 import { ResizeHandle } from './resize-handle'
 import { collectDroppedFiles } from './explorer-drop'
 import { usePersistedList } from '@/lib/use-persisted'
+import { onShortcutAction } from '@/lib/shortcut-bus'
 import { GrimoireSwitcher, type GrimoireSwitcherHandle } from './grimoire-switcher'
-import { SidebarPlusPopover } from './sidebar-plus-popover'
 import { SidebarPageContextMenu } from './sidebar-page-context-menu'
 
 /**
@@ -185,9 +185,19 @@ export function Sidebar({
     () => Boolean(window.markforge),
     () => false
   )
-  // Imperative handle to the grimoire switcher — the `+ New grimoire` popover
-  // item jumps straight to its create input without opening the dropdown UI.
+  // Imperative handle to the grimoire switcher — the `+ New grimoire` button
+  // jumps straight to its create input without opening the dropdown UI.
   const grimoireSwitcherRef = useRef<GrimoireSwitcherHandle>(null)
+  /*
+    Cmd/Ctrl-Shift-N fires from the workspace's global keydown handler; this
+    subscription catches it and routes to the same `requestCreate` the
+    sidebar's "New grimoire" button uses.
+  */
+  useEffect(() => {
+    return onShortcutAction('open-new-grimoire', () => {
+      grimoireSwitcherRef.current?.requestCreate()
+    })
+  }, [])
   // Right-click on a folder-tree page. `null` means the menu is closed.
   const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
 
@@ -707,17 +717,31 @@ onDrop={(event) => {
         <div className="mb-2 mt-1 flex items-center justify-between gap-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Folders</span>
           {/*
-            Single `+` instead of the old two-button row. The new-page and
-            new-grimoire intents used to be peer actions of equal weight;
-            they're not — one makes a page, the other makes an entire vault.
-            The popover groups them under one affordance, and a future
-            `+ New folder` can be added to the same menu without a third
-            header button.
+            Two affordances instead of a popover: `New page` writes to the
+            active grimoire, `New grimoire` jumps straight to the create
+            form. Each is one click — the popover asked for two clicks and
+            a decision between two icons that share a name.
           */}
-          <SidebarPlusPopover
-            onNewPage={() => onCreatePageDirect?.()}
-            onNewGrimoire={() => grimoireSwitcherRef.current?.requestCreate()}
-          />
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={() => onCreatePageDirect?.()}
+              title="New page (Ctrl/Cmd-N)"
+              aria-label="New page"
+              className="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            >
+              <FilePlus className="size-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={() => grimoireSwitcherRef.current?.requestCreate()}
+              title="New grimoire (Ctrl/Cmd-Shift-N)"
+              aria-label="New grimoire"
+              className="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
+            >
+              <FolderPlus className="size-3.5" />
+            </button>
+          </div>
         </div>
 
         {tree.length > 0 ? (

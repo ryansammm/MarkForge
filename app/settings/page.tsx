@@ -6,6 +6,7 @@ import { Loader2, ArrowLeft, KeyRound } from 'lucide-react'
 import { useVault } from '@/lib/vault/use-vault'
 import { Button } from '@/components/ui/button'
 import { SettingsForm } from '@/components/workspace/settings-form'
+import { PasswordsDialog } from '@/components/workspace/passwords-dialog'
 
 /**
  * Settings page.
@@ -15,25 +16,52 @@ import { SettingsForm } from '@/components/workspace/settings-form'
  * tab someone bookmarked should not show a list of API keys to whoever opens
  * the link next.
  *
- * Lock state is the same one the workspace uses, so the encryption key the
- * form writes with is the key the editor later reads with.
+ * Two pieces, with two different gate stories:
+ *
+ *   - The App PIN card is independent of the vault — it is the same gate that
+ *     the workspace already passed, and it should render even when there is no
+ *     vault yet.
+ *   - The SettingsForm (API keys, AI config) is the encrypted-vault UI and
+ *     needs the vault unlocked. The same `PasswordsDialog` the workspace uses
+ *     handles the create / unlock flow inline, so the page is not a hard
+ *     redirect to /login for a missing master.
+ *
+ * Earlier the auth check was a `fetch('/api/health')`, which is intentionally
+ * public — it answered 200 even when the session had expired, and a follow-up
+ * vault fetch then bounced the user to /login. `/api/vault` is the same
+ * request the vault hook makes, returns 401 when the session is gone, and
+ * drives both the auth and the vault state from one network call.
  */
 export default function SettingsPage() {
   const router = useRouter()
   const [authChecked, setAuthChecked] = useState(false)
   const [authed, setAuthed] = useState(false)
+  /*
+    The vault hook is gated on `active` — passing `false` here keeps the
+    initial fetch from racing the auth check, then `authed=true` lets the
+    hook fetch once we know the session is good.
+  */
   const vault = useVault(authed)
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
       try {
-        const res = await fetch('/api/health', { cache: 'no-store' })
+        const res = await fetch('/api/vault', { cache: 'no-store' })
         if (cancelled) return
-        setAuthed(res.ok)
+        if (res.status === 401) {
+          // Session gone — bounce to login. Anything else (200, 500) is an
+          // authed user; vault hook can drive the rest.
+          if (typeof window !== 'undefined') {
+            window.location.replace(`/login?from=${encodeURIComponent('/settings')}`)
+          }
+          return
+        }
+        setAuthed(res.ok || res.status === 500)
       } catch {
         if (cancelled) return
-        setAuthed(false)
+        // Network failure — leave authChecked false so the spinner stays up
+        // and the user can retry by reloading.
       } finally {
         if (!cancelled) setAuthChecked(true)
       }
@@ -52,12 +80,7 @@ export default function SettingsPage() {
     )
   }
 
-  if (!authed) {
-    if (typeof window !== 'undefined') {
-      window.location.replace(`/login?from=${encodeURIComponent('/settings')}`)
-    }
-    return null
-  }
+  if (!authed) return null
 
   if (vault.status === 'loading') {
     return (
@@ -66,13 +89,6 @@ export default function SettingsPage() {
         <span className="ml-2 text-sm">Opening vault…</span>
       </div>
     )
-  }
-
-  if (vault.status === 'absent' || vault.status === 'unavailable' || vault.status === 'locked') {
-    if (typeof window !== 'undefined') {
-      window.location.replace(`/login?from=${encodeURIComponent('/settings')}`)
-    }
-    return null
   }
 
   return (
@@ -84,7 +100,37 @@ export default function SettingsPage() {
         </Button>
         <h1 className="text-sm font-semibold tracking-tight">Settings</h1>
       </header>
-      <SettingsForm vault={vault} />
+
+      {/*
+        The vault-gated section. The dialog appears the same way it does in
+        the workspace, so an existing user can unlock from here without going
+        back through the workspace. Renders nothing extra when the vault is
+        already unlocked.
+      */}
+      {vault.status === 'unlocked' ? <SettingsForm vault={vault} /> : null}
+
+      {/*
+        Standalone unlock / create form. Renders when the vault exists but is
+        locked, or has not been created yet. Skipped on `unavailable` (the
+        record could not be read) so the form cannot offer to overwrite a
+        damaged vault.
+      */}
+      {vault.status === 'locked' || vault.status === 'absent' ? (
+        <PasswordsDialog
+          open
+          onOpenChange={() => {
+            // The dialog sits inline; closing it just hides the form and
+            // leaves the App PIN section (below) reachable.
+          }}
+          vault={vault}
+        />
+      ) : null}
+
+      {vault.status === 'unavailable' ? (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          The vault could not be read. Try again, or restore from a backup.
+        </div>
+      ) : null}
 
       <section className="rounded-lg border bg-card p-4 shadow-sm">
         <div className="flex items-start gap-3">

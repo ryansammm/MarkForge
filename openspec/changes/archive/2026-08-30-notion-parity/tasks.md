@@ -1,8 +1,8 @@
 # Tasks: notion-parity
 
-> **Status:** approved (2026-08-30). Tasks 1-12 shipped to `dev`.
-> Task 13 (sidebar `+` popover) next. See `proposal.md` for
-> full design and Risks.
+> **Status:** approved (2026-08-30). Tasks 1-16 shipped to `dev`
+> (commit `640979d`). Task 17 (post-§16 fix batch) next. See
+> `proposal.md` for full design and Risks.
 
 Total: 16 tasks. Sized for 2-hour commits. Numbered so they can be
 re-ordered if a regression forces a rollback. Each task ships as one
@@ -512,3 +512,62 @@ app gate becomes a 6-digit PIN that the user can rotate from settings.
 - [x] 16.6 Update `openspec/specs/{editor,page-menu,inline-ai,
       import-export,master-password,desktop-tabs}/spec.md` (one
       per major surface).
+
+## 17. Post-§16 fix batch
+
+Seven fixes landed in one commit on `dev`. No new spec; each item
+is a follow-up to an existing task.
+
+- [x] 17.1 Shortcut audit (`components/workspace/markdown-editor.tsx`):
+      - `Mod-d` (duplicate block) -> `Mod-Shift-d` (`Mod-d` is
+        browser bookmark; conflict in web and Electron).
+      - `Mod-Shift-p` (turn into page) -> `Mod-Shift-k` (Firefox +
+        Chrome private window).
+      - `Mod-N` (new page) wired in `workspace-app.tsx` to
+        `createDocumentAt('', 'Untitled', '')` via a
+        `createDocumentAtRef` so the keydown handler can reference
+        the function before its declaration.
+      - `Mod-Shift-N` (new grimoire) wired through
+        `lib/shortcut-bus.ts` so the workspace can fire the action
+        without lifting `grimoireSwitcherRef`.
+- [x] 17.2 Side peek flush to top (`workspace-app.tsx`): moved
+      `<SidePeek>` from inside the editor content `<div>` to a
+      sibling of it, child of the editor column. Web mode now
+      covers the full content area; Electron mode stays below
+      `DesktopTabBar` (acceptable per user).
+- [x] 17.3 Tab strip + new tab aligned with the editor header
+      (`workspace-app.tsx` + `components/workspace/tab-strip.tsx`):
+      collapsed the two-row header (TabStrip + 14h bar) into a
+      single 10h bar with TabStrip inlined into the left cluster.
+      `TabStrip` grew an optional `flush?: boolean` that drops
+      its own `border-b bg-sidebar/40` when set.
+- [x] 17.4 Sidebar `+` popover replaced with two icon buttons
+      (`components/workspace/sidebar.tsx`,
+      `components/workspace/sidebar-plus-popover.tsx` deleted,
+      `lib/shortcut-bus.ts` new): `FilePlus` and `FolderPlus` in
+      the Folders header. `grimoireSwitcherRef` stays local to the
+      sidebar; `Mod-Shift-N` fires the bus.
+- [x] 17.5 Sticky `⋯` page menu (`components/workspace/page-menu.tsx`,
+      `components/workspace/doc-viewer.tsx`): wrapper changed from
+      `absolute right-4 top-4` to `sticky top-4` and moved into
+      the article's content flex column so it pins inside the
+      scroll container instead of scrolling out of view.
+- [x] 17.6 Settings page redirect bug (`app/settings/page.tsx`):
+      the auth probe switched from `/api/health` (public, 200
+      unauth) to `/api/vault` (401 -> bounce to
+      `/login?from=/settings`). Locked/absent vault now opens the
+      inline `PasswordsDialog`; App PIN card is independent of
+      vault status and always renders.
+- [x] 17.7 PIN placeholder hint (`app/login/page.tsx`,
+      `components/workspace/pin-keypad.tsx`): login placeholder
+      changed from `123456` to `······` (don't train shoulder
+      surfers). Added a first-run hint naming the actual default
+      `123456` so the user can still type it.
+- [x] 17.8 `scripts/check-sidebar-plus.ts` rewritten for the new
+      design: popover file gone, sidebar imports neither
+      `SidebarPlusPopover`, two icon buttons with the expected
+      titles, `grimoireSwitcherRef` local, sidebar subscribes to
+      `'open-new-grimoire'`, workspace uses
+      `createDocumentAtRef.current` + `fireShortcutAction`,
+      `shortcut-bus.ts` exports both functions, `block-menu` still
+      exports `OpenTarget` with `side-peek` + `new-window`.
