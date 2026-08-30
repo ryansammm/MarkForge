@@ -7,6 +7,10 @@ import {
   setActiveGrimoire,
   setGrimoireRoot,
 } from '@/lib/server/grimoire'
+import {
+  addGrimoireToMarker,
+  removeGrimoireFromMarker,
+} from '@/lib/server/grimoire-marker'
 import { captureError } from '@/lib/server/observability'
 
 export const runtime = 'nodejs'
@@ -63,12 +67,24 @@ export async function PUT(
           { status: 400 }
         )
       }
+      // Capture the previous folder so we can drop this grimoire from its
+      // .grimoire marker before recording it under the new one.
+      const registry = await readRegistry(bucket)
+      const previous = registry.grimoires.find((g) => g.id === id)
+      const previousPath = previous?.path
       const grimoire = await setGrimoireRoot(bucket, id, p)
       // Force the grimoire-scoped store to rebuild against the new path on the
       // next request, and drop the index so a fresh reindex scans the new folder
       // rather than re-reading the previous directory's documents.
       await bucket.deleteMeta(`_grimoires/${id}/index.json`)
       clearGrimoireStore(id)
+      // Update the per-folder marker files. Old folder loses this grimoire;
+      // new folder gains it. The marker is the canonical record on disk of
+      // which grimoires are backed by a given folder.
+      if (previousPath && previousPath !== p) {
+        await removeGrimoireFromMarker(previousPath, id)
+      }
+      await addGrimoireToMarker(p, grimoire)
       return NextResponse.json(grimoire)
     }
 
@@ -100,7 +116,14 @@ export async function DELETE(
   try {
     const { id } = await params
     const bucket = getStore().bucket
+    // Read the path before delete wipes the registry entry, so the marker
+    // file on disk knows which folder to detach this grimoire from.
+    const registry = await readRegistry(bucket)
+    const target = registry.grimoires.find((g) => g.id === id)
     await deleteGrimoire(bucket, id)
+    if (target?.path) {
+      await removeGrimoireFromMarker(target.path, id)
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof Error && err.message.includes('not found')) {

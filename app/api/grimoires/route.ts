@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStore } from '@/lib/server/store'
 import { readRegistry, createGrimoire } from '@/lib/server/grimoire'
+import { addGrimoireToMarker } from '@/lib/server/grimoire-marker'
 import { captureError } from '@/lib/server/observability'
 import { devLog } from '@/lib/server/dev-log'
 
@@ -54,6 +55,12 @@ export async function POST(request: NextRequest) {
     const bucket = getStore().bucket
     devLog.info('api/grimoires', 'create-got-bucket', { bucketKind: bucket.kind })
     const grimoire = await createGrimoire(bucket, body.name.trim(), { path: externalPath })
+    if (externalPath) {
+      // A grimoire created directly against a folder records itself in that
+      // folder's .grimoire marker. The auto-pick flow goes through PUT {path}
+      // and is handled there instead.
+      await addGrimoireToMarker(externalPath, grimoire)
+    }
     devLog.info('api/grimoires', 'create-done', { id: grimoire.id })
     return NextResponse.json(grimoire, { status: 201 })
   } catch (err) {
