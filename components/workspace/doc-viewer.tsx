@@ -6,12 +6,13 @@ import remarkGfm from 'remark-gfm'
 import remarkBreaks from 'remark-breaks'
 import rehypeSlug from 'rehype-slug'
 import { FileText, Calendar, Hash } from 'lucide-react'
-import { MarkdownDocument } from '@/lib/file-store'
+import { MarkdownDocument, type FileTreeNode } from '@/lib/file-store'
 import { classifyHref, isResolvable } from '@/lib/resolve-link'
 import { documentDates } from '@/lib/document-dates'
 import { isWorkspaceHref, linkifyWikilinks, parseWikilinkHref } from '@/lib/markdown/wikilink-href'
 import { stripBlockComments } from '@/lib/markdown/strip-block-comments'
 import { remarkBlockColor } from '@/lib/markdown/annotate-block-color'
+import { frontmatterView, frontmatterWidth } from '@/lib/markdown/frontmatter'
 import { resolveImageSrc } from '@/lib/workspace-api'
 import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
@@ -21,6 +22,7 @@ import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { ViewableImage } from './viewable-image'
 import { ChildPagesSection } from './child-pages-section'
 import { Breadcrumb } from './breadcrumb'
+import { PageMenu } from './page-menu'
 
 /** One look for every link that goes somewhere, whether inside the vault or out. */
 const LINK = 'text-primary underline underline-offset-4 hover:opacity-80'
@@ -56,6 +58,20 @@ interface DocViewerProps {
    */
   scrollFor?: (path: string) => number
   onScroll?: (path: string, top: number) => void
+  /** Folder tree of the active grimoire; feeds the page menu's Move-to picker. */
+  tree: FileTreeNode[]
+  /** Page-level actions exposed via the `⋯` menu. */
+  pageMenu?: {
+    onCopy: () => void
+    onDuplicate: () => void
+    onMoveTo: (destDir: string) => void
+    onTrash: () => void
+    onSetView: (view: 'small' | 'full') => void
+    onSetWidth: (width: 'full' | 'default') => void
+    onLock?: () => void
+    onImport?: () => void
+    onExport?: () => void
+  } | null
 }
 
 export function DocViewer({
@@ -68,6 +84,8 @@ export function DocViewer({
   error,
   scrollFor,
   onScroll,
+  tree,
+  pageMenu,
 }: DocViewerProps) {
   const articleRef = useRef<HTMLElement>(null)
   /** The document this mount has already placed. Restoring twice would fight the reader. */
@@ -123,14 +141,41 @@ export function DocViewer({
   }
 
   const dates = documentDates(document)
+  // `view: small` narrows the reading column. `width: full` widens it.
+  // Both come from the page menu via frontmatter; the viewer only
+  // changes the layout container, never the prose styling, so the
+  // editor is unaffected.
+  const view = frontmatterView(document.frontmatter)
+  const width = frontmatterWidth(document.frontmatter)
+  const maxWidth = width === 'full'
+    ? 'max-w-5xl'
+    : view === 'small'
+      ? 'max-w-2xl'
+      : 'max-w-3xl'
 
   return (
     <article
       ref={articleRef}
       onScroll={(event) => path && onScroll?.(path, event.currentTarget.scrollTop)}
-      className="flex-1 overflow-y-auto px-8 py-10"
+      className="relative flex-1 overflow-y-auto px-8 py-10"
     >
-      <div className="mx-auto max-w-3xl space-y-6">
+      {pageMenu ? (
+        <PageMenu
+          document={document}
+          body={body}
+          tree={tree}
+          onCopy={pageMenu.onCopy}
+          onDuplicate={pageMenu.onDuplicate}
+          onMoveTo={pageMenu.onMoveTo}
+          onTrash={pageMenu.onTrash}
+          onSetView={pageMenu.onSetView}
+          onSetWidth={pageMenu.onSetWidth}
+          onLock={pageMenu.onLock}
+          onImport={pageMenu.onImport}
+          onExport={pageMenu.onExport}
+        />
+      ) : null}
+      <div className={cn('mx-auto space-y-6', maxWidth)}>
         <Breadcrumb current={document} allDocs={allDocs} onNavigate={onNavigatePath} />
 
         {/* Header Metadata */}

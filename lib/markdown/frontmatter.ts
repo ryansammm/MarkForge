@@ -70,6 +70,19 @@ export const FrontmatterSchema = z
     created: z.string().optional(),
     updated: z.string().optional(),
     aliases: z.union([z.string(), z.array(z.string())]).optional(),
+    /**
+     * Reader-mode text size. `small` is the Notion-style "Small text" toggle
+     * that drops the body to a smaller prose width. `full` is a synonym for
+     * the default rendered at the wider reading width. The viewer reads this
+     * via `frontmatterView`; the page menu (`⋯`) writes it.
+     */
+    view: z.enum(['small', 'full']).optional(),
+    /**
+     * Reader-mode width. `full` is the page-wide reading width (a wider
+     * container than the default), `default` is the existing centred column.
+     * The page menu writes this; the viewer reads it via `frontmatterWidth`.
+     */
+    width: z.enum(['full', 'default']).optional(),
   })
   .passthrough()
 
@@ -117,6 +130,16 @@ export function frontmatterTags(frontmatter: Record<string, unknown>): string[] 
   }
   if (Array.isArray(tags)) return tags.filter((t): t is string => typeof t === 'string')
   return []
+}
+
+/** `view: small | full` from the page menu. Defaults to `full`. */
+export function frontmatterView(frontmatter: Record<string, unknown>): 'small' | 'full' {
+  return frontmatter.view === 'small' ? 'small' : 'full'
+}
+
+/** `width: full | default` from the page menu. Defaults to `default`. */
+export function frontmatterWidth(frontmatter: Record<string, unknown>): 'full' | 'default' {
+  return frontmatter.width === 'full' ? 'full' : 'default'
 }
 
 // --- id assignment -----------------------------------------------------------
@@ -241,4 +264,94 @@ export function ensureDocumentMeta(
 
   const spliced = spliceFrontmatterLines(content, split, lines)
   return { content: spliced.content, id, created, changed: spliced.changed }
+}
+
+// --- per-field setters used by the page menu --------------------------------
+
+/**
+ * Replaces a single top-level frontmatter key with a string value, or adds it.
+ *
+ * Surgical on purpose: the document is round-tripped by the editor on every
+ * keystroke, and a YAML reformat would move every quote and every key the
+ * user ever typed. So this just rewrites the matching line in place (or
+ * appends one to the frontmatter block) and leaves the rest alone.
+ *
+ * The value is written as a plain scalar — no quoting, no flow-style. The
+ * page menu only writes the closed enums `view: small | full` and
+ * `width: full | default`; both are safe scalars.
+ *
+ * A document whose frontmatter is invalid is left alone: rewriting YAML we
+ * could not read is how a syntax error becomes data loss.
+ */
+export function setFrontmatterField(
+  content: string,
+  key: string,
+  value: string
+): { content: string; changed: boolean } {
+  const split = splitFrontmatter(content)
+  if (split.invalid) return { content, changed: false }
+  if (split.raw === null) {
+    const eol = content.includes('\r\n') ? '\r\n' : '\n'
+    const head = content.startsWith(eol) || content === '' ? '' : eol
+    return {
+      content: `---${eol}${key}: ${value}${eol}---${eol}${head}${content}`,
+      changed: true,
+    }
+  }
+
+  const eol = content.includes('\r\n') ? '\r\n' : '\n'
+  const blockStart = content.indexOf(split.raw)
+  const blockEnd = blockStart + split.raw.length
+
+  // Match a top-level `key: …` line. Anchored at line start; stops before an
+  // indented continuation. YAML allows a key to be quoted or to use flow
+  // syntax, but the page menu only writes plain scalars, so a single
+  // `^key:[ \t].*$` line covers the cases we ever need to touch.
+  const lineRe = new RegExp(`^${escapeRegExp(key)}:[ \\t].*$`, 'm')
+  const blockText = content.slice(blockStart, blockEnd)
+  const m = lineRe.exec(blockText)
+  if (m) {
+    const before = content.slice(0, blockStart + m.index)
+    const after = content.slice(blockStart + m.index + m[0].length)
+    return { content: `${before}${key}: ${value}${after}`, changed: true }
+  }
+  // Key not present: append the new line at the end of the block, before
+  // the closing `---` we already split off.
+  return {
+    content: `${content.slice(0, blockEnd)}${eol}${key}: ${value}${content.slice(blockEnd)}`,
+    changed: true,
+  }
+}
+
+/**
+ * Removes a single top-level frontmatter key, if present.
+ *
+ * Mirrors `setFrontmatterField`: a single regex line replacement. Returns
+ * `changed: false` when the key was not set or the block was invalid.
+ */
+export function removeFrontmatterField(
+  content: string,
+  key: string
+): { content: string; changed: boolean } {
+  const split = splitFrontmatter(content)
+  if (split.invalid || split.raw === null) return { content, changed: false }
+
+  const eol = content.includes('\r\n') ? '\r\n' : '\n'
+  const blockStart = content.indexOf(split.raw)
+  const blockEnd = blockStart + split.raw.length
+  const blockText = content.slice(blockStart, blockEnd)
+
+  // Strip the whole line (key + value + the line ending after it).
+  const lineRe = new RegExp(`^${escapeRegExp(key)}:[ \\t].*${eol === '\r\n' ? '\\r\\n' : '\\n'}?`, 'm')
+  const m = lineRe.exec(blockText)
+  if (!m) return { content, changed: false }
+  const cut = blockStart + m.index
+  return {
+    content: `${content.slice(0, cut)}${content.slice(cut + m[0].length)}`,
+    changed: true,
+  }
+}
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

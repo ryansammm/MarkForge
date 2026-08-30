@@ -97,6 +97,8 @@ export function SidePeek({
             // match the DocViewer's, so we accept the args and ignore.
             void scrolledPath
           }}
+          tree={[]}
+          pageMenu={null}
         />
       </div>
     </div>

@@ -39,6 +39,7 @@ import { keyboardIsClaimed } from '@/lib/modal-keys'
 import { grimoireHeaders } from '@/lib/grimoire-client'
 import * as api from '@/lib/workspace-api'
 import { moveBlockBetweenDocs } from '@/lib/blocks'
+import { setFrontmatterField } from '@/lib/markdown/frontmatter'
 import { useVault } from '@/lib/vault/use-vault'
 import { VaultKeyProvider, useNoteKey } from '@/lib/client/vault-key'
 import { readDocument as readDocumentEncrypted, writeDocument as writeDocumentEncrypted, createDocument as createDocumentEncrypted } from '@/lib/client/encrypted-fetch'
@@ -591,6 +592,10 @@ export function WorkspaceApp() {
    * in by the effect below, like `saveNowRef`.
    */
   const getBufferRef = useRef<(() => string | null) | null>(null)
+  // `undoDelete` is defined further down; the page menu's toast action
+  // captures it for later. The ref keeps the callback the menu sees
+  // current without re-rendering the menu every time the index changes.
+  const undoDeleteRef = useRef<((trashId: string, label: string) => Promise<void>) | null>(null)
 
   const handleSaved = useCallback(
     (result: WriteResult, content: string) => {
@@ -877,6 +882,167 @@ export function WorkspaceApp() {
   }, [])
 
   /**
+   * Page-menu actions (the `⋯` button on the document viewer).
+   *
+   * `onCopy` is a notification hook — the page menu performs the
+   * clipboard write itself so the toast is local to the click. The
+   * remaining handlers are wired here because the workspace owns the
+   * save pipeline (`useDocumentSave`), the encrypted fetch layer, and
+   * the index patches.
+   *
+   * ponytail: each handler closes over the helpers it actually needs.
+   * A single `pageMenuActions` object would be one place to look, but
+   * the call site is one place too — and the explicit deps list makes
+   * it obvious which pipeline the menu can affect.
+   */
+
+  const copyPageContent = useCallback(() => {
+    // No-op for now: the page menu performs the clipboard write itself.
+  }, [])
+
+  const duplicatePage = useCallback(async () => {
+    if (!activePath || !activeDoc || !source) return
+    flushPendingSave()
+
+    // In edit mode the buffer is fresher than `source.body`; in read
+    // mode the two are the same. Strip frontmatter off the buffer so the
+    // copy starts as a clean document; `createDocumentAt` re-stamps
+    // `id` / `created` on the new file.
+    const buffer = getBufferRef.current?.()
+    const bodyForCopy = buffer !== null && buffer !== undefined
+      ? stripFrontmatterBlock(buffer)
+      : source.body
+
+    const baseName = activeDoc.title.trim() || activeDoc.path.split('/').pop()!.replace(/\.md$/, '')
+    const newTitle = `${baseName} (copy)`
+    const parentDir = activePath.includes('/')
+      ? activePath.slice(0, activePath.lastIndexOf('/'))
+      : ''
+
+    try {
+      const result = await createDocumentAt(parentDir, newTitle, bodyForCopy)
+      toast.success(`Duplicated to ${result.path}`)
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }, [activePath, activeDoc, source, flushPendingSave, createDocumentAt])
+
+  const movePageTo = useCallback(
+    async (destDir: string) => {
+      if (!activePath) return
+      flushPendingSave()
+
+      const fileName = activePath.split('/').pop()!
+      const currentDir = activePath.includes('/')
+        ? activePath.slice(0, activePath.lastIndexOf('/'))
+        : ''
+      if (destDir === currentDir) {
+        toast.message('Already in that folder')
+        return
+      }
+      const destPath = destDir ? `${destDir}/${fileName}` : fileName
+      try {
+        const { report, summary } = await api.renameDocument(activePath, destPath)
+        // The local patch (applyMove) doesn't rewrite the tree, so the
+        // sidebar would render the file in both folders until reload.
+        // `reloadIndex` is the source of truth — match the existing
+        // rename dialog's behaviour.
+        await reloadIndex()
+        if (report.renamed) {
+          dispatchTabs({ type: 'pathRenamed', from: activePath, to: destPath })
+        } else {
+          // The rename failed but the attempt may have rewritten
+          // inbound links, so the cached body is no longer trustworthy.
+          setFreshPath(null)
+          toast.error(report.renameError ?? 'The rename failed.')
+          return
+        }
+        toast.success(summary)
+        if (report.aliasWarning) toast.warning(report.aliasWarning, { duration: 12000 })
+        if (report.headingWarning) toast.warning(report.headingWarning, { duration: 12000 })
+      } catch (err) {
+        toast.error((err as Error).message)
+      }
+    },
+    [activePath, flushPendingSave, reloadIndex, dispatchTabs]
+  )
+
+  const trashPage = useCallback(async () => {
+    if (!activePath || !activeDoc) return
+    flushPendingSave()
+    try {
+      const result = await api.deleteDocument(activePath)
+      patchIndex((index) => applyRemove(index, activePath))
+      dispatchTabs({ type: 'pathRemoved', path: activePath })
+      const label = activeDoc.title || activePath
+      toast.success(`Deleted ${label}`, {
+        action: result.trashId
+          ? { label: 'Undo', onClick: () => void undoDeleteRef.current?.(result.trashId!, label) }
+          : undefined,
+        duration: 10000,
+      })
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }, [activePath, activeDoc, flushPendingSave, patchIndex, dispatchTabs])
+
+  const setPageView = useCallback(
+    async (view: 'small' | 'full') => {
+      if (!activePath || !source) return
+      const next = setFrontmatterField(source.raw, 'view', view)
+      if (!next.changed) return
+      try {
+        await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
+        setSources((prev) => {
+          const entry = prev[activePath]
+          if (!entry) return prev
+          return { ...prev, [activePath]: { ...entry, raw: next.content } }
+        })
+        patchIndex((index) => {
+          const doc = index.documents[activePath]
+          if (!doc) return
+          applyUpsert(index, {
+            ...doc,
+            frontmatter: { ...doc.frontmatter, view },
+            updatedAt: new Date().toISOString(),
+          })
+        })
+      } catch (err) {
+        toast.error((err as Error).message)
+      }
+    },
+    [activePath, source, noteKey, patchIndex]
+  )
+
+  const setPageWidth = useCallback(
+    async (width: 'full' | 'default') => {
+      if (!activePath || !source) return
+      const next = setFrontmatterField(source.raw, 'width', width)
+      if (!next.changed) return
+      try {
+        await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
+        setSources((prev) => {
+          const entry = prev[activePath]
+          if (!entry) return prev
+          return { ...prev, [activePath]: { ...entry, raw: next.content } }
+        })
+        patchIndex((index) => {
+          const doc = index.documents[activePath]
+          if (!doc) return
+          applyUpsert(index, {
+            ...doc,
+            frontmatter: { ...doc.frontmatter, width },
+            updatedAt: new Date().toISOString(),
+          })
+        })
+      } catch (err) {
+        toast.error((err as Error).message)
+      }
+    },
+    [activePath, source, noteKey, patchIndex]
+  )
+
+  /**
    * Drag & drop a document into a folder, from the sidebar.
    *
    * The same link-safe path as a rename (title is unchanged, so nothing rewrites);
@@ -1026,6 +1192,12 @@ export function WorkspaceApp() {
     },
     [reloadIndex]
   )
+
+  useEffect(() => {
+    // The page menu's trash toast captures this through the ref so the
+    // menu itself does not have to know the implementation.
+    undoDeleteRef.current = undoDelete
+  }, [undoDelete])
 
   const confirmDelete = useCallback(async () => {
     if (dialog.kind !== 'delete') return
@@ -1597,6 +1769,19 @@ export function WorkspaceApp() {
               error={sourceError?.path === activePath ? sourceError.message : null}
               scrollFor={scrollFor}
               onScroll={rememberScroll}
+              tree={indexData?.tree || []}
+              pageMenu={
+                activeDoc
+                  ? {
+                      onCopy: copyPageContent,
+                      onDuplicate: () => void duplicatePage(),
+                      onMoveTo: (destDir) => void movePageTo(destDir),
+                      onTrash: () => void trashPage(),
+                      onSetView: (view) => void setPageView(view),
+                      onSetWidth: (width) => void setPageWidth(width),
+                    }
+                  : null
+              }
             />
           )}
 

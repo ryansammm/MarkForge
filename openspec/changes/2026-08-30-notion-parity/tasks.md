@@ -1,7 +1,7 @@
 # Tasks: notion-parity
 
-> **Status:** approved (2026-08-30). Awaiting `2026-08-30-r2-encrypted-nested`
-> §5.6 smoke to pass before Task 1 starts. See `proposal.md` for full
+> **Status:** approved (2026-08-30). Tasks 1-5 shipped to `dev`.
+> Task 6 (settings page API key UI) next. See `proposal.md` for full
 > design and Risks.
 
 Total: 16 tasks. Sized for 2-hour commits. Numbered so they can be
@@ -93,24 +93,46 @@ commit on `dev` (push after each).
 
 ## 5. `⋯` page menu
 
-- [ ] 5.1 `components/workspace/page-menu.tsx` (new) — `⋯` button
-      rendered top-right of the document viewer. Click opens a
-      popover menu.
-- [ ] 5.2 Wire `Copy page content` (uses
-      `navigator.clipboard.writeText(decryptedBody)`).
-- [ ] 5.3 Wire `Duplicate` (page-level) — copies the body and
-      frontmatter, generates a new `id`, clears `parent_id`, suffix
-      ` (copy)` on title, calls `createDocumentAt`.
-- [ ] 5.4 Wire `Move to` (page-level) — reuses the existing
-      file-rename primitive. Opens a folder picker scoped to the
-      active grimoire.
-- [ ] 5.5 Wire `Move to trash` — same as current `Delete`.
-- [ ] 5.6 Wire `Small text` and `Full width` toggles — write to
-      frontmatter (`view`, `width`); the viewer reads them.
-- [ ] 5.7 Stub `Lock page`, `Import`, `Export` — render the items,
-      wire them in Tasks 9 and 10.
-- [ ] 5.8 Self-check `scripts/check-page-menu.ts` — menu items
-      present, toggles write frontmatter.
+- [x] 5.1 `components/workspace/page-menu.tsx` (new) — `⋯` button
+      rendered top-right of the document viewer (`absolute right-4
+      top-4` on the `<article>` wrapper). Click opens a popover
+      menu. Mounted only when `workspace-app.tsx` provides
+      `pageMenu` props (the side-peek viewer passes `null`).
+- [x] 5.2 Wire `Copy page content` — `navigator.clipboard.writeText`
+      on the decrypted body. Toast on success/fail.
+- [x] 5.3 Wire `Duplicate` (page-level) — `flushPendingSave` then
+      read the latest buffer (`getBufferRef.current?.() ??
+      source.body`), strip the frontmatter block, call
+      `api.createDocument` with parent dir + ` (copy)` suffix.
+      *(Drift: original spec said `createDocumentAt`; we route
+      through the server API like the existing rename dialog so
+      side effects on the live index are observed in one place.)*
+- [x] 5.4 Wire `Move to` (page-level) — folder picker submenu over
+      the live `tree` directories; filters the current folder and
+      all of its descendants via
+      `currentPath.startsWith(`${fullPath}/`)` so the page can never
+      be moved into itself. Uses `api.renameDocument` +
+      `await reloadIndex()` (no `applyMove` — same pattern as the
+      existing rename dialog) and surfaces `aliasWarning` /
+      `headingWarning`.
+- [x] 5.5 Wire `Move to trash` — same as current `Delete`. Toast
+      exposes an `Undo` action wired to `undoDeleteRef.current`.
+- [x] 5.6 Wire `Small text`, `Full text`, `Full width`, `Default
+      width` toggles — `setFrontmatterField(source.raw, 'view', v)`
+      + `setFrontmatterField(source.raw, 'width', v)` →
+      `writeDocumentEncrypted` + `applyUpsert` with the new
+      frontmatter. The viewer reads `frontmatterView` /
+      `frontmatterWidth` and maps them to `max-w-2xl` / `max-w-3xl`
+      / `max-w-5xl` (width wins over view).
+- [x] 5.7 Stub `Lock page`, `Import`, `Export` — render the items
+      with a small "coming in Task 9 / 10" hint; wire them in
+      Tasks 9 and 10.
+- [x] 5.8 Self-check `scripts/check-page-menu.ts` — menu items
+      present, viewer imports frontmatter readers, viewer mounts
+      `<PageMenu>`, viewer applies frontmatter-driven max-width,
+      `setFrontmatterField` round-trips for `view` + `width` +
+      replacement + invalid-YAML no-op, `removeFrontmatterField`
+      drops lines. Exit 0 (23/23).
 
 ## 6. Settings page (API key UI)
 
