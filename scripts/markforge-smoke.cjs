@@ -1,4 +1,4 @@
-// MarkForge offline smoke test — loads the app in headless Chromium and
+// MarkForge smoke test — loads the app in headless Chromium and
 // captures console errors, page errors, failed requests, and a screenshot.
 // Usage: node scripts/markforge-smoke.cjs   (server must be up on MF_URL)
 const { chromium } = require('@playwright/test')

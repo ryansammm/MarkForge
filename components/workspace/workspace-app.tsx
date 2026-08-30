@@ -278,7 +278,7 @@ export function WorkspaceApp() {
   const [loading, setLoading] = useState(true)
   /** Set when the backend reports that writes will not survive. Never dismissible. */
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
-  /** Backend kind — drives the offline root-folder gate. */
+  /** Backend kind from /api/health — drives the "Sync to cloud" visibility. */
   const [storageKind, setStorageKind] = useState<string | null>(null)
   /** Drawer state below md. Closed by default so a phone opens on the document. */
   const [sidebarOpen, setSidebarOpen] = useState(false)

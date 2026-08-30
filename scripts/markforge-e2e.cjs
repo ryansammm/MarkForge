@@ -1,4 +1,4 @@
-// MarkForge live HTTP end-to-end checks against a running offline server.
+// MarkForge live HTTP end-to-end checks against a running dev server.
 // Verifies the multi-root grimoire fixes at the HTTP layer (not just page boot):
 //   - grimoire CRUD + isolation (doc in grimoire not visible from root)
 //   - external grimoire backed by a real folder (written in place)

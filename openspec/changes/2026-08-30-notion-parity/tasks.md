@@ -460,18 +460,28 @@ app gate becomes a 6-digit PIN that the user can rotate from settings.
 
 ## 15. Drop offline mode
 
-- [ ] 15.1 Delete `MarkForge-Offline.bat`.
-- [ ] 15.2 `electron/main.cjs` — drop the `localOnly` block, drop
+- [x] 15.1 Delete `MarkForge-Offline.bat`.
+- [x] 15.2 `electron/main.cjs` — drop the `localOnly` block, drop
       the `MARKFORGE_ONLINE` check, drop the related comment.
       Dev-spawn always passes the repo `.env` through.
-- [ ] 15.3 `MarkForge-Online.bat` — rename to `MarkForge.bat` (the
+- [x] 15.3 `MarkForge-Online.bat` — rename to `MarkForge.bat` (the
       product is no longer dual-mode).
-- [ ] 15.4 `app/api/health/route.ts` and any other code paths
+- [x] 15.4 `app/api/health/route.ts` and any other code paths
       carrying `offline` flags — audit and remove.
-- [ ] 15.5 Self-check `scripts/check-no-offline.ts` — no
+      *Audit:* the only `offline` references left in active code are
+      the *runtime* "browser is disconnected" kind
+      (`save-indicator.tsx`, `use-document-save.ts`, `service-worker`
+      tests) which are unrelated to the launcher mode being dropped.
+      The stale comment in `workspace-app.tsx` ("drives the offline
+      root-folder gate") and the "running offline server" headers in
+      `markforge-e2e.cjs` / `markforge-smoke.cjs` were updated. The
+      dead `storageKind === 'cloud'` branch in `sidebar.tsx` (the
+      `Sync to cloud` button) is left in place — out of scope for
+      Task 15 and a follow-up.
+- [x] 15.5 Self-check `scripts/check-no-offline.ts` — no
       `MarkForge-Offline.bat`, no `MARKFORGE_OFFLINE` / `MARKFORGE_ONLINE`
       string in source, `electron/main.cjs` does not branch on
-      the env.
+      the env. 12/12 pass.
 
 ## 16. Self-checks + verify + e2e + archive
 
