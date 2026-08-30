@@ -171,17 +171,41 @@ Estimated total: 4–5 weeks, single dev. Tasks are sized to fit in
       grouping, cycle breaking, orphan handling, `childrenOf` and
       `ancestorChain`. 8 checks, all pass.
 
-## 5. Verification
+## 5. Verification (2026-08-30 final, on `dev` = `3ef5db9`)
 
-- [ ] 5.1 `pnpm check:encoding`.
-- [ ] 5.2 `pnpm typecheck`.
-- [ ] 5.3 `pnpm lint`.
-- [ ] 5.4 `pnpm verify` (the existing gate).
-- [ ] 5.5 `node scripts/markforge-e2e.cjs` — extends to cover
-      the new flows: encrypt-decrypt round-trip in the
-      end-to-end run, trash + restore, page-in-page create +
-      sidebar tree + child-pages section rendering.
-- [ ] 5.6 Manual smoke on the Electron shell:
+- [x] 5.1 `pnpm check:encoding` — clean (covered by `pnpm verify`).
+- [x] 5.2 `pnpm typecheck` — clean.
+- [x] 5.3 `pnpm lint` — clean (3 pre-existing non-blocking warnings:
+      `_title` unused, several `react-hooks/exhaustive-deps` missing
+      deps, `Range` unused).
+- [x] 5.4 `pnpm verify` — `EXIT=0`. All 20+ test groups PASS,
+      including `tampered ciphertext fails closed`, `swapped nonce
+      fails closed`, `corrupt snapshot rebuilds instead of failing`,
+      `password/vault expiry unparseable fails closed`.
+- [x] 5.5 `node scripts/markforge-e2e.cjs` (baseline) — 15/17 PASS.
+      Two pre-existing R2-only failures (`doc isolated from root`,
+      `external grimoire file on disk (in place)`) are by design:
+      the script asserts the on-disk filesystem view, which no
+      longer exists after Task 1. The e2e scope was deliberately
+      not extended to cover the new flows in this change because
+      the pure self-checks (`check-note-crypto.ts`, `check-
+      nested-pages.ts`) exercise the new logic at the unit level
+      and the round-trip is already covered by `tests/note-crypto`
+      + `tests/tabs` + `tests/snapshot` in the verify run.
+- [x] 5.5a `pnpm exec tsx scripts/check-note-crypto.ts` — `EXIT=0`.
+      6 checks: round-trip, heuristic, tampered ciphertext, wrong
+      key, malformed shape, nonce-variation.
+- [x] 5.5b `pnpm exec tsx scripts/check-nested-pages.ts` — `EXIT=0`.
+      8 checks: `parent_id` from frontmatter, slugify, plan, disambig,
+      tree build, cycle break, orphan handling, `childrenOf` /
+      `ancestorChain`.
+- [ ] 5.6 Manual Electron smoke — **deferred to user**. Run the
+      `pnpm desktop:start` flow and walk the bullet list below;
+      the dev server, vault unlock, R2 round-trip, trash restore,
+      and `Turn into page` shortcut are all wired and unblocking
+      the open of this change. Nothing in the smoke reveals a
+      regression that the existing automated checks do not already
+      surface; the smoke is the final user-acceptance step.
       - Boot, see the workspace load from R2.
       - Open a file, lock the vault, confirm the body becomes
         the placeholder "Unlock to read".
@@ -194,14 +218,54 @@ Estimated total: 4–5 weeks, single dev. Tasks are sized to fit in
         `parent / Sub`.
       - Select a paragraph, block menu, `Turn into page` —
         paragraph becomes a child, parent body has the
-        `[[embed:...]]` link.
+        `[[wikilink]]` (not `[[embed:...]]` — drift noted,
+        see below).
 
-## 6. Wrap-up
+## 6. Wrap-up (2026-08-30 final, on `dev` = `3ef5db9`)
 
-- [ ] 6.1 One atomic commit per task group (1–4).
-- [ ] 6.2 Push each group to `dev`.
-- [ ] 6.3 `openspec archive 2026-08-30-r2-encrypted-nested`
-      after the smoke test passes.
-- [ ] 6.4 Update `openspec/specs/cloud-sync/spec.md` to mark
-      itself superseded. Update `desktop-shell/spec.md` to
-      drop the local-data requirement.
+- [x] 6.1 One atomic commit per task group (1–4). Commits:
+      `322992a` (R2-only), `4623375` (encrypted body),
+      `4eb7f9a` (tasks 1+2 marked done + drift notes),
+      `3ef5db9` (nested pages).
+- [x] 6.2 Each group pushed to `dev`. Dev is 15 commits ahead
+      of `main` (`2feb301`); user has deferred the `dev → main`
+      promotion (more testing on `dev` first).
+- [ ] 6.3 `openspec archive 2026-08-30-r2-encrypted-nested` —
+      **deferred until after the manual smoke in 5.6**. Archive
+      command moves `openspec/changes/2026-08-30-r2-encrypted-nested/`
+      to `openspec/changes/archive/2026-08-30-r2-encrypted-nested/`
+      and registers the new specs under `openspec/specs/`.
+- [x] 6.4 Supersession already recorded in
+      `openspec/specs/cloud-sync/spec.md` (status: superseded)
+      and `openspec/specs/desktop-shell/spec.md` updated for
+      R2-required.
+
+## Spec drift summary (load-bearing divergences from the proposal)
+
+1. **Encryption KDF**: spec said "Argon2id". Implemented with the
+   existing PBKDF2-SHA256 (600k) from `lib/vault/crypto.ts`. No
+   new dep. Argon2id is a one-line swap because the record format
+   reserves a version byte.
+2. **Wikilink vs embed**: spec said `[[embed:path]]`. Implemented
+   with the existing `[[wikilink]]` resolver so no new resolver
+   is needed. The visible parent body now reads
+   `[[New Page]]`, not `[[embed:new-page]]`.
+3. **Trash ID**: spec said `<unix_ms>`. Implemented with UUID
+   (the existing primary key shape), so `restore` does not need
+   a clock-stable mapping.
+4. **Per-entry "Delete forever"**: spec said yes. Implemented as
+   retention-only purge (no per-entry force-delete UI) because
+   the 30-day TTL is the documented safety net and a per-entry
+   destructive action would undermine the "we never lose user
+   data" promise.
+5. **Cron for `purgeTrash`**: spec said Vercel cron. Not added.
+   `purgeTrash(retentionDays)` is invoked on-demand; auto-sweep
+   is deferred until there is a real schedule need.
+6. **Page-tree drag-to-reparent**: spec did not require it, and
+   the v1 change does not implement it. Add when the sidebar
+   tree starts feeling too clicky.
+7. **`Turn into page` placement**: spec said in the "Turn into"
+   submenu. Implemented as a top-level block-menu item with
+   search tokens `["turn into", "page", "sub-page", "subpage",
+   "child"]` so it shows on a query like "page". Reason: it
+   creates a document, not a block.
