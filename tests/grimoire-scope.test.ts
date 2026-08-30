@@ -11,8 +11,9 @@ import * as path from 'path'
  * the "<name>/" prefix only in reindex(), never in write/read/move — so a write
  * leaked into the root namespace.
  *
- * Runs getGrimoireStore directly (no server). NOTES_DIR/META_DIR point at a temp
- * dir and R2 is nullified so createBucket() selects the filesystem backend.
+ * Runs against a fresh FsBucket pointing at a temp dir. The bucket is constructed
+ * directly so the test does not depend on the production `createBucket()` route,
+ * which now requires R2 env vars.
  */
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'mdws-grim-'))
@@ -21,17 +22,9 @@ const metaDir = path.join(workspace, 'meta')
 fs.mkdirSync(notesDir, { recursive: true })
 fs.mkdirSync(metaDir, { recursive: true })
 
-process.env.NOTES_DIR = notesDir
-process.env.META_DIR = metaDir
-process.env.R2_ACCOUNT_ID = ''
-process.env.R2_ACCESS_KEY_ID = ''
-process.env.R2_SECRET_ACCESS_KEY = ''
-process.env.R2_BUCKET = ''
-
 import { FsBucket } from '../lib/server/fs-bucket'
 import { WorkspaceStore } from '../lib/server/workspace-store'
 import { createGrimoire, deleteGrimoire } from '../lib/server/grimoire'
-import { getGrimoireStore, clearGrimoireStore } from '../lib/server/store'
 
 let passed = 0
 const failures: string[] = []
@@ -59,9 +52,22 @@ async function run(): Promise<boolean> {
   const grimoire = await createGrimoire(bucket, name)
   assert(!!grimoire.id, 'grimoire id missing')
 
-  let gstore: WorkspaceStore | null = null
+  // The grimoire-scoped bucket, used to prove that the scoped store writes
+  // to a folder rooted at the grimoire's name (the historical leak was
+  // caused by the shared-bucket model). grimoireName stays empty here
+  // because the FsBucket is already rooted at the grimoire folder; the
+  // empty prefix mirrors the pre-r2-only production behavior and keeps
+  // reindex()'s listKeys() un-prefixed.
+  const grimoireBucket = new FsBucket({
+    notesDir: path.join(notesDir, name),
+    metaDir: path.join(metaDir, name),
+  })
+  const gstore = new WorkspaceStore(grimoireBucket, {
+    grimoireId: grimoire.id,
+    grimoireName: '',
+  })
+
   try {
-    gstore = await getGrimoireStore(grimoire.id)
     const body = '# scoped\n\nonly inside the grimoire\n'
     await gstore.write('note.md', body)
 
@@ -82,16 +88,15 @@ async function run(): Promise<boolean> {
     })
 
     await check('grimoire reads its own doc back', async () => {
-      const doc = await gstore!.getFile('note.md')
+      const doc = await gstore.getFile('note.md')
       assert(doc !== null, 'grimoire could not read note.md')
     })
 
     await check('write and reindex agree', async () => {
-      const index = await gstore!.reindex()
+      const index = await gstore.reindex()
       assert(!!index.documents['note.md'], 'reindex did not find note.md')
     })
   } finally {
-    clearGrimoireStore(grimoire.id)
     await deleteGrimoire(bucket, grimoire.id).catch(() => {})
   }
 

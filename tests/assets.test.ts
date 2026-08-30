@@ -16,6 +16,7 @@ import {
   slugifyFilename,
 } from '../lib/server/assets'
 import { MAX_ASSET_BYTES } from '../lib/server/request-limits'
+import { setStore } from '../lib/server/store'
 
 /**
  * Asset storage suite — Sprint 7, item 1.
@@ -51,6 +52,23 @@ process.env.INDEX_PATH = path.join(workspace, 'index.json')
 // Without META_DIR the trash defaults to process.cwd(), which would write .trash/
 // into the repository being tested.
 process.env.META_DIR = workspace
+process.env.R2_ACCOUNT_ID = ''
+process.env.R2_ACCESS_KEY_ID = ''
+process.env.R2_SECRET_ACCESS_KEY = ''
+process.env.R2_BUCKET = ''
+
+// The route half calls `getStore()` (which routes through `createBucket()`,
+// now R2-only). Inject a FsBucket-backed store so the route handlers see
+// the same WorkspaceStore interface without needing real R2 credentials.
+setStore(
+  new WorkspaceStore(
+    new FsBucket({
+      notesDir: path.join(workspace, 'notes'),
+      indexPath: path.join(workspace, 'index.json'),
+      metaDir: workspace,
+    })
+  )
+)
 
 let passed = 0
 const failures: string[] = []

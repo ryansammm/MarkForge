@@ -13,6 +13,8 @@ import * as path from 'path'
  *
  * NOTE: the store resolves its roots from env at construction, so NOTES_DIR,
  * META_DIR and INDEX_PATH are set before the route module is imported.
+ * R2 env is nullified so `createBucket()` throws; the test injects a
+ * FsBucket-backed store via `setStore()`.
  */
 
 const workspace = fs.mkdtempSync(path.join(os.tmpdir(), 'mdws-api-'))
@@ -24,6 +26,28 @@ process.env.INDEX_PATH = path.join(workspace, 'index.json')
 // Without META_DIR the trash defaults to process.cwd(), so deleting a document in a
 // test writes .trash/ into the repository being tested.
 process.env.META_DIR = workspace
+process.env.R2_ACCOUNT_ID = ''
+process.env.R2_ACCESS_KEY_ID = ''
+process.env.R2_SECRET_ACCESS_KEY = ''
+process.env.R2_BUCKET = ''
+
+import { FsBucket } from '../lib/server/fs-bucket'
+import { WorkspaceStore } from '../lib/server/workspace-store'
+import { setStore } from '../lib/server/store'
+
+// Production code routes through `getStore()` → `createBucket()`, which now
+// requires R2 env. The test injects a FsBucket-backed store instead, so the
+// route handlers see the same `WorkspaceStore` interface without needing
+// real R2 credentials.
+setStore(
+  new WorkspaceStore(
+    new FsBucket({
+      notesDir,
+      indexPath: path.join(workspace, 'index.json'),
+      metaDir: workspace,
+    })
+  )
+)
 
 let passed = 0
 const failures: string[] = []

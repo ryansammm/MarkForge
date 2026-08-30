@@ -1,10 +1,9 @@
-import path from 'path'
 import type { Bucket } from './bucket'
-import { FsBucket } from './fs-bucket'
 import { R2Bucket, r2ConfigFromEnv } from './r2-bucket'
 import { WorkspaceStore } from './workspace-store'
 import { readRegistry } from './grimoire'
 import { devLog } from './dev-log'
+import { MissingR2ConfigError, REQUIRED_R2_VARS } from './missing-r2-config'
 
 export class GrimoireNotFoundError extends Error {
   readonly code = 'GRIMOIRE_NOT_FOUND'
@@ -13,17 +12,20 @@ export class GrimoireNotFoundError extends Error {
 /**
  * Picks a storage backend.
  *
- * R2 when it is configured, filesystem otherwise. The choice is made from the
- * environment rather than a flag, so a deployment cannot accidentally run on the
- * filesystem backend and appear to work — writes would succeed into an ephemeral
- * container and vanish at the next cold start, which is the worst possible failure
- * mode because it looks exactly like success.
+ * R2 only. The boot-time configuration screen surfaces `MissingR2ConfigError`
+ * with the four env var names when they are absent. There is no filesystem
+ * fallback in production code paths; `lib/server/fs-bucket.ts` exists for
+ * tests that construct it directly.
  */
 
-export type BackendKind = 'r2' | 'filesystem'
+export type BackendKind = 'r2' | 'unknown'
 
 export function createBucket(): Bucket {
-  return r2ConfigFromEnv() ? new R2Bucket() : new FsBucket()
+  if (!r2ConfigFromEnv()) {
+    const missing = REQUIRED_R2_VARS.filter((name) => !process.env[name])
+    throw new MissingR2ConfigError(missing)
+  }
+  return new R2Bucket()
 }
 
 let shared: WorkspaceStore | null = null
@@ -56,45 +58,10 @@ export async function getGrimoireStore(grimoireId: string): Promise<WorkspaceSto
     throw new GrimoireNotFoundError(`Grimoire not found: ${grimoireId}`)
   }
 
-  // Local (filesystem) backend: root a dedicated bucket at the grimoire's own
-  // notes folder so document keys are relative to it (no "<name>/" prefix). This
-  // keeps a grimoire's writes out of the ROOT namespace. The old shared-bucket +
-  // grimoireName-prefix model leaked every write into root because the prefix was
-  // only applied by reindex(), never by read/write/move.
-  // Cloud (R2) cannot root a dedicated bucket per grimoire; there "grimoireName"
-  // drives a consistent key prefix instead (see WorkspaceStore.grimoireName).
-  const filesystem = !r2ConfigFromEnv()
-  const external = Boolean(grimoire.path && filesystem)
-  const rootNotesDir = process.env.NOTES_DIR || path.join(process.cwd(), 'notes')
-  const grimoireBucket = filesystem
-    ? new FsBucket({
-        notesDir: external ? grimoire.path! : path.join(rootNotesDir, grimoire.name),
-        metaDir: process.env.META_DIR,
-      })
-    : bucket
-
-  // Legacy orphan pull: when this is the only grimoire, its folder is empty, and the
-  // shared notes root still has loose top-level notes (from before grimoires existed),
-  // adopt them. Operates across the two buckets — the root bucket that sees the loose
-  // notes, and the grimoire's dedicated bucket that receives them.
-  if (filesystem && !external && registry.grimoires.length === 1) {
-    const orphaned = (await bucket.listKeys()).filter(
-      (k) => !k.includes('/') && k.toLowerCase().endsWith('.md')
-    )
-    const hasContent = (await grimoireBucket.listKeys()).length > 0
-    if (orphaned.length > 0 && !hasContent) {
-      devLog.info('store', 'migrate-orphaned', { count: orphaned.length })
-      for (const key of orphaned) {
-        const content = await bucket.readText(key)
-        if (content !== null) await grimoireBucket.writeText(key, content)
-      }
-    }
-  }
-
-  devLog.info('store', 'grimoire-creating-store', { name: grimoire.name, filesystem })
-  const store = new WorkspaceStore(grimoireBucket, {
+  devLog.info('store', 'grimoire-creating-store', { name: grimoire.name })
+  const store = new WorkspaceStore(bucket, {
     grimoireId: grimoire.id,
-    grimoireName: filesystem ? '' : grimoire.name,
+    grimoireName: grimoire.name,
   })
 
   // Auto-reindex if index doesn't exist yet (new grimoire or migration)
@@ -122,9 +89,8 @@ export function setStore(store: WorkspaceStore | null): void {
 /**
  * Whether the current configuration can actually persist a write.
  *
- * The filesystem backend on a read-only or ephemeral host — Vercel, most
- * containers — accepts writes that do not survive. Surfacing that is the point:
- * a deployment that silently forgets edits is worse than one that refuses them.
+ * R2 is the only production backend. When the env vars are missing the answer
+ * is `unknown`: the boot-time configuration screen is what the user sees.
  */
 export function backendHealth(): {
   kind: BackendKind
@@ -133,12 +99,11 @@ export function backendHealth(): {
 } {
   if (r2ConfigFromEnv()) return { kind: 'r2', durable: true }
 
-  const ephemeral = Boolean(process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME)
+  const missing = REQUIRED_R2_VARS.filter((name) => !process.env[name])
   return {
-    kind: 'filesystem',
-    durable: !ephemeral,
-    warning: ephemeral
-      ? 'Running on an ephemeral filesystem with no R2 configuration. Edits will not survive. Set R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY and R2_BUCKET.'
-      : undefined,
+    kind: 'unknown',
+    durable: false,
+    warning: `MarkForge requires R2. Missing env vars: ${missing.join(', ')}. Set ${REQUIRED_R2_VARS.join(', ')} and restart.`,
   }
 }
+
