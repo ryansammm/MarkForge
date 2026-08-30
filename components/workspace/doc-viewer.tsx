@@ -11,6 +11,7 @@ import { classifyHref, isResolvable } from '@/lib/resolve-link'
 import { documentDates } from '@/lib/document-dates'
 import { isWorkspaceHref, linkifyWikilinks, parseWikilinkHref } from '@/lib/markdown/wikilink-href'
 import { stripBlockComments } from '@/lib/markdown/strip-block-comments'
+import { remarkBlockColor } from '@/lib/markdown/annotate-block-color'
 import { resolveImageSrc } from '@/lib/workspace-api'
 import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
@@ -180,7 +181,7 @@ export function DocViewer({
               visible break, instead of being folded into a space like strict
               CommonMark does.
             */
-            remarkPlugins={[remarkGfm, remarkBreaks]}
+            remarkPlugins={[remarkGfm, remarkBreaks, remarkBlockColor(body ?? '')]}
             /*
               Gives every heading an id, which is what the outline scrolls to. It uses
               github-slugger, the same thing lib/markdown/headings.ts uses to work out

@@ -440,3 +440,52 @@ html, body, main, aside, article, header {
 
 /* A token the grammar could not make sense of. Marked, not hidden. */
 .tok-invalid { color: var(--destructive); text-decoration: underline wavy; }
+
+/*
+  Block color and background from the editor's `<!-- mkf:b:... color:X bg:Y -->`
+  comments. The remark plugin in lib/markdown/annotate-block-color.ts
+  stamps the corresponding paragraph, heading, list item, or blockquote
+  with data-color and data-bg; these selectors turn them into paint.
+
+  Colors are deliberately light pastels on a white card and slightly
+  heavier on a dark card so the text stays legible.
+*/
+.prose [data-color="gray"]   { color: #6b7280; }
+.prose [data-color="brown"]  { color: #92400e; }
+.prose [data-color="orange"] { color: #c2410c; }
+.prose [data-color="yellow"] { color: #a16207; }
+.prose [data-color="green"]  { color: #15803d; }
+.prose [data-color="blue"]   { color: #1d4ed8; }
+.prose [data-color="purple"] { color: #6d28d9; }
+.prose [data-color="pink"]   { color: #be185d; }
+.prose [data-color="red"]    { color: #b91c1c; }
+
+.prose [data-bg="gray"]   { background-color: #f3f4f6; }
+.prose [data-bg="brown"]  { background-color: #fef3c7; }
+.prose [data-bg="orange"] { background-color: #ffedd5; }
+.prose [data-bg="yellow"] { background-color: #fef9c3; }
+.prose [data-bg="green"]  { background-color: #dcfce7; }
+.prose [data-bg="blue"]   { background-color: #dbeafe; }
+.prose [data-bg="purple"] { background-color: #ede9fe; }
+.prose [data-bg="pink"]   { background-color: #fce7f3; }
+.prose [data-bg="red"]    { background-color: #fee2e2; }
+
+.dark .prose [data-color="gray"]   { color: #9ca3af; }
+.dark .prose [data-color="brown"]  { color: #fbbf24; }
+.dark .prose [data-color="orange"] { color: #fb923c; }
+.dark .prose [data-color="yellow"] { color: #facc15; }
+.dark .prose [data-color="green"]  { color: #4ade80; }
+.dark .prose [data-color="blue"]   { color: #60a5fa; }
+.dark .prose [data-color="purple"] { color: #a78bfa; }
+.dark .prose [data-color="pink"]   { color: #f472b6; }
+.dark .prose [data-color="red"]    { color: #f87171; }
+
+.dark .prose [data-bg="gray"]   { background-color: #1f2937; }
+.dark .prose [data-bg="brown"]  { background-color: #422006; }
+.dark .prose [data-bg="orange"] { background-color: #431407; }
+.dark .prose [data-bg="yellow"] { background-color: #422006; }
+.dark .prose [data-bg="green"]  { background-color: #052e16; }
+.dark .prose [data-bg="blue"]   { background-color: #172554; }
+.dark .prose [data-bg="purple"] { background-color: #2e1065; }
+.dark .prose [data-bg="pink"]   { background-color: #500724; }
+.dark .prose [data-bg="red"]    { background-color: #450a0a; }
