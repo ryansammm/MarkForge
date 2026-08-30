@@ -35,6 +35,7 @@ import { MAX_ASSET_BYTES } from '@/lib/asset-limits'
 import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
+import { blockHandle } from './block-handle'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
 import { wikilinkCompletions } from './wikilink-complete'
@@ -133,13 +134,28 @@ const editorTheme = EditorView.theme({
     padding: '0 0 40vh 0',
     overflow: 'auto',
   },
-  '.cm-content': { padding: '0', caretColor: 'var(--cm-accent)' },
+  '.cm-content': { padding: '0 0 0 32px', caretColor: 'var(--cm-accent)' },
   '&.cm-focused': { outline: 'none' },
   '.cm-line': { padding: '0 2px' },
   // Frontmatter lines (id, created, title, ---) carry this class via
   // hide-frontmatter-id.ts. Hiding the line is a paint-only concern — the
   // document buffer still has every byte, so the file is saved intact.
   '.cm-frontmatter-hidden': { display: 'none' },
+  '.cm-block-handle': {
+    position: 'absolute',
+    left: '4px',
+    width: '20px',
+    textAlign: 'center',
+    cursor: 'grab',
+    color: 'var(--muted-foreground)',
+    opacity: '0',
+    userSelect: 'none',
+    transition: 'opacity 100ms ease',
+    fontSize: '14px',
+    lineHeight: 'inherit',
+  },
+  '.cm-block-handle:hover': { opacity: '1' },
+  '.cm-line:hover > .cm-block-handle, .cm-line:focus-within > .cm-block-handle': { opacity: '1' },
   '.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--cm-accent)', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
@@ -300,6 +316,9 @@ export function MarkdownEditor({
       EditorView.lineWrapping,
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(markdownHighlight, { fallback: true }),
+      // Hover drag handle for every paragraph. Only registered for the
+      // edit mode — the reading view does not need it.
+      blockHandle(),
       livePreview({
         // The reading view's resolver, not a second one. Two would drift, and the
         // symptom would be a link that renders as resolved but navigates nowhere.
