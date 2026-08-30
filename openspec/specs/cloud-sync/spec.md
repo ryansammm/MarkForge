@@ -1,8 +1,14 @@
 # cloud-sync Specification
 
-## Purpose
-Specifies the explicit desktop action that uploads the local corpus to Cloudflare R2 on demand, keeping the workspace itself local-first.
+> **Superseded by `r2-only` on 2026-08-30.** MarkForge no longer has
+> a local corpus; the "upload from local" workflow is moot. This
+> spec is preserved for history; no active requirement lives here.
 
+## Purpose (historical)
+
+Originally specified the explicit desktop action that uploads the
+local corpus to Cloudflare R2 on demand, keeping the workspace
+itself local-first.
 ## Requirements
 
 ### Requirement: Explicit push only

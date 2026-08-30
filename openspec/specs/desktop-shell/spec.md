@@ -14,14 +14,24 @@ Running the desktop entry point SHALL start a local production server of the app
 - **WHEN** the user runs the desktop command
 - **THEN** a window opens showing the workspace login, backed by the local data directory
 
-### Requirement: Isolated local data
+### Requirement: R2 env required
 
-The desktop server SHALL store documents and metadata under the OS user-data directory (`%APPDATA%\MarkForge`), never inside the repository working tree.
+The desktop shell SHALL refuse to mount the editor when any
+`R2_*` env var is missing, and SHALL surface the same
+configuration screen as the web app. The desktop server SHALL
+NOT write to the OS user-data directory; all storage is in R2.
 
-#### Scenario: Import does not dirty the repo
+#### Scenario: Missing R2 env
 
-- **WHEN** the user imports files on the desktop
-- **THEN** no new or modified files appear in the repository's git status
+- **WHEN** the user launches the desktop shell with one or more
+  `R2_*` env vars missing
+- **THEN** the shell shows the configuration screen instead of
+  the editor
+
+#### Scenario: No local data directory
+
+- **WHEN** the desktop shell is running
+- **THEN** no files appear in `%APPDATA%\MarkForge`
 
 ### Requirement: Native import
 
