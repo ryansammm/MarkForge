@@ -79,17 +79,17 @@ commit on `dev` (push after each).
 
 ## 4. Remove page-tree from sidebar
 
-- [ ] 4.1 Delete `components/workspace/page-tree.tsx`.
-- [ ] 4.2 `components/workspace/sidebar.tsx` — drop the `Pages`
-      section above the folder tree.
-- [ ] 4.3 `lib/parent-tree.ts` stays (still used by breadcrumb +
+- [x] 4.1 Deleted `components/workspace/page-tree.tsx`.
+- [x] 4.2 `components/workspace/sidebar.tsx` — dropped the `PageTree`
+      import + the `Documents` section heading above the folder tree.
+- [x] 4.3 `lib/parent-tree.ts` stays (still used by breadcrumb +
       child-pages). `lib/client/turn-into-page.ts` stays.
-- [ ] 4.4 Update `openspec/changes/2026-08-30-r2-encrypted-nested/tasks.md`
+- [x] 4.4 Updated `openspec/changes/2026-08-30-r2-encrypted-nested/tasks.md`
       §4 with rationale: "Removed in notion-parity; page hierarchy is
       expressed by the breadcrumb + child-pages section + wikilinks
       alone."
-- [ ] 4.5 Self-check `scripts/check-no-page-tree.ts` — sidebar does
-      not import or mount `page-tree`.
+- [x] 4.5 Self-check `scripts/check-no-page-tree.ts` — sidebar does
+      not import or mount `page-tree`. Exit 0.
 
 ## 5. `⋯` page menu
 

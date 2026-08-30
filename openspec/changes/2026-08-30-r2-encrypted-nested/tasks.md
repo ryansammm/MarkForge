@@ -150,6 +150,10 @@ Estimated total: 4–5 weeks, single dev. Tasks are sized to fit in
       groups by `parent_id`. Cycles broken, orphans dropped to root,
       docs without an `id` cannot be parents. Mounted above the
       existing folder tree in the sidebar.
+      *Removed in notion-parity (§4): page hierarchy is expressed by
+      the breadcrumb + child-pages section + wikilinks alone; the
+      page-tree duplicated info already on the screen and crowded
+      the sidebar.*
 - [x] 4.7 `components/workspace/breadcrumb.tsx` — walks
       `parent_id` chain via `ancestorChain()`. Click any segment to
       navigate. Rendered in DocViewer above the title (the editor
