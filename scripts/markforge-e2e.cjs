@@ -135,7 +135,39 @@ async function main() {
     check('trash restore', tr.status === 200, `status=${tr.status}`)
   }
 
+  // --- notion-parity §16 e2e extension --------------------------------------
+  // These are HTTP-level checks that back the §1-§15 UI flows. The flows
+  // themselves are client-side (slash menu, page menu Copy, the desktop
+  // tab bar's React state); what we can reach from fetch is the storage
+  // round-trip and the standalone URL the Electron tab-bar IPC opens.
+
+  // `+ New page` in the sidebar popover: PUT creates a document, the UI
+  // then dispatches it as the active tab.
+  const newPath = `e2e-newpage-${ts}.md`
+  const newBody = `# Created via + popover\n\n${ts}\n`
+  const np = await api('PUT', `/api/files`, { json: { content: newBody }, query: { path: newPath }, headers: g })
+  check('+ new page: PUT creates a fresh document', np.status === 200, `status=${np.status}`)
+  const npRead = await api('GET', `/api/files`, { query: { path: newPath }, headers: g })
+  check('+ new page: round-trip reads the body back', npRead.status === 200 && npRead.text.includes(String(ts)), `status=${npRead.status}`)
+
+  // Page menu "Copy": GET the source, PUT to a new path.
+  // `npRead.body.raw` is the on-disk file; `npRead.text` is the JSON envelope.
+  const copyPath = `e2e-copy-${ts}.md`
+  const copyResp = await api('PUT', `/api/files`, { json: { content: npRead.body.raw }, query: { path: copyPath }, headers: g })
+  check('page menu Copy: GET+PUT duplicates the document', copyResp.status === 200, `status=${copyResp.status}`)
+  const copyRead = await api('GET', `/api/files`, { query: { path: copyPath }, headers: g })
+  check('page menu Copy: duplicate has the same body', copyRead.body?.raw === npRead.body.raw, 'body mismatch')
+
+  // Standalone URL — what `electron/main.cjs` opens for `Open in new window`
+  // and what the desktop tab bar's IPC would issue. The query params are
+  // unencrypted (this is a single-user local app), so the path is visible
+  // to anyone with the URL; the workspace reads them on mount.
+  const standalone = await fetch(`${BASE}/?path=${encodeURIComponent(newPath)}&standalone=1`, { headers: { Cookie: cookie } })
+  check('desktop tab bar: standalone URL loads the workspace', standalone.status === 200, `status=${standalone.status}`)
+
   // --- cleanup ---------------------------------------------------------------
+  if (newPath) await api('DELETE', `/api/files`, { query: { path: newPath }, headers: g })
+  if (copyPath) await api('DELETE', `/api/files`, { query: { path: copyPath }, headers: g })
   if (extId) await api('DELETE', `/api/grimoires/${extId}`)
   if (grimoireId) await api('DELETE', `/api/grimoires/${grimoireId}`)
   try { fs.rmSync(EXT_FOLDER, { recursive: true, force: true }) } catch {}

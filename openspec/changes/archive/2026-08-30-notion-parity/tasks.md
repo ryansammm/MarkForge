@@ -485,11 +485,11 @@ app gate becomes a 6-digit PIN that the user can rotate from settings.
 
 ## 16. Self-checks + verify + e2e + archive
 
-- [ ] 16.1 `pnpm verify` exit 0 (all 20+ test groups pass).
-- [ ] 16.2 Each of the 14 self-checks above (1.4, 2.4, 3.5, 4.5,
+- [x] 16.1 `pnpm verify` exit 0 (all 20+ test groups pass).
+- [x] 16.2 Each of the 14 self-checks above (1.4, 2.4, 3.5, 4.5,
       5.8, 6.4, 7.4, 8.5, 9.8, 10.5, 11.4, 12.3, 13.3, 14.6,
       15.5) runs and passes.
-- [ ] 16.3 `node scripts/markforge-e2e.cjs` — extend the e2e to
+- [x] 16.3 `node scripts/markforge-e2e.cjs` — extend the e2e to
       cover: new page from `+`, slash menu, page menu Copy,
       tab bar (Electron-only via `isElectron()`).
 - [ ] 16.4 Manual Electron smoke:
@@ -506,9 +506,9 @@ app gate becomes a 6-digit PIN that the user can rotate from settings.
       - Press Space in an empty block, write `buatkan puisi`,
         confirm a poem appears with no preamble.
       - Slash `/` opens the menu and inserts the chosen block.
-- [ ] 16.5 `openspec archive 2026-08-30-notion-parity` — moves
+- [x] 16.5 `openspec archive 2026-08-30-notion-parity` — moves
       the change to `openspec/changes/archive/`, registers the
       new specs under `openspec/specs/`.
-- [ ] 16.6 Update `openspec/specs/{editor,page-menu,inline-ai,
+- [x] 16.6 Update `openspec/specs/{editor,page-menu,inline-ai,
       import-export,master-password,desktop-tabs}/spec.md` (one
       per major surface).
