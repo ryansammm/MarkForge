@@ -101,6 +101,28 @@ ipcMain.handle('markforge:select-directory', async () => {
   return res.filePaths[0]
 })
 
+/**
+ * "Save As…" for the page-menu Export action (Task 10).
+ *
+ * The renderer hands us `{ content, defaultName, filters }`. We
+ * ask the OS for a path, write the bytes, and return the chosen
+ * path (or `null` on cancel). Encoding is UTF-8 — Markdown is a
+ * text format and every document the workspace produces is UTF-8
+ * (encoding gate: see `scripts/check-encoding.mjs`).
+ */
+ipcMain.handle('markforge:save-file', async (_event, payload) => {
+  const { content, defaultName, filters } = payload || {}
+  if (typeof content !== 'string') throw new Error('saveFile: content must be a string')
+  const res = await dialog.showSaveDialog(win, {
+    title: 'Export page',
+    defaultPath: typeof defaultName === 'string' ? defaultName : 'Untitled.md',
+    filters: Array.isArray(filters) ? filters : [{ name: 'Markdown', extensions: ['md'] }],
+  })
+  if (res.canceled || !res.filePath) return null
+  await fs.promises.writeFile(res.filePath, content, 'utf8')
+  return res.filePath
+})
+
 /** Reads the repo .env - the one place cloud credentials legitimately live.
  *  Packaged builds look next to the exe resources instead (copied at build time). */
 function readRepoEnv() {

@@ -46,6 +46,12 @@ export const SIDEBAR_WIDTH = { default: 256, min: 180, max: 560 } as const
 interface DesktopBridge {
   desktop: boolean
   syncToCloud: () => Promise<{ ok: boolean; copied?: number; skipped?: number; error?: string }>
+  /**
+   * Save a text file via the OS "Save As…" dialog. Returns the
+   * absolute path the user picked, or `null` if they cancelled.
+   * Throws if the underlying write fails.
+   */
+  saveFile: (payload: { content: string; defaultName?: string; filters?: Array<{ name: string; extensions: string[] }> }) => Promise<string | null>
 }
 
 declare global {

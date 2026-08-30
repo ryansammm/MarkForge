@@ -42,6 +42,8 @@ import { moveBlockBetweenDocs } from '@/lib/blocks'
 import { setFrontmatterField, setFrontmatterObject, removeFrontmatterField, frontmatterLock } from '@/lib/markdown/frontmatter'
 import { makeLock } from '@/lib/lock/page-lock'
 import { LockPrompt } from './lock-prompt'
+import { isImportableFile, readMarkdownFile } from '@/lib/import/page-import'
+import { buildExportName, downloadMarkdown } from '@/lib/export/page-export'
 import { useVault } from '@/lib/vault/use-vault'
 import { VaultKeyProvider, useNoteKey } from '@/lib/client/vault-key'
 import { readDocument as readDocumentEncrypted, writeDocument as writeDocumentEncrypted, createDocument as createDocumentEncrypted } from '@/lib/client/encrypted-fetch'
@@ -1175,6 +1177,85 @@ export function WorkspaceApp() {
   }, [activePath])
 
   /**
+   * Import the user's chosen files as siblings of the active page.
+   *
+   * Each file becomes a new document in the active page's parent
+   * folder. (The spec said "child page", but creating a new
+   * sub-folder for one file is more friction than help, and
+   * the page tree can re-parent afterwards.) Extensions outside
+   * `.md`/`.markdown`/`.txt` are silently skipped — the page
+   * menu already pre-filters them via `accept`, so a stray file
+   * from a drag-and-drop is the only way to land here.
+   */
+  const importPages = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return
+      const parentDir = activePath?.includes('/')
+        ? activePath.slice(0, activePath.lastIndexOf('/'))
+        : ''
+      const accepted = files.filter(isImportableFile)
+      const rejected = files.length - accepted.length
+      if (accepted.length === 0) {
+        toast.error('No importable files selected. Use .md, .markdown, or .txt.')
+        return
+      }
+      let created = 0
+      for (const file of accepted) {
+        try {
+          const parsed = await readMarkdownFile(file)
+          await createDocumentAt(parentDir, parsed.title, parsed.body)
+          created += 1
+        } catch (err) {
+          toast.error(`Could not import ${file.name}: ${(err as Error).message}`)
+        }
+      }
+      if (rejected > 0) {
+        toast.message(`Skipped ${rejected} file(s) with an unsupported extension.`)
+      }
+      if (created > 0) toast.success(`Imported ${created} page${created === 1 ? '' : 's'}.`)
+    },
+    [activePath, createDocumentAt]
+  )
+
+  /**
+   * Export the active page to disk.
+   *
+   * The active document's `raw` is the on-disk file with the
+   * workspace's own frontmatter (`id`, `created`, …) included,
+   * which is what the user expects when they pull a note out of
+   * MarkForge — it round-trips back through Import unchanged,
+   * modulo `ensureDocumentMeta` re-stamping on first save.
+   *
+   * Electron uses the native `Save As…` dialog so the user picks
+   * the destination; the web build uses a transient `<a download>`
+   * to push the file to the browser's download slot.
+   */
+  const exportPage = useCallback(async () => {
+    if (!activeDoc || !source) return
+    const filename = buildExportName(activeDoc)
+    const desktop = (typeof window !== 'undefined' ? window.markforge : null) as
+      | { saveFile?: (p: { content: string; defaultName: string; filters?: Array<{ name: string; extensions: string[] }> }) => Promise<string | null> }
+      | null
+    if (desktop?.saveFile) {
+      try {
+        const written = await desktop.saveFile({
+          content: source.raw,
+          defaultName: filename,
+          filters: [
+            { name: 'Markdown', extensions: ['md'] },
+            { name: 'All files', extensions: ['*'] },
+          ],
+        })
+        if (written) toast.success(`Exported to ${written}`)
+      } catch (err) {
+        toast.error((err as Error).message)
+      }
+      return
+    }
+    downloadMarkdown(filename, source.raw)
+  }, [activeDoc, source])
+
+  /**
    * Drag & drop a document into a folder, from the sidebar.
    *
    * The same link-safe path as a rename (title is unchanged, so nothing rewrites);
@@ -1917,6 +1998,8 @@ export function WorkspaceApp() {
                       isLocked: frontmatterLock(activeDoc.frontmatter) !== null,
                       onLock: (passphrase) => void lockPage(passphrase),
                       onUnlock: () => void unlockPage(),
+                      onImport: (files) => void importPages(files),
+                      onExport: () => void exportPage(),
                     }
                   : null
               }

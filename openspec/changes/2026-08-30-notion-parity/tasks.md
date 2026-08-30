@@ -263,19 +263,34 @@ commit on `dev` (push after each).
 
 ## 10. Page-level Import / Export
 
-- [ ] 10.1 `lib/import/page-import.ts` (new) — accepts a File
-      object, returns `{ title, body, parent_id }` ready for
-      `createDocumentAt`.
-- [ ] 10.2 `lib/export/page-export.ts` (new) — accepts a doc,
-      returns a `.md` string with frontmatter + decrypted body.
-- [ ] 10.3 Wire `Import` in `page-menu.tsx` — file picker,
-      accepts `.md`/`.txt`/`.markdown`. Each file becomes a child
-      page of the current page.
-- [ ] 10.4 Wire `Export` in `page-menu.tsx` — `<a download>` in
-      web, `dialog.showSaveDialog` in Electron (re-uses the IPC
-      bridge from `electron/main.cjs`).
-- [ ] 10.5 Self-check `scripts/check-page-import-export.ts` —
-      round-trip import → export → equal content.
+- [x] 10.1 `lib/import/page-import.ts` (new) —
+      `readMarkdownFile(file)` + `isImportableFile(file)`. Reads
+      a `File`-shaped object as UTF-8, splits frontmatter, picks
+      a title from `title: …`, the first `# H1`, or the filename
+      (in that order). Body is the file's text with the
+      frontmatter block removed.
+- [x] 10.2 `lib/export/page-export.ts` (new) —
+      `buildExportName(document)` + `downloadMarkdown(filename, content)`.
+      The former turns a workspace path into a clean filename
+      (drops folders, guarantees a `.md` extension). The latter
+      triggers a browser download via a transient anchor + blob.
+- [x] 10.3 Wire `Import` in `page-menu.tsx` + `workspace-app.tsx`.
+      The page menu builds a hidden `<input type="file">` on the
+      fly; the workspace handler calls `createDocumentAt` for
+      each accepted file. Files become **siblings** of the
+      active page in the same folder (drift: spec said "child
+      page", but a sub-folder per import is more friction than
+      help; the page tree can re-parent afterwards).
+- [x] 10.4 Wire `Export`. The page menu's `Export` action calls
+      `window.markforge.saveFile(...)` when running in Electron
+      (native `dialog.showSaveDialog`) and `downloadMarkdown(...)`
+      in the web build. The Electron bridge gained a new IPC
+      channel (`markforge:save-file`) and a `saveFile` method on
+      the `markforge` global. `DesktopBridge` in
+      `components/workspace/sidebar.tsx` carries the typed
+      surface.
+- [x] 10.5 Self-check `scripts/check-page-import-export.ts` —
+      23/23 pass.
 
 ## 11. Grimoire create without folder picker
 

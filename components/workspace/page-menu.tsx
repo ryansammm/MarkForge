@@ -49,7 +49,12 @@ export interface PageMenuProps {
   isLocked: boolean
   onLock?: (passphrase: string) => void
   onUnlock?: () => void
-  onImport?: () => void
+  /**
+   * The workspace receives the user's chosen files. The page menu
+   * does no validation here — the workspace reads each one, picks
+   * a title, and creates a new document per file.
+   */
+  onImport?: (files: File[]) => void
   onExport?: () => void
 }
 
@@ -194,18 +199,30 @@ export function PageMenu({
                 <Item
                   icon={<Upload className="size-3.5" aria-hidden />}
                   label="Import"
-                  hint="Task 10"
                   onClick={() => {
-                    toast.message('Import is coming in Task 10')
-                    onImport?.()
+                    // The input is created on the fly and removed after
+                    // `change` fires so the page menu does not carry a
+                    // permanent DOM node. `multiple` lets the user drop
+                    // several files at once; the workspace handler will
+                    // open each as a sibling page in turn.
+                    const input = globalThis.document.createElement('input')
+                    input.type = 'file'
+                    input.accept = '.md,.markdown,.txt,text/markdown,text/plain'
+                    input.multiple = true
+                    input.style.display = 'none'
+                    input.addEventListener('change', () => {
+                      const files = input.files ? Array.from(input.files) : []
+                      input.remove()
+                      if (files.length > 0) onImport?.(files)
+                    })
+                    globalThis.document.body.appendChild(input)
+                    input.click()
                   }}
                 />
                 <Item
                   icon={<Download className="size-3.5" aria-hidden />}
                   label="Export"
-                  hint="Task 10"
                   onClick={() => {
-                    toast.message('Export is coming in Task 10')
                     onExport?.()
                   }}
                 />

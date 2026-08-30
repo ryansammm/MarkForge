@@ -71,7 +71,7 @@ interface DocViewerProps {
     isLocked: boolean
     onLock?: (passphrase: string) => void
     onUnlock?: () => void
-    onImport?: () => void
+    onImport?: (files: File[]) => void
     onExport?: () => void
   } | null
 }
