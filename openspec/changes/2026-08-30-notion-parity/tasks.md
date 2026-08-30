@@ -1,8 +1,8 @@
 # Tasks: notion-parity
 
-> **Status:** approved (2026-08-30). Tasks 1-7 shipped to `dev`.
-> Task 8 (AI block in the editor) next. See `proposal.md` for
-> full design and Risks.
+> **Status:** approved (2026-08-30). Tasks 1-11 shipped to `dev`.
+> Task 12 (master password min length) next. See `proposal.md`
+> for full design and Risks.
 
 Total: 16 tasks. Sized for 2-hour commits. Numbered so they can be
 re-ordered if a regression forces a rollback. Each task ships as one
@@ -294,15 +294,27 @@ commit on `dev` (push after each).
 
 ## 11. Grimoire create without folder picker
 
-- [ ] 11.1 `components/workspace/grimoire-create-dialog.tsx` —
-      drop the folder picker; only `Name` + optional `Description`.
-- [ ] 11.2 `lib/server/grimoire.ts` — `createGrimoire({ name,
-      description })` no longer requires `path`. Existing
-      grimoires with `path` are read as legacy.
-- [ ] 11.3 `lib/server/grimoire-marker.ts` — `path` becomes
-      optional. No migration; new grimoires omit it.
-- [ ] 11.4 Self-check `scripts/check-grimoire-create.ts` —
-      new grimoire has no `path`, existing ones still resolve.
+- [x] 11.1 `components/workspace/grimoire-switcher.tsx` —
+      `handleCreate` no longer calls `markforge.selectDirectory()`
+      after `POST /api/grimoires`. A grimoire without a root
+      folder is a normal state, not a stub. The settings sheet
+      still lets the user pick one later.
+      *Drift:* the spec mentioned an optional `Description`
+      field on the create row. No `description` exists on the
+      `Grimoire` type, the server endpoint, or any other
+      surface, and the spec lists no other place that would
+      store or display it. Skipped — Name only.
+- [x] 11.2 `lib/server/grimoire.ts` — `createGrimoire` already
+      takes `opts?: { path?: string }`; no change needed.
+      Existing grimoires with `path` continue to flow through
+      `addGrimoireToMarker` from `app/api/grimoires/route.ts`.
+- [x] 11.3 `lib/server/grimoire-marker.ts` — `path` is already
+      optional on `Grimoire`. No migration required; new
+      grimoires simply omit it.
+- [x] 11.4 Self-check `scripts/check-grimoire-create.ts` —
+      new grimoire has no `path`; legacy entry with `path`
+      round-trips; mixed registry (one with, one without)
+      round-trips. 12/12.
 
 ## 12. Master password min length
 
