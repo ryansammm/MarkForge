@@ -36,7 +36,7 @@ import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
 import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
-import { BlockMenu } from './block-menu'
+import { BlockMenu, type OpenTarget } from './block-menu'
 import { blockHasId, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
 import { newBlockId } from '@/lib/blocks'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
@@ -198,6 +198,11 @@ interface MarkdownEditorProps {
    * `null` to abort.
    */
   onCreatePage?: (name: string) => Promise<string | null> | string | null
+  /**
+   * Open the current block in another surface. Wired by the workspace
+   * for side peek / new tab / new window / full page.
+   */
+  onOpenIn?: (target: OpenTarget) => void
 }
 
 /**
@@ -369,6 +374,7 @@ export function MarkdownEditor({
   onNavigateWikilink,
   documentUpdatedAt,
   onCreatePage,
+  onOpenIn,
 }: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -388,6 +394,7 @@ export function MarkdownEditor({
     wordCount: number
     hasId: boolean
     updatedAt: string | null
+    onOpen?: (target: OpenTarget) => void
   } | null>(null)
 
   // Read through refs so the editor is never torn down just because a callback
@@ -399,6 +406,7 @@ export function MarkdownEditor({
   const onNavigateRef = useRef(onNavigateWikilink)
   const reconciledRef = useRef(reconciledContent)
   const onCreatePageRef = useRef(onCreatePage)
+  const onOpenInRef = useRef(onOpenIn)
   /**
    * The server version this editor has already adopted.
    *
@@ -419,7 +427,8 @@ export function MarkdownEditor({
     onNavigateRef.current = onNavigateWikilink
     reconciledRef.current = reconciledContent
     onCreatePageRef.current = onCreatePage
-  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage])
+    onOpenInRef.current = onOpenIn
+  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage, onOpenIn])
 
   // A changed index changes which wikilinks resolve. The decorations are rebuilt on
   // any transaction, so an empty one is enough to repaint ghosts that just became
@@ -586,6 +595,7 @@ export function MarkdownEditor({
         wordCount: blockWordCount(view.state),
         hasId: blockHasId(view.state),
         updatedAt: documentUpdatedAt ?? null,
+        onOpen: (target: OpenTarget) => onOpenInRef.current?.(target),
       })
       setMenuOpen(true)
     })

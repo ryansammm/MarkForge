@@ -164,6 +164,40 @@ ipcMain.handle('markforge:sync-to-cloud', async () => {
   })
 })
 
+/**
+ * Opens a separate BrowserWindow showing a single document. The window
+ * receives the path via a `?path=...` query string and a query parameter
+ * marker (`&standalone=1`) so the renderer knows to skip its normal
+ * multi-tab session and show only that document.
+ *
+ * Used by the block menu's "Open in new window" action.
+ */
+function registerOpenWindowHandler() {
+  ipcMain.handle('markforge:open-window', async (_event, docPath) => {
+    if (typeof docPath !== 'string' || !docPath) {
+      return { ok: false, error: 'path is required' }
+    }
+    const child = new BrowserWindow({
+      width: 1024,
+      height: 720,
+      title: 'MarkForge',
+      icon: path.join(__dirname, '..', 'public', 'icon.png'),
+      webPreferences: {
+        preload: path.join(__dirname, 'preload.cjs'),
+        contextIsolation: true,
+        nodeIntegration: false,
+      },
+    })
+    const url = `${BASE}/?path=${encodeURIComponent(docPath)}&standalone=1`
+    await child.loadURL(url)
+    child.webContents.setWindowOpenHandler(({ url: target }) => {
+      shell.openExternal(target)
+      return { action: 'deny' }
+    })
+    return { ok: true }
+  })
+}
+
 async function main() {
   await app.whenReady()
   fs.mkdirSync(NOTES_DIR, { recursive: true })
@@ -204,6 +238,8 @@ async function main() {
     shell.openExternal(url)
     return { action: 'deny' }
   })
+
+  registerOpenWindowHandler()
 
   app.on('window-all-closed', () => {
     app.quit()

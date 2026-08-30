@@ -41,6 +41,7 @@ import * as api from '@/lib/workspace-api'
 import { Sidebar, SIDEBAR_WIDTH } from './sidebar'
 import { ResizeHandle } from './resize-handle'
 import { DocViewer } from './doc-viewer'
+import { SidePeek } from './side-peek'
 import { BacklinksPanel } from './backlinks-panel'
 import { TOCPanel } from './toc-panel'
 import { SearchDialog } from './search-dialog'
@@ -238,6 +239,9 @@ export function WorkspaceApp() {
   const [dialog, setDialog] = useState<DialogState>({ kind: 'none' })
   const [dialogBusy, setDialogBusy] = useState(false)
   const [dialogError, setDialogError] = useState<string | null>(null)
+  // The path currently shown in the right-hand peek overlay, or null
+  // when no peek is open. Read-only and transient — never persisted.
+  const [sidePeekPath, setSidePeekPath] = useState<string | null>(null)
 
   const fileStore = useMemo(() => new StaticFileStore('/api/index'), [])
 
@@ -331,6 +335,28 @@ export function WorkspaceApp() {
       cancelled = true
     }
   }, [])
+
+  /*
+    "Open in new window" passes a `?path=<doc>&standalone=1` query
+    string to the new BrowserWindow. We pick the path up on mount and
+    open it as a fresh tab, ignoring any restored session. Running
+    twice is harmless because the open is idempotent.
+  */
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('standalone') !== '1') return
+    const path = params.get('path')
+    if (!path) return
+    dispatchTabs({ type: 'open', path, newTab: false })
+    // Strip the query so a refresh of the new window does not re-run
+    // the same dance (it would just open the same tab again, which is
+    // a no-op anyway, but the URL is cleaner without it).
+    const url = new URL(window.location.href)
+    url.searchParams.delete('path')
+    url.searchParams.delete('standalone')
+    window.history.replaceState(null, '', url.pathname + url.search + url.hash)
+  }, [dispatchTabs])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1055,6 +1081,51 @@ export function WorkspaceApp() {
     [indexData, navigateTo, createGhostPage]
   )
 
+  /**
+   * Block-menu "Open in…" handler. Reroutes the block's link into the
+   * surface the user picked:
+   * - side-peek  → 45%-width overlay on top of the active tab
+   * - new-tab    → existing tab reducer, in the background
+   * - new-window → Electron IPC; on the web the call silently falls
+   *                back to opening a new tab
+   * - full-page  → close peek, navigate the active tab to the block
+   *
+   * The `path` argument is the document the block lives in; in v1 the
+   * block is always on the active document so the menu passes the
+   * editor's `docPath` straight through.
+   */
+  const handleOpenIn = useCallback(
+    (target: 'side-peek' | 'new-tab' | 'new-window' | 'full-page', path: string) => {
+      if (target === 'side-peek') {
+        setSidePeekPath(path)
+        return
+      }
+      if (target === 'new-tab') {
+        dispatchTabs({ type: 'open', path, newTab: true, background: false })
+        return
+      }
+      if (target === 'new-window') {
+        const desktop = (typeof window !== 'undefined' && window.markforge) as
+          | { openInWindow?: (p: string) => Promise<{ ok: boolean; error?: string }> }
+          | undefined
+        if (desktop?.openInWindow) {
+          void desktop.openInWindow(path).then((res) => {
+            if (!res.ok) toast.error(res.error ?? 'Failed to open new window')
+          })
+          return
+        }
+        // Web fallback: open a new tab in the same browser.
+        dispatchTabs({ type: 'open', path, newTab: true, background: false })
+        return
+      }
+      if (target === 'full-page') {
+        setSidePeekPath(null)
+        dispatchTabs({ type: 'open', path, newTab: false })
+      }
+    },
+    [dispatchTabs]
+  )
+
   // Sharing is an explicit act with an explicit token, handled in ShareDialog.
   // This used to build a URL from the document's title, which meant every note was
   // readable by anyone who could guess its name — see docs/sprint-6-share-model.md.
@@ -1316,7 +1387,7 @@ export function WorkspaceApp() {
           </div>
         </header>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
           {mode === 'edit' && activeDoc ? (
             <div className="flex-1 overflow-hidden px-8 py-6">
               <div className="mx-auto h-full max-w-3xl">
@@ -1352,6 +1423,7 @@ export function WorkspaceApp() {
                         return null
                       }
                     }}
+                    onOpenIn={(target) => handleOpenIn(target, source.path)}
                   />
                 )}
               </div>
@@ -1434,6 +1506,22 @@ export function WorkspaceApp() {
               <DetailsPanel document={activeDoc} />
               </div>
             </aside>
+          )}
+
+          {/*
+            Side peek: a 45%-width overlay that shows a read-only view of
+            a document on top of the active tab. Renders nothing when
+            `sidePeekPath` is null. Closes on Esc or the X button.
+          */}
+          {sidePeekPath && (
+            <SidePeek
+              path={sidePeekPath}
+              documents={indexData?.documents || {}}
+              source={sources[sidePeekPath] ?? null}
+              onClose={() => setSidePeekPath(null)}
+              onNavigateWikilink={handleNavigateWikilink}
+              onNavigatePath={navigateTo}
+            />
           )}
         </div>
       </div>

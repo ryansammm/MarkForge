@@ -70,7 +70,11 @@ interface MenuContext {
   updatedAt: string | null
   /** Called when an action is taken so the menu can close. */
   onClose: () => void
+  /** Open this block in another surface. Wired by the editor from the workspace. */
+  onOpen?: (target: OpenTarget) => void
 }
+
+export type OpenTarget = 'side-peek' | 'new-tab' | 'new-window' | 'full-page'
 
 const TURN_INTO: { type: BlockKind; label: string; search: string[] }[] = [
   { type: 'text', label: 'Text', search: ['text', 'paragraph'] },
@@ -150,12 +154,48 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
     disabledHint: 'Block has no id yet — apply a colour or duplicate it first',
   }
 
+  // Open-in items. They are gated on `context.onOpen` (the editor wires
+  // them only when running in the workspace; tests render the menu
+  // without them). Without a block id the targets still work — the
+  // workspace opens the current doc as a full surface — but the spec
+  // reserves them for linkable blocks, so we show a hint instead.
+  const openItems: MenuAction[] = context.onOpen
+    ? [
+        {
+          id: 'open-side-peek',
+          label: 'Open in side peek',
+          search: ['side peek', 'side', 'peek', 'preview'],
+          run: () => context.onOpen?.('side-peek'),
+        },
+        {
+          id: 'open-new-tab',
+          label: 'Open in new tab',
+          search: ['new tab', 'tab'],
+          run: () => context.onOpen?.('new-tab'),
+        },
+        {
+          id: 'open-new-window',
+          label: 'Open in new window',
+          search: ['new window', 'window'],
+          run: () => context.onOpen?.('new-window'),
+        },
+        {
+          id: 'open-full-page',
+          label: 'Open in full page',
+          search: ['full page', 'full', 'page'],
+          run: () => context.onOpen?.('full-page'),
+        },
+      ]
+    : []
+
   // Top-level flat list of items shown when no submenu is hovered. Order
-  // matches the spec: Turn into, Color, Duplicate, Delete, Copy link.
+  // matches the spec: Turn into, Color, Duplicate, Delete, Copy link,
+  // Open in.
   const topLevel: MenuAction[] = [
     duplicateAction,
     deleteAction,
     copyLinkAction,
+    ...openItems,
   ]
 
   // When the search query is non-empty, show every action flattened:
