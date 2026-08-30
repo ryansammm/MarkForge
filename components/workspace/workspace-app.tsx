@@ -1457,6 +1457,7 @@ export function WorkspaceApp() {
         onMoveDocument={moveDocumentInto}
         onOpenTrash={() => setTrashOpen(true)}
         onOpenPasswords={() => setPasswordsOpen(true)}
+        onOpenSettings={() => router.push('/settings')}
         onSignOut={() => void signOut()}
         documents={indexData?.documents || {}}
         onAfterImport={reloadIndex}

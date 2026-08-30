@@ -14,6 +14,7 @@
  * These values only ever exist in a browser with an open vault. Nothing in this module
  * touches the network.
  */
+import type { AiConfig } from './ai-config'
 
 export const VAULT_DATA_VERSION = 1
 
@@ -33,10 +34,16 @@ export interface VaultItem {
 export interface VaultData {
   version: typeof VAULT_DATA_VERSION
   items: VaultItem[]
+  /**
+   * AI provider configs, encrypted with the same envelope. Required for new
+   * writes; `normalizeVaultData` fills in `[]` when a v1 record is read
+   * without the field, and the next commit writes the field back.
+   */
+  ai: AiConfig[]
 }
 
 export function emptyVault(): VaultData {
-  return { version: VAULT_DATA_VERSION, items: [] }
+  return { version: VAULT_DATA_VERSION, items: [], ai: [] }
 }
 
 /** Random id, not a counter: ids have to survive two devices adding items offline. */
@@ -162,7 +169,14 @@ export function mergeVaults(local: VaultData, remote: VaultData): VaultData {
     if (!other || item.updatedAt >= other.updatedAt) byId.set(item.id, item)
   }
 
-  return { version: VAULT_DATA_VERSION, items: [...byId.values()] }
+  const aiById = new Map<string, import('./ai-config').AiConfig>()
+  for (const entry of remote.ai ?? []) aiById.set(entry.id, entry)
+  for (const entry of local.ai ?? []) {
+    const other = aiById.get(entry.id)
+    if (!other || entry.updatedAt >= other.updatedAt) aiById.set(entry.id, entry)
+  }
+
+  return { version: VAULT_DATA_VERSION, items: [...byId.values()], ai: [...aiById.values()] }
 }
 
 /**
@@ -187,5 +201,25 @@ export function normalizeVaultData(value: unknown): VaultData {
       typeof (item as VaultItem).password === 'string'
   )
 
-  return { version: VAULT_DATA_VERSION, items }
+  return { version: VAULT_DATA_VERSION, items, ai: parseAiField(parsed.ai) }
+}
+
+/**
+ * Tolerant parser for the optional `ai` field on a vault record.
+ *
+ * Lives here (rather than in `ai-config.ts`) to break the import cycle:
+ * `ai-config` imports the `VaultData` type from this file, and the parser
+ * works on raw decoded JSON, which is the layer that lives in this module.
+ */
+export function parseAiField(value: unknown): AiConfig[] {
+  if (!Array.isArray(value)) return []
+  return value.filter(
+    (entry): entry is AiConfig =>
+      typeof entry === 'object' &&
+      entry !== null &&
+      typeof (entry as { id?: unknown }).id === 'string' &&
+      typeof (entry as { provider?: unknown }).provider === 'string' &&
+      typeof (entry as { model?: unknown }).model === 'string' &&
+      typeof (entry as { apiKey?: unknown }).apiKey === 'string'
+  )
 }

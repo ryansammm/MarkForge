@@ -1,8 +1,8 @@
 # Tasks: notion-parity
 
-> **Status:** approved (2026-08-30). Tasks 1-5 shipped to `dev`.
-> Task 6 (settings page API key UI) next. See `proposal.md` for full
-> design and Risks.
+> **Status:** approved (2026-08-30). Tasks 1-6 shipped to `dev`.
+> Task 7 (`/api/ai/stream` server endpoint) next. See `proposal.md`
+> for full design and Risks.
 
 Total: 16 tasks. Sized for 2-hour commits. Numbered so they can be
 re-ordered if a regression forces a rollback. Each task ships as one
@@ -136,22 +136,39 @@ commit on `dev` (push after each).
 
 ## 6. Settings page (API key UI)
 
-- [ ] 6.1 New route `/settings` (or a dialog, your call at impl
-      time). Mounts a `Settings` component.
-- [ ] 6.2 `lib/vault/items.ts` — add a `VaultItem` variant
-      `api_key` with `{ provider, model, baseUrl }`. Same encryption
-      primitive as existing items.
-- [ ] 6.3 `components/workspace/settings-form.tsx` (new):
+- [x] 6.1 New route `/settings`. Mounts a `Settings` component.
+      Gates on `/api/health` + vault status; an unauthenticated or
+      locked visitor is redirected to `/login?from=/settings` (the
+      spec calls this out as a deep-linkable surface, and a deep link
+      to a list of API keys is exactly what should not survive a
+      tab restore).
+- [x] 6.2 `lib/vault/ai-config.ts` (new) holds `AiConfig` +
+      `AiConfigDraft` + `AI_PROVIDERS` (OpenAI-compatible, Gemini).
+      Stored as a top-level `ai: AiConfig[]` field on the existing
+      `VaultData` envelope — same AES-GCM, same KDF, same master
+      password. The vault envelope format did not change; old v1
+      records (no `ai` field) parse as `ai: []` and the next save
+      writes the field back. `parseAiField` (in `items.ts`) keeps
+      the parser local to break an import cycle with `ai-config`.
+- [x] 6.3 `components/workspace/settings-form.tsx` (new):
       - Provider dropdown (OpenAI-compatible / Gemini).
-      - API key (masked `type=password`, placeholder
-        `••••••••••`).
-      - Model dropdown + free-text override.
-      - Base URL (pre-filled with provider default, free-text
-        override).
-      - "Test connection" button — POSTs to `/api/ai/stream` with
-        a 1-token test prompt.
-- [ ] 6.4 Self-check `scripts/check-settings.ts` — form mounts,
-      masked input does not leak the value on render.
+      - API key — uncontrolled `<input type="password">` with the
+        reveal button, no `value=` attribute, so the masked
+        placeholder is all the DOM ever shows. Submit reads
+        `keyInput.value` directly.
+      - Model `<input list>` with the provider's known models as
+        suggestions; free-text override.
+      - Base URL pre-filled with the provider default; free-text
+        override.
+      - No "Test connection" button — `/api/ai/stream` is Task 7;
+        a self-check covers the rest.
+      - Sidebar footer grows a `Settings` link between `Trash` and
+        `Sign out`; `workspace-app` plumbs it to
+        `router.push('/settings')`.
+- [x] 6.4 Self-check `scripts/check-settings.ts` — 24/24 pass.
+      Form mounts, no `value=` on the API key, sidebar + workspace
+      plumb `/settings`, vault shape carries `ai`, parser merges
+      by id, removal works.
 
 ## 7. `/api/ai/stream` server endpoint
 

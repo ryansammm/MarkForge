@@ -14,6 +14,7 @@ import {
   LogOut,
   Pencil,
   Search,
+  Settings,
   SquarePlus,
   Star,
   Trash2,
@@ -67,6 +68,7 @@ interface SidebarProps {
   onMoveDocument?: (from: string, to: string) => Promise<void>
   onOpenTrash: () => void
   onOpenPasswords: () => void
+  onOpenSettings: () => void
   onSignOut: () => void
   /** Refetch the index after a native import copied files into the store. */
   onAfterImport?: () => Promise<void>
@@ -132,6 +134,7 @@ export function Sidebar({
   onMoveDocument,
   onOpenTrash,
   onOpenPasswords,
+  onOpenSettings,
   onSignOut,
   onAfterImport,
   documents,
@@ -746,6 +749,14 @@ onDrop={(event) => {
         >
           <Trash2 className="size-3.5 shrink-0" />
           <span>Trash</span>
+        </button>
+        <button
+          type="button"
+          onClick={onOpenSettings}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <Settings className="size-3.5 shrink-0" />
+          <span>Settings</span>
         </button>
         <button
           type="button"
