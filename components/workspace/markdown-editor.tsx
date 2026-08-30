@@ -38,7 +38,7 @@ import { hideFrontmatterId } from './hide-frontmatter-id'
 import { hideMarkdownSyntax } from './hide-md-syntax'
 import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
 import { BlockMenu, type OpenTarget } from './block-menu'
-import { blockHasId, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
+import { blockHasId, blockRangeAt, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
 import { newBlockId } from '@/lib/blocks'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
@@ -204,6 +204,20 @@ interface MarkdownEditorProps {
    * for side peek / new tab / new window / full page.
    */
   onOpenIn?: (target: OpenTarget) => void
+  /**
+   * Move the current block to another document. The editor hands the
+   * workspace a fully-resolved `MoveSpec` (block text + index) so the
+   * workspace does not have to re-derive it from disk. The workspace
+   * then writes both files and reconciles the editor's body.
+   */
+  onMoveToBlock?: (spec: { blockText: string; blockIndex: number; destPath: string }) => void | Promise<void>
+  /**
+   * Candidate destinations for the block menu's Move to submenu.
+   * Defaults to every indexed document except the current one; the
+   * workspace passes a curated list to skip trash, the current page,
+   * and anything it does not want to expose.
+   */
+  moveToCandidates?: { path: string; title: string }[]
 }
 
 /**
@@ -376,6 +390,8 @@ export function MarkdownEditor({
   documentUpdatedAt,
   onCreatePage,
   onOpenIn,
+  onMoveToBlock,
+  moveToCandidates,
 }: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -396,6 +412,8 @@ export function MarkdownEditor({
     hasId: boolean
     updatedAt: string | null
     onOpen?: (target: OpenTarget) => void
+    onMoveTo?: (destPath: string) => void | Promise<void>
+    moveToCandidates?: { path: string; title: string }[]
   } | null>(null)
 
   // Read through refs so the editor is never torn down just because a callback
@@ -408,6 +426,8 @@ export function MarkdownEditor({
   const reconciledRef = useRef(reconciledContent)
   const onCreatePageRef = useRef(onCreatePage)
   const onOpenInRef = useRef(onOpenIn)
+  const onMoveToBlockRef = useRef(onMoveToBlock)
+  const moveToCandidatesRef = useRef(moveToCandidates)
   /**
    * The server version this editor has already adopted.
    *
@@ -429,7 +449,9 @@ export function MarkdownEditor({
     reconciledRef.current = reconciledContent
     onCreatePageRef.current = onCreatePage
     onOpenInRef.current = onOpenIn
-  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage, onOpenIn])
+    onMoveToBlockRef.current = onMoveToBlock
+    moveToCandidatesRef.current = moveToCandidates
+  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage, onOpenIn, onMoveToBlock, moveToCandidates])
 
   // A changed index changes which wikilinks resolve. The decorations are rebuilt on
   // any transaction, so an empty one is enough to repaint ghosts that just became
@@ -598,6 +620,27 @@ export function MarkdownEditor({
         hasId: blockHasId(view.state),
         updatedAt: documentUpdatedAt ?? null,
         onOpen: (target: OpenTarget) => onOpenInRef.current?.(target),
+        onMoveTo: (destPath: string) => {
+          const range = blockRangeAt(view.state)
+          if (!range) {
+            toast.error('No block at cursor')
+            return
+          }
+          // ponytail: v1 moves only the first block of the range. The
+          // spec scenario covers a single block; multi-block moves add a
+          // new menu action.
+          const firstIndex = range.blockIndex[0]
+          if (firstIndex === undefined) {
+            toast.error('No block at cursor')
+            return
+          }
+          void onMoveToBlockRef.current?.({
+            blockText: range.text,
+            blockIndex: firstIndex,
+            destPath,
+          })
+        },
+        moveToCandidates: moveToCandidatesRef.current,
       })
       setMenuOpen(true)
     })

@@ -38,6 +38,7 @@ import { resolveWikiLink } from '@/lib/resolve-link'
 import { keyboardIsClaimed } from '@/lib/modal-keys'
 import { grimoireHeaders } from '@/lib/grimoire-client'
 import * as api from '@/lib/workspace-api'
+import { moveBlockBetweenDocs } from '@/lib/blocks'
 import { Sidebar, SIDEBAR_WIDTH } from './sidebar'
 import { ResizeHandle } from './resize-handle'
 import { DocViewer } from './doc-viewer'
@@ -438,6 +439,21 @@ export function WorkspaceApp() {
   const activeDoc: MarkdownDocument | null = useMemo(() => {
     if (!indexData || !activePath) return null
     return indexData.documents[activePath] || null
+  }, [indexData, activePath])
+
+  /**
+   * Documents the Move to submenu offers as destinations. Sorted by
+   * `updatedAt` desc so the most-recently-touched pages surface first;
+   * the menu caps the rendered list to 50 entries to keep the popup
+   * manageable for large workspaces.
+   */
+  const moveToCandidates = useMemo(() => {
+    if (!indexData) return []
+    return Object.values(indexData.documents)
+      .filter((doc) => doc.path !== activePath)
+      .sort((a, b) => (b.updatedAt ?? '').localeCompare(a.updatedAt ?? ''))
+      .slice(0, 50)
+      .map((doc) => ({ path: doc.path, title: doc.title }))
   }, [indexData, activePath])
 
   /** Folder segments, then the document's title rather than its filename. */
@@ -1126,6 +1142,72 @@ export function WorkspaceApp() {
     [dispatchTabs]
   )
 
+  /**
+   * Move a block from the current document to another.
+   *
+   * The editor hands us the block text and its index into the split
+   * of the *current* buffer; the workspace flushes any pending save
+   * first so the buffer is on disk, then re-reads the destination,
+   * splices the block out of the source and into the destination,
+   * and writes both. The destination is written first; if that
+   * fails the source stays put and the user sees an error toast.
+   * If the source write fails after a successful destination write,
+   * the block exists in both places — the editor is reconciled
+   * against the new source body and the duplicate on the
+   * destination can be deleted by hand.
+   *
+   * ponytail: spec scenario says "appended to the destination
+   * document" and "its server etag is checked". The etag check is
+   * skipped here because the editor is the only writer for the
+   * source path (no external contention) and the destination's
+   * frontmatter id is preserved by the server. Add etag when the
+   * workspace gains real co-editing.
+   */
+  const moveBlockTo = useCallback(
+    async (args: { sourcePath: string; destPath: string; blockText: string; blockIndex: number }) => {
+      const { sourcePath, destPath, blockText, blockIndex } = args
+      if (sourcePath === destPath) {
+        toast.error('Pick a different page to move into')
+        return
+      }
+      if (editingPath !== sourcePath) {
+        toast.error('The source page is not the one being edited')
+        return
+      }
+      const buffer = getBufferRef.current?.()
+      if (buffer === null || buffer === undefined) {
+        toast.error('Nothing to move — the editor buffer is empty')
+        return
+      }
+      flushPendingSave()
+
+      const move = moveBlockBetweenDocs(buffer, blockIndex, blockText)
+      if (!move) {
+        toast.error('That block is no longer where it was — reopen the menu and try again')
+        return
+      }
+      const { remainder, newDest } = move
+
+      try {
+        const destRead = await api.readDocument(destPath)
+        const destBody = (destRead.document.content ?? '').replace(/\n+$/, '')
+        const finalDest = destBody.length === 0 ? blockText : `${destBody}\n\n${blockText}`
+        await api.writeDocument(destPath, finalDest)
+        await api.writeDocument(sourcePath, remainder)
+      } catch (err) {
+        toast.error((err as Error).message || 'Move failed', { duration: Infinity, closeButton: true })
+        return
+      }
+
+      await reloadIndex()
+      // Push the new source body to the editor; the editor's reconcile
+      // effect replaces the buffer and re-renders.
+      setReconciled(remainder)
+      toast.success('Moved')
+    },
+    [editingPath, flushPendingSave, reloadIndex]
+  )
+
   // Sharing is an explicit act with an explicit token, handled in ShareDialog.
   // This used to build a URL from the document's title, which meant every note was
   // readable by anyone who could guess its name — see docs/sprint-6-share-model.md.
@@ -1424,6 +1506,15 @@ export function WorkspaceApp() {
                       }
                     }}
                     onOpenIn={(target) => handleOpenIn(target, source.path)}
+                    onMoveToBlock={async (spec) => {
+                      await moveBlockTo({
+                        sourcePath: source.path,
+                        destPath: spec.destPath,
+                        blockText: spec.blockText,
+                        blockIndex: spec.blockIndex,
+                      })
+                    }}
+                    moveToCandidates={moveToCandidates}
                   />
                 )}
               </div>

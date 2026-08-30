@@ -72,6 +72,14 @@ interface MenuContext {
   onClose: () => void
   /** Open this block in another surface. Wired by the editor from the workspace. */
   onOpen?: (target: OpenTarget) => void
+  /**
+   * Move the current block to another document. Receives the destination
+   * path; the workspace handler reads/writes both files. Omitted in
+   * non-workspace contexts (tests).
+   */
+  onMoveTo?: (destPath: string) => void | Promise<void>
+  /** Candidate destinations for the Move to submenu (path → title). */
+  moveToCandidates?: { path: string; title: string }[]
 }
 
 export type OpenTarget = 'side-peek' | 'new-tab' | 'new-window' | 'full-page'
@@ -188,9 +196,30 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
       ]
     : []
 
+  // Move to submenu. v1: pick a destination from a list (no search). The
+  // candidate list is provided by the editor; if it is missing or empty
+  // the item is dimmed. The current document is filtered out.
+  const moveToCandidates = (context.moveToCandidates ?? []).filter(
+    (c) => c.path !== context.docPath
+  )
+  const moveToActions: MenuAction[] = context.onMoveTo
+    ? moveToCandidates
+        .filter((c) =>
+          matches(['move to', 'move', c.title.toLowerCase(), c.path.toLowerCase()])
+        )
+        .map((c) => ({
+          id: `move-to-${c.path}`,
+          label: c.title,
+          search: ['move to', 'move', c.title.toLowerCase(), c.path.toLowerCase()],
+          run: () => {
+            void context.onMoveTo?.(c.path)
+          },
+        }))
+    : []
+
   // Top-level flat list of items shown when no submenu is hovered. Order
   // matches the spec: Turn into, Color, Duplicate, Delete, Copy link,
-  // Open in.
+  // Move to, Open in.
   const topLevel: MenuAction[] = [
     duplicateAction,
     deleteAction,
@@ -277,6 +306,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
                 turnIntoActions={turnIntoActions}
                 textColorActions={textColorActions}
                 bgColorActions={bgColorActions}
+                moveToActions={moveToActions}
                 onAction={(action) => {
                   action.run(context.view)
                   onOpenChange(false)
@@ -288,6 +318,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
                 turnIntoActions={turnIntoActions}
                 textColorActions={textColorActions}
                 bgColorActions={bgColorActions}
+                moveToActions={moveToActions}
                 onAction={(action) => {
                   action.run(context.view)
                   onOpenChange(false)
@@ -311,9 +342,10 @@ function SubmenuLayout(props: {
   turnIntoActions: MenuAction[]
   textColorActions: MenuAction[]
   bgColorActions: MenuAction[]
+  moveToActions: MenuAction[]
   onAction: (a: MenuAction) => void
 }) {
-  const { topLevel, turnIntoActions, textColorActions, bgColorActions, onAction } = props
+  const { topLevel, turnIntoActions, textColorActions, bgColorActions, moveToActions, onAction } = props
   return (
     <>
       <Menu.Root>
@@ -355,6 +387,24 @@ function SubmenuLayout(props: {
         </Menu.Portal>
       </Menu.Root>
 
+      {moveToActions.length > 0 ? (
+        <Menu.Root>
+          <Menu.Trigger className="flex w-full cursor-default items-center justify-between rounded px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent">
+            Move to
+            <span aria-hidden>▸</span>
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner side="right" sideOffset={2} align="start">
+              <Menu.Popup className="z-50 max-h-[320px] min-w-[240px] overflow-y-auto rounded-md border bg-popover p-1 shadow-md outline-none">
+                {moveToActions.map((a) => (
+                  <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />
+                ))}
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      ) : null}
+
       {topLevel.length === 0 ? null : (
         <>
           <MenuSeparator />
@@ -372,12 +422,14 @@ function FlatLayout(props: {
   turnIntoActions: MenuAction[]
   textColorActions: MenuAction[]
   bgColorActions: MenuAction[]
+  moveToActions: MenuAction[]
   onAction: (a: MenuAction) => void
 }) {
   const all: { section: string; items: MenuAction[] }[] = []
   if (props.turnIntoActions.length > 0) all.push({ section: 'Turn into', items: props.turnIntoActions })
   if (props.textColorActions.length > 0) all.push({ section: 'Text color', items: props.textColorActions })
   if (props.bgColorActions.length > 0) all.push({ section: 'Background', items: props.bgColorActions })
+  if (props.moveToActions.length > 0) all.push({ section: 'Move to', items: props.moveToActions })
   if (props.topLevel.length > 0) all.push({ section: 'Actions', items: props.topLevel })
 
   if (all.length === 0) return <Empty label="No actions match" />

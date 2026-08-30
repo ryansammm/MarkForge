@@ -144,6 +144,36 @@ export function joinBlocks(blocks: Block[]): string {
 }
 
 /**
+ * Move a single block from one document to another. The block keeps its
+ * id (so anchor links to it stay valid in either direction) and is
+ * appended to the destination body with a blank-line separator. If the
+ * source is left with no blocks the remainder is the empty string; the
+ * caller decides whether to keep or delete the now-empty file.
+ *
+ * ponytail: multi-block moves defer. The spec scenario covers a single
+ * block; the editor's `blockRangeAt` returns a list of indices, but the
+ * v1 menu action only acts on the first one. Add when the spec asks for
+ * "Move selection" semantics.
+ */
+export function moveBlockBetweenDocs(
+  sourceBody: string,
+  blockIndex: number,
+  destBody: string
+): { remainder: string; block: Block; newDest: string } | null {
+  const blocks = splitBlocks(sourceBody)
+  if (blockIndex < 0 || blockIndex >= blocks.length) return null
+  const block = blocks[blockIndex]!
+  const remaining = blocks.filter((_, i) => i !== blockIndex)
+  const remainder = joinBlocks(remaining)
+  const trimmedDest = destBody.replace(/\n+$/, '')
+  const newDest =
+    trimmedDest.length === 0
+      ? joinBlocks([block])
+      : `${trimmedDest}\n\n${joinBlocks([block])}`
+  return { remainder, block, newDest }
+}
+
+/**
  * Render the meta comment string, or `null` if there is nothing to write.
  */
 export function formatBlockMeta(meta: BlockMeta): string | null {
