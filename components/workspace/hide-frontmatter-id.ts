@@ -1,11 +1,4 @@
-import {
-  EditorView,
-  ViewPlugin,
-  Decoration,
-  WidgetType,
-  type DecorationSet,
-  type ViewUpdate,
-} from '@codemirror/view'
+import { EditorView, ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view'
 import type { EditorState } from '@codemirror/state'
 
 /**
@@ -18,20 +11,15 @@ import type { EditorState } from '@codemirror/state'
  *
  * Hidden lines remain in the document buffer — the server still sees them,
  * reconciliation is unaffected, and the title is still indexed for search.
+ *
+ * Implementation note: a `Decoration.replace` with a hidden widget corrupts the
+ * line's tile tree when the viewport re-measures (the widget's zero-length
+ * position races the content scan, surfacing as a `Cannot read properties of
+ * undefined (reading 'isText')` from `@codemirror/view`). A line class hides
+ * the rendered DOM without touching the content tree.
  */
 
 const HIDE_RE = /^(id|created|title)\s*:/i
-
-class HiddenLineWidget extends WidgetType {
-  toDOM() {
-    const span = document.createElement('span')
-    span.style.display = 'none'
-    return span
-  }
-  eq() {
-    return true
-  }
-}
 
 function buildDecorations(state: EditorState): DecorationSet {
   const total = state.doc.lines
@@ -40,34 +28,29 @@ function buildDecorations(state: EditorState): DecorationSet {
   const first = state.doc.line(1)
   if (first.text !== '---') return Decoration.none
 
-  const ranges: { from: number; to: number }[] = []
-
-  // Opening delimiter
-  ranges.push({ from: first.from, to: first.to })
+  const lineStarts: number[] = [first.from]
 
   const limit = Math.min(total, 20)
   for (let i = 2; i <= limit; i++) {
     const line = state.doc.line(i)
     if (line.text === '---') {
-      // Closing delimiter
-      ranges.push({ from: line.from, to: line.to })
+      lineStarts.push(line.from)
       break
     }
     if (HIDE_RE.test(line.text)) {
-      ranges.push({ from: line.from, to: line.to })
+      lineStarts.push(line.from)
     }
   }
 
-  if (ranges.length === 0) return Decoration.none
+  if (lineStarts.length === 0) return Decoration.none
 
-  const deco = new HiddenLineWidget()
   return Decoration.set(
-    ranges.map((r) => Decoration.replace({ widget: deco, inclusive: true }).range(r.from, r.to))
+    lineStarts.map((from) => Decoration.line({ class: 'cm-frontmatter-hidden' }).range(from))
   )
 }
 
 export function hideFrontmatterId() {
-  const plugin = ViewPlugin.fromClass(
+  return ViewPlugin.fromClass(
     class {
       decorations: DecorationSet
       constructor(view: EditorView) {
@@ -81,11 +64,4 @@ export function hideFrontmatterId() {
     },
     { decorations: (p) => p.decorations }
   )
-
-  return [
-    plugin,
-    EditorView.atomicRanges.of(
-      (view) => view.plugin(plugin)?.decorations ?? Decoration.none
-    ),
-  ]
 }

@@ -136,6 +136,10 @@ const editorTheme = EditorView.theme({
   '.cm-content': { padding: '0', caretColor: 'var(--cm-accent)' },
   '&.cm-focused': { outline: 'none' },
   '.cm-line': { padding: '0 2px' },
+  // Frontmatter lines (id, created, title, ---) carry this class via
+  // hide-frontmatter-id.ts. Hiding the line is a paint-only concern — the
+  // document buffer still has every byte, so the file is saved intact.
+  '.cm-frontmatter-hidden': { display: 'none' },
   '.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--cm-accent)', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {

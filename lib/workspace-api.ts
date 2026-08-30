@@ -248,7 +248,16 @@ export function joinPath(parentDir: string, name: string): string {
   return parent ? `${parent}/${name}` : name
 }
 
-/** A starting document: an H1 so the title resolves before anything else is typed. */
-export function newDocumentTemplate(title: string): string {
-  return `# ${title}\n\n`
+/**
+ * The starting content for a brand-new file. Empty.
+ *
+ * The H1-derives-title path (`buildDocument.deriveTitle` → first H1) and the
+ * editor's body-first philosophy would, given `# ${title}\n\n`, pre-fill the
+ * editor with the title as a heading plus two blank lines, repeating the
+ * filename in the breadcrumb and producing a stutter between the chrome and
+ * the document. The reading view's `<h1>` and the breadcrumb already show the
+ * title; the body should start where the user starts typing.
+ */
+export function newDocumentTemplate(_title: string): string {
+  return ''
 }
