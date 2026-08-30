@@ -586,9 +586,10 @@ export function MarkdownEditor({
             return true
           },
         },
-        // Turn the current selection into a sub-page. Same wiring the block
-        // menu's `Turn into page` action uses, exposed as a keyboard
-        // shortcut so the user does not have to reach for the handle.
+        // Turn the current selection into a sub-page. Same wiring the
+        // block menu's `Turn into > Page` action uses, exposed as a
+        // keyboard shortcut so the user does not have to reach for the
+        // handle.
         {
           key: 'Mod-Shift-p',
           preventDefault: true,

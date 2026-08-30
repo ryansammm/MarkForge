@@ -225,8 +225,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
     : []
 
   // Top-level flat list of items shown when no submenu is hovered. Order
-  // matches the spec: Turn into, Color, Duplicate, Delete, Copy link,
-  // Move to, Open in.
+  // matches the spec: Duplicate, Delete, Copy link, Open in.
   const topLevel: MenuAction[] = [
     duplicateAction,
     deleteAction,
@@ -234,14 +233,15 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
     ...openItems,
   ]
 
-  // Turn into page — a top-level action. Lives outside the "Turn into"
-  // submenu because it changes the document structure, not the block
-  // type, and the submenu is reserved for in-place block kind changes.
-  const turnIntoPageAction: MenuAction | null = context.onTurnIntoPage
+  // "Page" — splits the current selection into a sub-page. Lives
+  // inside the "Turn into" submenu alongside the block-kind changes;
+  // the label is just `Page` because the parent menu already says
+  // "Turn into".
+  const pageAction: MenuAction | null = context.onTurnIntoPage
     ? {
         id: 'turn-into-page',
-        label: 'Turn into page',
-        search: ['turn into', 'page', 'sub-page', 'subpage', 'child'],
+        label: 'Page',
+        search: ['page', 'sub-page', 'subpage', 'child', 'turn into'],
         run: () => {
           void context.onTurnIntoPage?.()
         },
@@ -278,10 +278,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
   // flattening mode; in flattening mode every Turn into / Color item is
   // always eligible (they are then filtered by the `matches(t.search)`
   // call above).
-  const visibleTopLevel = [
-    ...(turnIntoPageAction ? [turnIntoPageAction] : []),
-    ...topLevel,
-  ].filter((a) => matches(a.search))
+  const visibleTopLevel = topLevel.filter((a) => matches(a.search))
 
   return (
     <Menu.Root open={open} onOpenChange={onOpenChange} modal={false}>
@@ -328,6 +325,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
               <SubmenuLayout
                 topLevel={visibleTopLevel}
                 turnIntoActions={turnIntoActions}
+                pageAction={pageAction}
                 textColorActions={textColorActions}
                 bgColorActions={bgColorActions}
                 moveToActions={moveToActions}
@@ -340,6 +338,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
               <FlatLayout
                 topLevel={visibleTopLevel}
                 turnIntoActions={turnIntoActions}
+                pageAction={pageAction}
                 textColorActions={textColorActions}
                 bgColorActions={bgColorActions}
                 moveToActions={moveToActions}
@@ -364,12 +363,21 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
 function SubmenuLayout(props: {
   topLevel: MenuAction[]
   turnIntoActions: MenuAction[]
+  pageAction: MenuAction | null
   textColorActions: MenuAction[]
   bgColorActions: MenuAction[]
   moveToActions: MenuAction[]
   onAction: (a: MenuAction) => void
 }) {
-  const { topLevel, turnIntoActions, textColorActions, bgColorActions, moveToActions, onAction } = props
+  const { topLevel, turnIntoActions, pageAction, textColorActions, bgColorActions, moveToActions, onAction } = props
+  // Combine the block-kind Turn into entries with the "Page" entry
+  // (which turns the selection into a sub-page, not a different block
+  // type). The parent label already says "Turn into", so the inner
+  // item reads simply as "Page".
+  const turnIntoAll: MenuAction[] = [
+    ...(pageAction ? [pageAction] : []),
+    ...turnIntoActions,
+  ]
   return (
     <>
       <Menu.Root>
@@ -380,10 +388,10 @@ function SubmenuLayout(props: {
         <Menu.Portal>
           <Menu.Positioner side="right" sideOffset={2} align="start">
             <Menu.Popup className="z-50 min-w-[200px] rounded-md border bg-popover p-1 shadow-md outline-none">
-              {turnIntoActions.length === 0 ? (
+              {turnIntoAll.length === 0 ? (
                 <Empty label="No matches" />
               ) : (
-                turnIntoActions.map((a) => <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />)
+                turnIntoAll.map((a) => <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />)
               )}
             </Menu.Popup>
           </Menu.Positioner>
@@ -444,13 +452,18 @@ function SubmenuLayout(props: {
 function FlatLayout(props: {
   topLevel: MenuAction[]
   turnIntoActions: MenuAction[]
+  pageAction: MenuAction | null
   textColorActions: MenuAction[]
   bgColorActions: MenuAction[]
   moveToActions: MenuAction[]
   onAction: (a: MenuAction) => void
 }) {
+  const turnIntoAll: MenuAction[] = [
+    ...(props.pageAction ? [props.pageAction] : []),
+    ...props.turnIntoActions,
+  ]
   const all: { section: string; items: MenuAction[] }[] = []
-  if (props.turnIntoActions.length > 0) all.push({ section: 'Turn into', items: props.turnIntoActions })
+  if (turnIntoAll.length > 0) all.push({ section: 'Turn into', items: turnIntoAll })
   if (props.textColorActions.length > 0) all.push({ section: 'Text color', items: props.textColorActions })
   if (props.bgColorActions.length > 0) all.push({ section: 'Background', items: props.bgColorActions })
   if (props.moveToActions.length > 0) all.push({ section: 'Move to', items: props.moveToActions })
