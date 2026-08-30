@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStore } from '@/lib/server/store'
+import { clearGrimoireStore, getStore } from '@/lib/server/store'
 import {
   readRegistry,
   renameGrimoire,
@@ -64,6 +64,11 @@ export async function PUT(
         )
       }
       const grimoire = await setGrimoireRoot(bucket, id, p)
+      // Force the grimoire-scoped store to rebuild against the new path on the
+      // next request, and drop the index so a fresh reindex scans the new folder
+      // rather than re-reading the previous directory's documents.
+      await bucket.deleteMeta(`_grimoires/${id}/index.json`)
+      clearGrimoireStore(id)
       return NextResponse.json(grimoire)
     }
 
