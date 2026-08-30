@@ -5,11 +5,9 @@ import {
   ChevronDown,
   ChevronRight,
   CloudUpload,
-  FileDown,
   FilePlus,
   FileText,
   Folder,
-  FolderInput,
   FolderOpen,
   FolderPlus,
   KeyRound,
@@ -46,8 +44,6 @@ export const SIDEBAR_WIDTH = { default: 256, min: 180, max: 560 } as const
 /** Present only inside the Electron shell — see electron/preload.cjs. */
 interface DesktopBridge {
   desktop: boolean
-  chooseFiles: () => Promise<{ copied: number }>
-  chooseFolder: () => Promise<{ copied: number }>
   syncToCloud: () => Promise<{ ok: boolean; copied?: number; skipped?: number; error?: string }>
 }
 
@@ -86,6 +82,8 @@ interface SidebarProps {
   activeGrimoireId: string | null
   onSelectGrimoire: (id: string) => void
   onGrimoireCreated?: (grimoire: { id: string; name: string }) => void
+  /** Backend kind from /api/health — drives the "Sync to cloud" visibility. */
+  storageKind: string | null
 }
 
 /**
@@ -144,6 +142,7 @@ export function Sidebar({
   activeGrimoireId,
   onSelectGrimoire,
   onGrimoireCreated,
+  storageKind,
 }: SidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
   // Depth counter, not a boolean: enter/leave fire for every child element, and a
@@ -166,23 +165,6 @@ export function Sidebar({
     () => Boolean(window.markforge),
     () => false
   )
-
-  const runImport = async (pick: () => Promise<{ copied: number }>) => {
-    try {
-      const { copied } = await pick()
-      if (copied === 0) return
-      toast.info(`Imported ${copied} item(s), rebuilding index…`)
-      const response = await fetch('/api/storage?action=reindex', {
-        method: 'POST',
-        headers: grimoireHeaders(),
-      })
-      if (!response.ok) throw new Error(`reindex failed (${response.status})`)
-      await onAfterImport?.()
-      toast.success(`Import complete — ${copied} item(s) added`)
-    } catch (err) {
-      toast.error(`Import failed: ${(err as Error).message}`)
-    }
-  }
 
   /** Explicit push of the local corpus to R2 - the only road to the cloud. */
   const runCloudSync = async () => {
@@ -726,33 +708,15 @@ onDrop={(event) => {
       </nav>
 
       <div className="flex flex-col gap-0.5 border-t p-2">
-        {isDesktop && (
-          <>
-            <button
-              type="button"
-              onClick={() => void runImport(() => window.markforge!.chooseFiles())}
-              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-            >
-              <FileDown className="size-3.5 shrink-0" />
-              <span>Import files…</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => void runImport(() => window.markforge!.chooseFolder())}
-              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-            >
-              <FolderInput className="size-3.5 shrink-0" />
-              <span>Import folder…</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => void runCloudSync()}
-              className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
-            >
-              <CloudUpload className="size-3.5 shrink-0" />
-              <span>Sync to cloud…</span>
-            </button>
-          </>
+        {isDesktop && storageKind === 'cloud' && (
+          <button
+            type="button"
+            onClick={() => void runCloudSync()}
+            className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <CloudUpload className="size-3.5 shrink-0" />
+            <span>Sync to cloud…</span>
+          </button>
         )}
         {/*
           Beside Trash rather than in the document tree: the vault is not a document,

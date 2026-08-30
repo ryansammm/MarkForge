@@ -15,7 +15,6 @@ app.setName('MarkForge')
 const DATA_ROOT = app.getPath('userData')
 const NOTES_DIR = path.join(DATA_ROOT, 'notes')
 const META_DIR = path.join(DATA_ROOT, 'meta')
-const ASSET_PREFIX = 'assets'
 
 let server = null
 let win = null
@@ -92,53 +91,6 @@ function startServer() {
   server.on('exit', (code) => console.log(`[next] exited with ${code}`))
   return server
 }
-
-function copyFileToWorkspace(srcPath, relativeName) {
-  const dest = path.join(NOTES_DIR, relativeName)
-  fs.mkdirSync(path.dirname(dest), { recursive: true })
-  fs.copyFileSync(srcPath, dest)
-}
-
-function walkMarkdown(dir, baseDir, out) {
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    if (entry.name.startsWith('.')) continue
-    const full = path.join(dir, entry.name)
-    if (entry.isDirectory()) walkMarkdown(full, baseDir, out)
-    else out.push({ src: full, rel: path.relative(baseDir, full).split(path.sep).join('/') })
-  }
-  return out
-}
-
-ipcMain.handle('markforge:choose-files', async () => {
-  const res = await dialog.showOpenDialog(win, {
-    title: 'Import files',
-    properties: ['openFile', 'multiSelections'],
-  })
-  if (res.canceled) return { copied: 0 }
-  let copied = 0
-  for (const file of res.filePaths) {
-    const name = path.basename(file)
-    const rel = name.endsWith('.md') ? name : `${ASSET_PREFIX}/${Date.now()}-${name}`
-    copyFileToWorkspace(file, rel)
-    copied++
-  }
-  return { copied }
-})
-
-ipcMain.handle('markforge:choose-folder', async () => {
-  const res = await dialog.showOpenDialog(win, {
-    title: 'Import folder',
-    properties: ['openDirectory'],
-  })
-  if (res.canceled) return { copied: 0 }
-  const files = walkMarkdown(res.filePaths[0], res.filePaths[0], [])
-  let copied = 0
-  for (const f of files) {
-    copyFileToWorkspace(f.src, f.rel)
-    copied++
-  }
-  return { copied }
-})
 
 ipcMain.handle('markforge:select-directory', async () => {
   const res = await dialog.showOpenDialog(win, {

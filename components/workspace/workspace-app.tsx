@@ -1116,6 +1116,7 @@ export function WorkspaceApp() {
         onWidthChange={setSidebarWidth}
         activeGrimoireId={activeGrimoireId}
         onSelectGrimoire={handleSelectGrimoire}
+        storageKind={storageKind}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
