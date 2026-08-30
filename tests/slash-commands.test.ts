@@ -67,6 +67,26 @@ async function main() {
   assert(block.insert === '```\n\n```\n', 'caret stripped from block insert')
   assert(block.anchor === 6 + 4, 'block cursor inside the fences')
 
+  // Regression: a slash typed on a line that does NOT start at document
+  // position 0 must produce a completion `from` that is ABSOLUTE (line
+  // start + relative hit), not the raw relative offset. Pre-fix, this
+  // returned `from: 0` for any line, which broke the popup for any
+  // document with content before the slash line.
+  // Layout of 'first line\n> /he':
+  //   f=0  i=1  r=2  s=3  t=4  ' '=5  l=6  i=7  n=8  e=9  \n=10  >=11  ' '=12  /=13  h=14  e=15
+  // The second line starts at 11, the / is at absolute 13. Pre-fix, the
+  // completion `from` was 0 (the raw hit.from, relative to the line). After
+  // the fix, it is line.from + hit.from = 11 + 2 = 13.
+  const multilineDoc = 'first line\n> /he'
+  const multilineCursor = multilineDoc.length
+  const multi = runSource(multilineDoc, multilineCursor)
+  assert(multi !== null, 'multiline source should return options')
+  if (!multi || !('options' in multi)) throw new Error('unexpected result shape')
+  assert(
+    multi.from === 13 && multi.to === multilineCursor,
+    `multiline from/to wrong: from=${multi.from} to=${multi.to} (expected 13, ${multilineCursor})`
+  )
+
   console.log('slash-commands tests passed')
 }
 

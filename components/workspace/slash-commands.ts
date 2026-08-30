@@ -88,6 +88,11 @@ export function slashCommands(options: SlashOptions = {}) {
     const hit = slashContextBefore(before)
     if (!hit) return null
 
+    // ponytail: hit.from is the offset from the LINE start, not from the
+    // document start. For apply() callbacks (which run against view.state
+    // and use absolute positions), convert to absolute once.
+    const absoluteFrom = line.from + hit.from
+
     const query = hit.query.toLowerCase()
     const optionsList: Completion[] = SLASH_ITEMS.filter((item) =>
       item.label.toLowerCase().includes(query)
@@ -98,7 +103,7 @@ export function slashCommands(options: SlashOptions = {}) {
       apply: (view, _completion, _from, to) => {
         const edit = snippetEdit(
           view.state.doc.length,
-          hit.from,
+          absoluteFrom,
           to,
           item.snippet
         )
@@ -121,7 +126,7 @@ export function slashCommands(options: SlashOptions = {}) {
           // Look at the text the user has actually typed after `/page`
           // for an inline argument. We accept either a quoted form
           // (`/page "My Note"`) or a bare token (`/page My-Note`).
-          const typed = view.state.sliceDoc(hit.from, to)
+          const typed = view.state.sliceDoc(absoluteFrom, to)
           const name = extractPageName(typed)
           if (!name) {
             // No name provided — leave the token alone and bail. The
@@ -133,7 +138,7 @@ export function slashCommands(options: SlashOptions = {}) {
             if (!replacement) return
             const edit = snippetEdit(
               view.state.doc.length,
-              hit.from,
+              absoluteFrom,
               to,
               replacement
             )
@@ -149,11 +154,13 @@ export function slashCommands(options: SlashOptions = {}) {
 
     if (optionsList.length === 0) return null
 
+    const completionFrom = absoluteFrom
+
     return {
       // `to` bounds the replace range; `filter: false` because the menu was
       // already narrowed above - without it CodeMirror fuzzy-filters against
       // the raw token ("/he", slash included) and every option dies.
-      from: hit.from,
+      from: completionFrom,
       to: context.pos,
       options: optionsList,
       filter: false,
