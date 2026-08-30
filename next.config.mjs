@@ -12,6 +12,11 @@ const nextConfig = {
     unoptimized: true,
   },
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  devIndicators: {
+    // Move the on-screen dev indicator out of the way of the workspace's
+    // status strip, which sits in the same bottom-left corner.
+    position: 'bottom-right',
+  },
 }
 
 export default nextConfig
