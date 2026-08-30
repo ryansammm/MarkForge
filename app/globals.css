@@ -504,3 +504,12 @@ html, body, main, aside, article, header {
 */
 .cm-md-syntax { display: none; }
 .cm-activeLine .cm-md-syntax { display: inline; }
+
+/*
+  Empty-block hint. `empty-block-placeholder.ts` decorates every empty
+  paragraph in the editor with a `<span class="mkf-empty-hint">`; we
+  hide it everywhere except the focused active line, mirroring the
+  WYSIWYG idea: the hint is a guide, not a permanent overlay.
+*/
+.mkf-empty-hint { display: none; color: var(--muted-foreground); opacity: 0.6; pointer-events: none; font-style: italic; }
+.cm-focused .cm-activeLine .mkf-empty-hint { display: inline; }

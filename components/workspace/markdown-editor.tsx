@@ -36,6 +36,7 @@ import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
 import { hideMarkdownSyntax } from './hide-md-syntax'
+import { emptyBlockPlaceholder } from './empty-block-placeholder'
 import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
 import { BlockMenu, type OpenTarget } from './block-menu'
 import { blockHasId, blockRangeAt, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
@@ -524,6 +525,7 @@ export function MarkdownEditor({
         icons: false,
       }),
       cmPlaceholder('Start writing…'),
+      emptyBlockPlaceholder(),
       keymap.of([
         {
           key: 'Mod-s',
@@ -556,10 +558,32 @@ export function MarkdownEditor({
           },
         },
         {
-          key: 'Mod-Enter',
+          // Notion-style: Enter splits the block, Shift-Enter inserts a
+          // markdown hard break (`  \n` → <br>). On an empty block, fall
+          // through to the default keymap so list-exit still works.
+          // ponytail: per-line `Enter` no-op (no extra blank line) is
+          // not implemented — let defaultKeymap handle empty lines and
+          // add the list-exit / extra-blank semantics. Add an explicit
+          // guard when Notion's "exit on empty" is required.
+          key: 'Enter',
           preventDefault: true,
           run: (view) => {
+            const head = view.state.selection.main.head
+            const line = view.state.doc.lineAt(head)
+            if (line.text === '') return false
             return insertNewBlockBelow(view)
+          },
+        },
+        {
+          key: 'Shift-Enter',
+          preventDefault: true,
+          run: (view) => {
+            const head = view.state.selection.main.head
+            view.dispatch({
+              changes: { from: head, insert: '  \n' },
+              selection: { anchor: head + 3 },
+            })
+            return true
           },
         },
         // Turn the current selection into a sub-page. Same wiring the block

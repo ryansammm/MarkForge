@@ -23,6 +23,11 @@ const MARKER_PATTERNS: RegExp[] = [
   /[\[\]()]/g,
   // blockquote `> ` and list `- ` / `1. `
   /^(\s*)(>|[-*+]|\d+\.)\s/gm,
+  // block-id comments `<!-- mkf:b:... -->` — hidden in the editor;
+  // the comment stays in the markdown source for support/debug
+  // (see `lib/blocks.ts`). Active-line override in `globals.css`
+  // reveals the comment when the user is on that line.
+  /<!--\s*mkf:b:[\w-]+\s*-->/g,
 ]
 
 function build(view: EditorView): DecorationSet {
