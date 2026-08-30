@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useReducer, useState, useMemo, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
@@ -26,6 +26,13 @@ import {
 import { applyAddDir, applyRemove, applyRemoveDir, applyUpsert } from '@/lib/index-patch'
 import { useDocumentSave } from '@/lib/use-document-save'
 import { readStoredTabs, useTabSession } from '@/lib/use-tab-session'
+import {
+  applyDesktopTabAction,
+  EMPTY_DESKTOP_TABS,
+  MAX_DESKTOP_TABS,
+  type DesktopTabAction,
+  type DesktopTabsState,
+} from '@/lib/desktop-tabs'
 import {
   IN_PLACE,
   canGoBack,
@@ -58,6 +65,7 @@ import { RecentEditsPanel } from './recent-edits-panel'
 import { DetailsPanel } from './details-panel'
 import { SaveIndicator } from './save-indicator'
 import { TabStrip, documentLabel } from './tab-strip'
+import { DesktopTabBar } from './desktop-tab-bar'
 import { ConfirmDialog, PromptDialog } from './workspace-dialogs'
 import { ShareDialog } from './share-dialog'
 import { TrashDialog } from './trash-dialog'
@@ -72,6 +80,15 @@ import { getActiveGrimoireId, setActiveGrimoireId } from '@/lib/grimoire-client'
 
 /** The context rail's width, and the range its handle can drag through. */
 const RAIL_WIDTH = { default: 288, min: 220, max: 560 } as const
+
+/**
+ * Id source for the desktop tab bar's reducer. Counter rather than
+ * `crypto.randomUUID` for the same reason `lib/use-tab-session.ts` uses a
+ * counter: ids only need to be unique within a session, and a workspace
+ * served over plain HTTP on a LAN has no secure context for the web API.
+ */
+let desktopTabCounter = 0
+const nextDesktopTabId = () => `dt-${++desktopTabCounter}`
 
 /**
  * CodeMirror touches the DOM at construction, so it cannot be server-rendered.
@@ -165,6 +182,62 @@ export function WorkspaceApp() {
    * Cmd+P, and rebinding all of them every time a tab is focused is work for nothing.
    */
   const tabsRef = useRef(tabSession)
+
+  /**
+   * The desktop-window tab bar (Electron only).
+   *
+   * Separate from `useTabSession` on purpose: the in-app reducer carries
+   * history and modes per tab, while this strip is a flat list of "what
+   * documents are open in this window" with a hard 6-tab cap. The two
+   * coordinate through `navigateTo` — every new-tab open mirrors here.
+   *
+   * `dispatchDesktopTabs` returns false when the action was refused (the
+   * 6-tab limit on `open`). The pure `applyDesktopTabAction` returns null
+   * for the refused case, and the React state is left untouched — the
+   * caller can toast.
+   *
+   * A ref mirrors the latest state for synchronous reads from the dispatch
+   * wrapper, so the limit check does not rely on a stale closure. The ref
+   * is updated by an effect — never during render.
+   */
+  const [desktopTabsState, rawDispatchDesktopTabs] = useReducer(
+    (state: DesktopTabsState, action: DesktopTabAction): DesktopTabsState =>
+      applyDesktopTabAction(state, action, nextDesktopTabId) ?? state,
+    EMPTY_DESKTOP_TABS
+  )
+  const desktopTabsStateRef = useRef<DesktopTabsState>(desktopTabsState)
+  useEffect(() => {
+    desktopTabsStateRef.current = desktopTabsState
+  }, [desktopTabsState])
+  const dispatchDesktopTabs = useCallback(
+    (action: DesktopTabAction): boolean => {
+      const next = applyDesktopTabAction(desktopTabsStateRef.current, action, nextDesktopTabId)
+      if (next === null) return false
+      rawDispatchDesktopTabs(action)
+      return true
+    },
+    []
+  )
+
+  /**
+   * Keep the strip's active tab in sync with the in-app active path.
+   *
+   * When the user navigates in place (or the active doc changes from a
+   * rename/delete), the strip must follow. Only `activate` — never `open`
+   * — so the in-place rule above holds. On the very first render with an
+   * active path, seed a single tab so the strip is not empty.
+   */
+  useEffect(() => {
+    if (!activePath) return
+    if (desktopTabsStateRef.current.tabs.length === 0) {
+      rawDispatchDesktopTabs({ type: 'open', path: activePath })
+      return
+    }
+    const existing = desktopTabsStateRef.current.tabs.find((tab) => tab.path === activePath)
+    if (existing && existing.id !== desktopTabsStateRef.current.activeId) {
+      rawDispatchDesktopTabs({ type: 'activate', id: existing.id })
+    }
+  }, [activePath, rawDispatchDesktopTabs])
 
   /**
    * Where each document was left, so returning to a tab returns to the paragraph.
@@ -738,11 +811,16 @@ export function WorkspaceApp() {
     (path: string, intent: OpenIntent = IN_PLACE) => {
       flushPendingSave()
       dispatchTabs({ type: 'open', path, newTab: intent.newTab, background: intent.background })
+      // Mirror new-tab opens into the desktop tab bar so the OS-window strip
+      // reflects what is on screen. In-place opens don't grow the strip —
+      // the active tab simply tracks the active path. A no-op when the
+      // strip is full (returns false silently).
+      if (intent.newTab) dispatchDesktopTabs({ type: 'open', path })
       // On a phone the drawer is covering the thing you just chose to read — but a
       // background open is a request to stay where you are, drawer included.
       if (!intent.background) setSidebarOpen(false)
     },
-    [flushPendingSave, dispatchTabs]
+    [flushPendingSave, dispatchTabs, dispatchDesktopTabs]
   )
 
   /**
@@ -1657,7 +1735,16 @@ export function WorkspaceApp() {
 
   return (
     <VaultKeyProvider vault={vault}>
-      <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+      <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
+      <DesktopTabBar
+        state={desktopTabsState}
+        dispatch={dispatchDesktopTabs}
+        documents={indexData?.documents || {}}
+        onActivate={(path) => navigateTo(path, IN_PLACE)}
+        limit={MAX_DESKTOP_TABS}
+        onLimitReached={() => toast.error(`Max ${MAX_DESKTOP_TABS} tabs. Close one to open another.`)}
+      />
+      <div className="flex min-h-0 flex-1 overflow-hidden">
       <Sidebar
         tree={indexData?.tree || []}
         activePath={activePath}
@@ -2236,7 +2323,8 @@ export function WorkspaceApp() {
         onConfirm={confirmDelete}
         onOpenChange={(open) => !open && closeDialog()}
       />
-    </div>
+      </div>
+      </div>
     </VaultKeyProvider>
   )
 }

@@ -431,21 +431,32 @@ app gate becomes a 6-digit PIN that the user can rotate from settings.
 
 ## 14. Desktop top tab bar + page picker popover
 
-- [ ] 14.1 `lib/desktop-tabs.ts` (new) — pure reducer (mirrors
+- [x] 14.1 `lib/desktop-tabs.ts` (new) — pure reducer (mirrors
       `lib/tabs.ts` style). State: `{ tabs: { id, path }[],
       activeId }`.
-- [ ] 14.2 `components/workspace/desktop-tab-bar.tsx` (new) —
+- [x] 14.2 `components/workspace/desktop-tab-bar.tsx` (new) —
       tab strip at the top of the window, above the sidebar.
       Hidden via `isElectron()` in web mode.
-- [ ] 14.3 `components/workspace/page-picker-popover.tsx` (new)
+      *Drift:* `isElectron()` does not exist as a helper in the
+      repo; the bar reads `Boolean(window.markforge)` via
+      `useSyncExternalStore` (same pattern as the sidebar).
+- [x] 14.3 `components/workspace/page-picker-popover.tsx` (new)
       — anchored under the `+` button in the tab bar. Search
       input + page list from the live index.
-- [ ] 14.4 Enforce 6-tab limit. Show a toast and refuse the new
-      tab when full.
-- [ ] 14.5 Wire opening a page from sidebar/page menu to activate
-      the existing tab or open a new one.
-- [ ] 14.6 Self-check `scripts/check-desktop-tabs.ts` — limit
-      enforced, popover search filters, tab activate/close.
+- [x] 14.4 Enforce 6-tab limit. Show a toast and refuse the new
+      tab when full. The `+` button is also `disabled` at the cap,
+      not just toast-on-overflow.
+- [x] 14.5 Wire opening a page from sidebar/page menu to activate
+      the existing tab or open a new one. `navigateTo` mirrors
+      `newTab: true` opens into the strip; a sync effect activates
+      the matching tab when the in-app active path changes.
+      *Drift:* in-place opens do not grow the strip — only
+      `newTab: true` does. The first `activePath` seeds a single
+      tab on mount (per spec: "Re-opening starts with the
+      previously-active document as the single tab").
+- [x] 14.6 Self-check `scripts/check-desktop-tabs.ts` — limit
+      enforced, popover search filters, tab activate/close. 40/40
+      pass.
 
 ## 15. Drop offline mode
 
