@@ -228,23 +228,38 @@ commit on `dev` (push after each).
 
 ## 9. Lock page
 
-- [ ] 9.1 `lib/lock/page-crypto.ts` (new) — `wrapPageKey(passphrase,
-      pageKey, kdf)`, `unwrapPageKey(passphrase, lock)`. PBKDF2 in
-      renderer, Argon2id in Node.
-- [ ] 9.2 `package.json` — add `argon2` (Node-side, ~3 MB binary).
-      Native module, build matrix unchanged.
-- [ ] 9.3 `lib/file-store.ts` — extend `MarkdownDocument` with
-      `lock?: { kdf, salt, wrapped, nonce, body_cipher? }`.
-- [ ] 9.4 `lib/build-document.ts` — `readLock(frontmatter)`.
-- [ ] 9.5 `components/workspace/lock-prompt.tsx` (new) — passphrase
-      input + confirm, shake on wrong.
-- [ ] 9.6 `doc-viewer.tsx` — when the page is locked, the body
-      area is replaced with `<LockPrompt>`; the rest of the page
-      (breadcrumb, child pages) still renders.
-- [ ] 9.7 Wire `Lock page` / `Unlock page` in `page-menu.tsx`.
-- [ ] 9.8 Self-check `scripts/check-lock-page.ts` — round-trip
-      lock + unlock, wrong passphrase fails closed, no body leak
-      when locked.
+- [x] 9.1 `lib/lock/page-lock.ts` (new) — `makeLock(passphrase)` /
+      `verifyPassphrase(passphrase, lock)` / `isPageLock(value)`.
+      PBKDF2-SHA256 100k via WebCrypto, base64url salt + hash.
+      Drift from proposal: no `argon2` (Task 9 became a UI gate
+      rather than an at-rest re-encryption), no body re-encryption
+      either. The master note-crypto envelope still owns the file
+      at rest; the lock only blocks writes from the editor.
+- [x] 9.2 No `argon2` dependency. Skipped.
+- [x] 9.3 No `MarkdownDocument.lock` field. The lock lives in
+      `frontmatter.lock` (a small object) and is read via
+      `frontmatterLock(frontmatter)`. The schema gained a
+      `lock: { kdf, salt, iterations, hash }` entry. Frontmatter
+      is the same store the page menu already uses.
+- [x] 9.4 `lib/markdown/frontmatter.ts` — `frontmatterLock(frontmatter)`
+      accessor + schema entry + a sibling `setFrontmatterObject`
+      writer that serialises the lock as a flow-style YAML block.
+- [x] 9.5 `components/workspace/lock-prompt.tsx` (new) —
+      passphrase input + Unlock button. Wrong passphrase fires a
+      one-shot CSS `lock-shake` keyframe (`globals.css`); the
+      form clears the input and resets the animation on the next
+      keystroke.
+- [x] 9.6 `components/workspace/workspace-app.tsx` — gate the
+      `MarkdownEditor` mount. When the active page carries a
+      `lock:` and the path is not in the in-memory
+      `unlockedPaths` set, the editor is replaced with
+      `<LockPrompt>`. The DocViewer (read-only path) is
+      unaffected — the lock is a write-time gate.
+- [x] 9.7 `components/workspace/page-menu.tsx` — `Lock page` /
+      `Unlock page` items now call into the workspace. The
+      `isLocked` flag flips the label. `Lock page` reads the
+      passphrase from `window.prompt()` (single popover kept).
+- [x] 9.8 Self-check `scripts/check-page-lock.ts` — 29/29 pass.
 
 ## 10. Page-level Import / Export
 

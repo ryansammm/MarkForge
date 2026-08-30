@@ -68,7 +68,9 @@ interface DocViewerProps {
     onTrash: () => void
     onSetView: (view: 'small' | 'full') => void
     onSetWidth: (width: 'full' | 'default') => void
-    onLock?: () => void
+    isLocked: boolean
+    onLock?: (passphrase: string) => void
+    onUnlock?: () => void
     onImport?: () => void
     onExport?: () => void
   } | null
@@ -159,7 +161,7 @@ export function DocViewer({
       onScroll={(event) => path && onScroll?.(path, event.currentTarget.scrollTop)}
       className="relative flex-1 overflow-y-auto px-8 py-10"
     >
-      {pageMenu ? (
+        {pageMenu ? (
         <PageMenu
           document={document}
           body={body}
@@ -170,7 +172,9 @@ export function DocViewer({
           onTrash={pageMenu.onTrash}
           onSetView={pageMenu.onSetView}
           onSetWidth={pageMenu.onSetWidth}
+          isLocked={pageMenu.isLocked}
           onLock={pageMenu.onLock}
+          onUnlock={pageMenu.onUnlock}
           onImport={pageMenu.onImport}
           onExport={pageMenu.onExport}
         />

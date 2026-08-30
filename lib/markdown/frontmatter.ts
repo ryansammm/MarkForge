@@ -83,6 +83,24 @@ export const FrontmatterSchema = z
      * The page menu writes this; the viewer reads it via `frontmatterWidth`.
      */
     width: z.enum(['full', 'default']).optional(),
+    /**
+     * Edit gate. When present, the editor refuses to mount until the
+     * user types the passphrase that hashes to `hash` under
+     * `kdf`/`iterations` with `salt`. The body is NOT re-encrypted;
+     * the master note-crypto envelope still owns the file. The schema
+     * accepts the four fields the page-lock module writes; an
+     * unknown future field would survive because of `.passthrough()`
+     * on the parent object.
+     */
+    lock: z
+      .object({
+        kdf: z.literal('PBKDF2-SHA256'),
+        salt: z.string().min(1),
+        iterations: z.number().int().positive(),
+        hash: z.string().min(1),
+      })
+      .passthrough()
+      .optional(),
   })
   .passthrough()
 
@@ -140,6 +158,40 @@ export function frontmatterView(frontmatter: Record<string, unknown>): 'small' |
 /** `width: full | default` from the page menu. Defaults to `default`. */
 export function frontmatterWidth(frontmatter: Record<string, unknown>): 'full' | 'default' {
   return frontmatter.width === 'full' ? 'full' : 'default'
+}
+
+/**
+ * The page-lock object, when present, with the runtime shape expected by
+ * `lib/lock/page-lock.ts`. Returns `null` when the document is not locked
+ * or the lock is in an unrecognised shape — both treated as "not locked"
+ * by the editor.
+ */
+export function frontmatterLock(frontmatter: Record<string, unknown>): {
+  kdf: 'PBKDF2-SHA256'
+  salt: string
+  iterations: number
+  hash: string
+} | null {
+  const lock = frontmatter.lock
+  if (!lock || typeof lock !== 'object') return null
+  const record = lock as Record<string, unknown>
+  if (
+    record.kdf === 'PBKDF2-SHA256' &&
+    typeof record.salt === 'string' &&
+    record.salt.length > 0 &&
+    typeof record.hash === 'string' &&
+    record.hash.length > 0 &&
+    typeof record.iterations === 'number' &&
+    record.iterations > 0
+  ) {
+    return {
+      kdf: 'PBKDF2-SHA256',
+      salt: record.salt,
+      iterations: record.iterations,
+      hash: record.hash,
+    }
+  }
+  return null
 }
 
 // --- id assignment -----------------------------------------------------------
@@ -350,6 +402,75 @@ export function removeFrontmatterField(
     content: `${content.slice(0, cut)}${content.slice(cut + m[0].length)}`,
     changed: true,
   }
+}
+
+/**
+ * Writes a top-level frontmatter key whose value is a mapping.
+ *
+ * Used by the per-page lock. The lock is a small object
+ * (`{ kdf, salt, iterations, hash }`) that does not fit a single
+ * scalar line, so this helper serialises it as a flow-style block:
+ *
+ *   lock: { kdf: 'PBKDF2-SHA256', salt: '...', iterations: 100000, hash: '...' }
+ *
+ * Flow-style keeps the lock on a single line so a future
+ * `removeFrontmatterField('lock', …)` still matches. The serializer
+ * quotes string values with single quotes (YAML's no-escape form)
+ * and leaves numbers bare; both `kdf` and `iterations` end up
+ * read-distinguishable from the schema on the way back in.
+ */
+export function setFrontmatterObject(
+  content: string,
+  key: string,
+  object: Record<string, unknown>
+): { content: string; changed: boolean } {
+  const split = splitFrontmatter(content)
+  if (split.invalid) return { content, changed: false }
+  const eol = content.includes('\r\n') ? '\r\n' : '\n'
+
+  const serialized = serializeFlowMapping(object)
+
+  if (split.raw === null) {
+    const head = content.startsWith(eol) || content === '' ? '' : eol
+    return {
+      content: `---${eol}${key}: ${serialized}${eol}---${eol}${head}${content}`,
+      changed: true,
+    }
+  }
+
+  const blockStart = content.indexOf(split.raw)
+  const blockEnd = blockStart + split.raw.length
+  const lineRe = new RegExp(`^${escapeRegExp(key)}:[ \\t].*$`, 'm')
+  const blockText = content.slice(blockStart, blockEnd)
+  const m = lineRe.exec(blockText)
+  if (m) {
+    const before = content.slice(0, blockStart + m.index)
+    const after = content.slice(blockStart + m.index + m[0].length)
+    return { content: `${before}${key}: ${serialized}${after}`, changed: true }
+  }
+  return {
+    content: `${content.slice(0, blockEnd)}${eol}${key}: ${serialized}${content.slice(blockEnd)}`,
+    changed: true,
+  }
+}
+
+function serializeFlowMapping(object: Record<string, unknown>): string {
+  const parts: string[] = []
+  for (const [k, v] of Object.entries(object)) {
+    if (typeof v === 'number' && Number.isFinite(v)) {
+      parts.push(`${k}: ${v}`)
+    } else if (typeof v === 'string') {
+      // Single-quoted YAML scalar. No escapes needed for the lock
+      // fields: salt/hash are base64url (no quotes), kdf is a fixed
+      // string with no single quote.
+      parts.push(`${k}: '${v.replace(/'/g, "''")}'`)
+    } else {
+      // Last-resort JSON shape; the lock object only contains
+      // numbers and strings so this branch never fires in practice.
+      parts.push(`${k}: ${JSON.stringify(v)}`)
+    }
+  }
+  return `{ ${parts.join(', ')} }`
 }
 
 function escapeRegExp(s: string): string {

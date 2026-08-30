@@ -39,7 +39,9 @@ import { keyboardIsClaimed } from '@/lib/modal-keys'
 import { grimoireHeaders } from '@/lib/grimoire-client'
 import * as api from '@/lib/workspace-api'
 import { moveBlockBetweenDocs } from '@/lib/blocks'
-import { setFrontmatterField } from '@/lib/markdown/frontmatter'
+import { setFrontmatterField, setFrontmatterObject, removeFrontmatterField, frontmatterLock } from '@/lib/markdown/frontmatter'
+import { makeLock } from '@/lib/lock/page-lock'
+import { LockPrompt } from './lock-prompt'
 import { useVault } from '@/lib/vault/use-vault'
 import { VaultKeyProvider, useNoteKey } from '@/lib/client/vault-key'
 import { readDocument as readDocumentEncrypted, writeDocument as writeDocumentEncrypted, createDocument as createDocumentEncrypted } from '@/lib/client/encrypted-fetch'
@@ -256,6 +258,15 @@ export function WorkspaceApp() {
   const isFresh = activePath !== null && freshPath === activePath
   const [sourceError, setSourceError] = useState<{ path: string; message: string } | null>(null)
   const [reconciled, setReconciled] = useState<string | null>(null)
+  /**
+   * Per-path unlock state for the per-page lock (Task 9).
+   *
+   * The lock itself lives in `frontmatter.lock`; the editor only
+   * needs to know which paths the current user has already passed
+   * the passphrase check for in this session. In-memory only —
+   * closing the tab or reloading the page re-locks everything.
+   */
+  const [unlockedPaths, setUnlockedPaths] = useState<ReadonlySet<string>>(() => new Set())
 
   const router = useRouter()
 
@@ -652,6 +663,18 @@ export function WorkspaceApp() {
    * opening on a cached body and an etag the server may have moved past.
    */
   const editingPath = mode === 'edit' && source && isFresh ? activePath : null
+  /**
+   * The per-page lock for the document the editor is bound to, or
+   * `null` when the page is not locked or has been unlocked for
+   * this session. Computed from the live `activeDoc.frontmatter`
+   * so an unlock on the *read* path (DocViewer) does not lag the
+   * edit path.
+   */
+  const activeLockPrompt = useMemo(() => {
+    if (!editingPath || !activeDoc) return null
+    if (unlockedPaths.has(editingPath)) return null
+    return frontmatterLock(activeDoc.frontmatter)
+  }, [editingPath, activeDoc, unlockedPaths])
 
   const {
     state: saveState,
@@ -1041,6 +1064,115 @@ export function WorkspaceApp() {
     },
     [activePath, source, noteKey, patchIndex]
   )
+
+  /**
+   * Lock the current page with a fresh passphrase.
+   *
+   * The lock is stored in `frontmatter.lock`. A new pageKey is
+   * generated per lock, then wrapped under the passphrase via
+   * PBKDF2-SHA256 (see `lib/lock/page-lock.ts`). The body is NOT
+   * re-encrypted — the master note-crypto envelope is still the
+   * at-rest protection.
+   */
+  const lockPage = useCallback(
+    async (passphrase: string) => {
+      if (!activePath || !source) return
+      if (!passphrase) {
+        toast.error('Passphrase must not be empty.')
+        return
+      }
+      try {
+        const lock = await makeLock(passphrase)
+        const next = setFrontmatterObject(source.raw, 'lock', lock as unknown as Record<string, unknown>)
+        if (!next.changed) {
+          toast.error('Could not update the frontmatter.')
+          return
+        }
+        await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
+        setSources((prev) => {
+          const entry = prev[activePath]
+          if (!entry) return prev
+          return { ...prev, [activePath]: { ...entry, raw: next.content } }
+        })
+        patchIndex((index) => {
+          const doc = index.documents[activePath]
+          if (!doc) return
+          applyUpsert(index, {
+            ...doc,
+            frontmatter: { ...doc.frontmatter, lock: lock as unknown as Record<string, unknown> },
+            updatedAt: new Date().toISOString(),
+          })
+        })
+        // The user just set the passphrase: they obviously know it.
+        setUnlockedPaths((prev) => {
+          const next = new Set(prev)
+          next.add(activePath)
+          return next
+        })
+        toast.success('Page locked.')
+      } catch (err) {
+        toast.error((err as Error).message)
+      }
+    },
+    [activePath, source, noteKey, patchIndex]
+  )
+
+  /**
+   * Remove the lock from the current page.
+   *
+   * No passphrase check here: the caller (the page menu's
+   * "Unlock page" action) only appears when the user is already
+   * on the page, and the lock's only job is edit-blocking.
+   * Removing the lock does not retroactively lock the file
+   * against future edits — it is the same as never having set it.
+   */
+  const unlockPage = useCallback(async () => {
+    if (!activePath || !source) return
+    const next = removeFrontmatterField(source.raw, 'lock')
+    if (!next.changed) return
+    try {
+      await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
+      setSources((prev) => {
+        const entry = prev[activePath]
+        if (!entry) return prev
+        return { ...prev, [activePath]: { ...entry, raw: next.content } }
+      })
+      patchIndex((index) => {
+        const doc = index.documents[activePath]
+        if (!doc) return
+        const { lock: _lock, ...rest } = doc.frontmatter
+        void _lock
+        applyUpsert(index, {
+          ...doc,
+          frontmatter: rest,
+          updatedAt: new Date().toISOString(),
+        })
+      })
+      setUnlockedPaths((prev) => {
+        if (!prev.has(activePath)) return prev
+        const next = new Set(prev)
+        next.delete(activePath)
+        return next
+      })
+      toast.success('Page unlocked.')
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }, [activePath, source, noteKey, patchIndex])
+
+  /**
+   * Mark the current path as unlocked for this session. Called by
+   * the `<LockPrompt>` after a successful `verifyPassphrase`.
+   */
+  const markUnlocked = useCallback(() => {
+    if (!activePath) return
+    setUnlockedPaths((prev) => {
+      if (prev.has(activePath)) return prev
+      const next = new Set(prev)
+      next.add(activePath)
+      return next
+    })
+  }, [activePath])
 
   /**
    * Drag & drop a document into a folder, from the sidebar.
@@ -1695,6 +1827,8 @@ export function WorkspaceApp() {
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Reading from disk…
                   </div>
+                ) : activeLockPrompt ? (
+                  <LockPrompt lock={activeLockPrompt} onUnlock={markUnlocked} />
                 ) : (
                   <MarkdownEditor
                     docPath={source.path}
@@ -1780,6 +1914,9 @@ export function WorkspaceApp() {
                       onTrash: () => void trashPage(),
                       onSetView: (view) => void setPageView(view),
                       onSetWidth: (width) => void setPageWidth(width),
+                      isLocked: frontmatterLock(activeDoc.frontmatter) !== null,
+                      onLock: (passphrase) => void lockPage(passphrase),
+                      onUnlock: () => void unlockPage(),
                     }
                   : null
               }

@@ -39,7 +39,16 @@ export interface PageMenuProps {
   onTrash: () => void
   onSetView: (view: 'small' | 'full') => void
   onSetWidth: (width: 'full' | 'default') => void
-  onLock?: () => void
+  /**
+   * `true` when the document is locked. The Lock/Unlock label flips
+   * accordingly; the caller decides what to do when the user
+   * clicks. `onUnlock` takes no argument; `onLock` receives the
+   * passphrase the user typed into a native `window.prompt()` so
+   * the menu stays a single dropdown.
+   */
+  isLocked: boolean
+  onLock?: (passphrase: string) => void
+  onUnlock?: () => void
   onImport?: () => void
   onExport?: () => void
 }
@@ -55,7 +64,9 @@ export function PageMenu({
   onTrash,
   onSetView,
   onSetWidth,
+  isLocked,
   onLock,
+  onUnlock,
   onImport,
   onExport,
 }: PageMenuProps) {
@@ -154,15 +165,32 @@ export function PageMenu({
               <MenuSeparator />
 
               <MenuSection>
-                <Item
-                  icon={<Lock className="size-3.5" aria-hidden />}
-                  label="Lock page"
-                  hint="Task 9"
-                  onClick={() => {
-                    toast.message('Lock page is coming in Task 9')
-                    onLock?.()
-                  }}
-                />
+                {isLocked ? (
+                  <Item
+                    icon={<Lock className="size-3.5" aria-hidden />}
+                    label="Unlock page"
+                    onClick={() => {
+                      onUnlock?.()
+                    }}
+                  />
+                ) : (
+                  <Item
+                    icon={<Lock className="size-3.5" aria-hidden />}
+                    label="Lock page"
+                    onClick={() => {
+                      // The popover stays a single dropdown; the passphrase
+                      // comes from a native prompt. A bespoke modal would
+                      // be nicer — Task 9 keeps it boring on purpose.
+                      const passphrase = window.prompt('Passphrase to lock this page with:')
+                      if (passphrase === null) return
+                      if (!passphrase) {
+                        toast.error('Passphrase must not be empty.')
+                        return
+                      }
+                      onLock?.(passphrase)
+                    }}
+                  />
+                )}
                 <Item
                   icon={<Upload className="size-3.5" aria-hidden />}
                   label="Import"
