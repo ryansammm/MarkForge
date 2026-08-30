@@ -72,7 +72,7 @@ Optional cloud mode — copy `.env.example` to `.env` and fill in:
 
 ```
 R2_ACCOUNT_ID=...  R2_ACCESS_KEY_ID=...  R2_SECRET_ACCESS_KEY=...  R2_BUCKET=...
-APP_PASSWORD=...   SESSION_SECRET=<random 32+ chars>
+APP_PIN=<6 digits>   SESSION_SECRET=<random 32+ chars>
 ```
 
 Without R2 vars the app runs on the filesystem backend automatically.

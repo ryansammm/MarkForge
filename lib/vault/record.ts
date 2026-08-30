@@ -95,6 +95,22 @@ export class InvalidVaultRecordError extends Error {
 export const MIN_PBKDF2_ITERATIONS = 100_000
 export const MAX_PBKDF2_ITERATIONS = 5_000_000
 
+/**
+ * The master password that opens the vault is the one place a length floor
+ * matters. Six characters is well within the brute-force range; eight is the
+ * minimum that survives a stolen record long enough to matter.
+ *
+ * This is enforced at every entry point (create, unlock) and re-stated by
+ * the error message, not silently — a 7-character password is a 7-character
+ * password and the user deserves to know.
+ */
+export const MIN_VAULT_MASTER_LENGTH = 8
+
+/** Whether a value is shaped like a viable vault master password. */
+export function isValidVaultMaster(value: unknown): value is string {
+  return typeof value === 'string' && value.length >= MIN_VAULT_MASTER_LENGTH
+}
+
 /** Salt and nonce sizes are checked so a truncated record fails here, not at unlock. */
 const MIN_SALT_BYTES = 16
 const MAX_SALT_BYTES = 64

@@ -23,9 +23,9 @@ The deployed app SHALL persist all documents, assets, index, and share metadata 
 - **WHEN** a user saves a document and a later request hits a fresh serverless instance
 - **THEN** the saved content is returned unchanged
 
-### Requirement: Password-gated access
+### Requirement: PIN-gated access
 
-The deployment SHALL reject unauthenticated API access to workspace data unless the request carries a valid session established with `APP_PASSWORD`.
+The deployment SHALL reject unauthenticated API access to workspace data unless the request carries a valid session established with `APP_PIN`.
 
 #### Scenario: Unauthenticated API call
 

@@ -545,8 +545,8 @@ async function run() {
   console.log('\nmiddleware exemptions')
   {
     const { NextRequest } = await import('next/server')
-    const previous = process.env.APP_PASSWORD
-    process.env.APP_PASSWORD = 'test-password'
+    const previous = process.env.APP_PIN
+    process.env.APP_PIN = '123456'
 
     try {
       const { middleware } = await import('../middleware')
@@ -603,8 +603,8 @@ async function run() {
         equal(response?.status, 401, 'a legacy password cookie was accepted as a session')
       })
     } finally {
-      if (previous === undefined) delete process.env.APP_PASSWORD
-      else process.env.APP_PASSWORD = previous
+      if (previous === undefined) delete process.env.APP_PIN
+      else process.env.APP_PIN = previous
     }
   }
 

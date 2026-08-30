@@ -175,13 +175,28 @@ pages) but left the editor feeling distinct from Notion:
 
 ### Master password
 
-- `APP_PASSWORD` minimum length: **6 characters**. Enforced at
-  `POST /api/auth` for the env-set password. A new env validator at
-  boot (`lib/server/env.ts`) warns (does not crash) if the password
-  is shorter, so misconfiguration is visible.
-- The current `APP_PASSWORD=9800` is below the threshold. The validator
-  prints a warning. The user is responsible for raising it when ready
-  (deferred — see Out of scope).
+The previous task's "min length 6 on `APP_PASSWORD`" was the wrong
+shape: the gate secret is short by design, and the credential that
+actually matters is the vault master. Two changes:
+
+- **App gate** (`APP_PASSWORD`) is replaced by a 6-digit **PIN**
+  (`APP_PIN`). Default `123098`. Exactly 6 digits, numeric-only.
+  UI placeholder is `123456` (a generic 6-digit hint, not the
+  real default — the real default is the env value, surfaced
+  in the keypad only by typing it). The PIN is also the
+  "sign out everywhere" key: rotating it invalidates every
+  session. **Vercel deployments** must update their env: drop
+  `APP_PASSWORD`, add `APP_PIN`. The server prints a one-line
+  warning if `APP_PASSWORD` is still set.
+- **Vault master password** minimum length: **8 characters**.
+  Enforced at every entry point (`deriveKey`, `createEnvelope`,
+  `openRecord`) so a tampered call site cannot bypass it. A
+  distinct error class (`VaultPasswordTooShortError`) lets the
+  UI say "use a longer password" rather than "wrong password".
+
+The PIN lives in `app-settings.json` in the bucket so an
+operator can rotate it from the Settings page without redeploying.
+Resolution order: **env > stored > default**.
 
 ### Inline AI
 
@@ -277,8 +292,9 @@ pages) but left the editor feeling distinct from Notion:
 - Web search / image generation through the AI block.
 - Migrating existing encrypted bodies to a per-page lock model (the
   `lock:` field is new; pre-existing pages are unlocked by default).
-- Raising `APP_PASSWORD` from `9800` to ≥6 chars. The validator
-  warns; the user decides when.
+- Migrating Vercel environments from `APP_PASSWORD` to `APP_PIN`.
+  The server prints a one-line deprecation warning if `APP_PASSWORD`
+  is still set; deployment is the operator's call.
 
 ## Data model changes
 

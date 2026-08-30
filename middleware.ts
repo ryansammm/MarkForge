@@ -12,9 +12,9 @@ import {
 /**
  * The access gate.
  *
- * What changed in Phase 2: the cookie no longer *is* `APP_PASSWORD`. It is a signed,
- * expiring token carrying no secret (lib/session.ts). A captured cookie is now a
- * time-limited session rather than the master password, and it cannot be forged
+ * What changed in Phase 2: the cookie no longer *is* the gate secret. It is a
+ * signed, expiring token carrying no secret (lib/session.ts). A captured cookie is
+ * a time-limited session rather than the gate credential, and it cannot be forged
  * without the signing key.
  *
  * Verification is a pure HMAC check with no I/O, which is what lets it run here on
@@ -79,7 +79,7 @@ function deny(request: NextRequest): NextResponse {
 
 export async function middleware(request: NextRequest) {
   const secret = sessionSecret(process.env)
-  // No password configured means no gate — the documented local-development case.
+  // No PIN configured means no gate — the documented local-development case.
   if (!secret) return NextResponse.next()
 
   if (isPublic(request.nextUrl.pathname)) return NextResponse.next()

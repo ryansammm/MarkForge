@@ -61,8 +61,8 @@ function fromBase64Url(value: string): Uint8Array | null {
 /**
  * The signing key.
  *
- * `SESSION_SECRET` when set. Otherwise derived from `APP_PASSWORD`, which has a
- * property worth stating plainly: **rotating the password invalidates every session**.
+ * `SESSION_SECRET` when set. Otherwise derived from `APP_PIN`, which has a
+ * property worth stating plainly: **rotating the PIN invalidates every session**.
  * That is the "sign out everywhere" control, and it is the honest one available
  * without a shared session store — see the note at the bottom of this file.
  */
@@ -70,11 +70,13 @@ export function sessionSecret(env: Record<string, string | undefined>): string |
   const explicit = env.SESSION_SECRET?.trim()
   if (explicit) return explicit
 
-  const password = env.APP_PASSWORD?.trim()
-  if (!password) return null
-  // Namespaced so the signing key is never byte-identical to the password, even
-  // before it goes through HMAC.
-  return `morrow-session-v1:${password}`
+  const pin = env.APP_PIN?.trim()
+  if (!pin) return null
+  // Namespaced so the signing key is never byte-identical to the PIN, even
+  // before it goes through HMAC. v2 supersedes the v1 namespace used when the
+  // gate was `APP_PASSWORD`; old cookies are no longer valid, which is the
+  // intended forced re-login on this rename.
+  return `morrow-session-v2:pin:${pin}`
 }
 
 async function keyFor(secret: string): Promise<CryptoKey> {
@@ -172,7 +174,7 @@ export function shouldRenew(payload: SessionPayload, now: number = Date.now()): 
  * runtime with no way to reach the bucket, and would pay a network round trip on
  * every request if it could.
  *
- * What exists instead: tokens expire on their own, and rotating `APP_PASSWORD` (or
+ * What exists instead: tokens expire on their own, and rotating `APP_PIN` (or
  * `SESSION_SECRET`) invalidates every session at once. Revoking one device while
  * leaving others signed in is not possible, and will not be until there are real
  * accounts — at which point the session store arrives with them.

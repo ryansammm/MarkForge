@@ -31,9 +31,9 @@ fs.mkdirSync(notesDir, { recursive: true })
 process.env.NOTES_DIR = notesDir
 process.env.INDEX_PATH = path.join(workspace, 'index.json')
 process.env.META_DIR = workspace
-// The route's own session guard is a no-op without a configured password, which is
+// The route's own session guard is a no-op without a configured PIN, which is
 // the documented local-development case and what these tests exercise.
-delete process.env.APP_PASSWORD
+delete process.env.APP_PIN
 delete process.env.SESSION_SECRET
 
 import { MemoryBucket } from '../lib/server/bucket'

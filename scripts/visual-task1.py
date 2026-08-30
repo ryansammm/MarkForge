@@ -10,7 +10,7 @@ with sync_playwright() as p:
     def log(m): out.write(m + "\n"); out.flush()
 
     page.goto("http://localhost:3000", wait_until="networkidle")
-    page.locator('input[type="password"]').fill("9800")
+    page.locator('input[type="password"]').first.fill("123098")
     page.get_by_role("button", name="Unlock Workspace").click()
     page.wait_for_load_state("networkidle")
     page.wait_for_timeout(2000)

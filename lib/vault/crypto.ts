@@ -25,12 +25,15 @@
 
 import {
   MIN_PBKDF2_ITERATIONS,
+  MIN_VAULT_MASTER_LENGTH,
   VAULT_VERSION,
   type PasswordVaultRecord,
   type VaultCipher,
   type VaultEnvelope,
   type VaultKdf,
 } from './record'
+
+export { MIN_VAULT_MASTER_LENGTH } from './record'
 
 export const PBKDF2_ITERATIONS = 600_000
 
@@ -53,6 +56,23 @@ export class VaultUnlockError extends Error {
   constructor(message = 'That master password did not open the vault.') {
     super(message)
     this.name = 'VaultUnlockError'
+  }
+}
+
+/**
+ * Raised when a master password is below the minimum length.
+ *
+ * Distinct from `VaultUnlockError` so the UI can show "use a longer
+ * password" rather than "wrong password" — the input is malformed, not
+ * rejected.
+ */
+export class VaultPasswordTooShortError extends Error {
+  readonly code = 'VAULT_PASSWORD_TOO_SHORT'
+  constructor(length: number) {
+    super(
+      `Master password must be at least ${MIN_VAULT_MASTER_LENGTH} characters (got ${length}).`
+    )
+    this.name = 'VaultPasswordTooShortError'
   }
 }
 
@@ -100,6 +120,12 @@ export function newKdfParams(options: { iterations?: number } = {}): VaultKdf {
  * returns — not by this module, and not by anything that manages to run on the page.
  */
 export async function deriveKey(masterPassword: string, kdf: VaultKdf): Promise<CryptoKey> {
+  if (typeof masterPassword !== 'string') {
+    throw new VaultPasswordTooShortError(0)
+  }
+  if (masterPassword.length < MIN_VAULT_MASTER_LENGTH) {
+    throw new VaultPasswordTooShortError(masterPassword.length)
+  }
   if (kdf.algorithm !== 'PBKDF2-SHA256') {
     throw new UnsupportedVaultError(
       `This vault uses ${kdf.algorithm}, which this version of Morrow cannot open. Update the app.`

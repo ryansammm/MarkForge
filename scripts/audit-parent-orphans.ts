@@ -3,13 +3,13 @@ import { buildParentTree } from '../lib/parent-tree'
 import type { MarkdownDocument } from '../lib/file-store'
 
 const BASE = process.env.MF_URL ?? 'http://127.0.0.1:3000'
-const PASSWORD = process.env.APP_PASSWORD ?? '9800'
+const PIN = process.env.APP_PIN ?? '123098'
 
 async function login(): Promise<string> {
   const res = await fetch(`${BASE}/api/auth`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ password: PASSWORD }),
+    body: JSON.stringify({ pin: PIN }),
   })
   if (!res.ok) throw new Error(`login failed: ${res.status}`)
   const setCookie = res.headers.get('set-cookie') ?? ''

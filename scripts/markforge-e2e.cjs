@@ -6,7 +6,7 @@
 //   - asset delivery via ?grimoireId= query param (the <img> fallback)
 //   - rename + trash restore on a grimoire doc
 // Usage: node scripts/markforge-e2e.cjs
-// Requires the server up on 127.0.0.1:3457. Reads APP_PASSWORD from .env to log in.
+// Requires the server up on 127.0.0.1:3457. Reads APP_PIN from .env to log in.
 const fs = require('fs')
 const os = require('os')
 const path = require('path')
@@ -24,11 +24,11 @@ function check(name, ok, detail) {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? `  (${detail})` : ''}`)
 }
 
-function loadEnvPassword() {
-  if (process.env.MF_PASSWORD) return process.env.MF_PASSWORD
+function loadEnvPin() {
+  if (process.env.MF_PIN) return process.env.MF_PIN
   try {
     const raw = fs.readFileSync(path.join(process.cwd(), '.env'), 'utf8')
-    const m = raw.match(/^APP_PASSWORD\s*=\s*(.+)$/m)
+    const m = raw.match(/^APP_PIN\s*=\s*(.+)$/m)
     if (m) return m[1].trim().replace(/^["']|["']$/g, '')
   } catch {}
   return null
@@ -54,12 +54,12 @@ async function api(method, url, { json, query, headers = {} } = {}) {
 
 async function main() {
   // --- auth ---------------------------------------------------------------
-  const password = loadEnvPassword()
-  if (!password) {
-    console.log('SKIP  live HTTP checks: no APP_PASSWORD in .env (gate likely off)')
+  const pin = loadEnvPin()
+  if (!pin) {
+    console.log('SKIP  live HTTP checks: no APP_PIN in .env (gate likely off)')
     return
   }
-  const login = await api('POST', '/api/auth', { json: { password } })
+  const login = await api('POST', '/api/auth', { json: { pin } })
   check('login sets session', login.status === 200 && !!cookie, `status=${login.status}, cookie=${!!cookie}`)
   if (!cookie) return
 

@@ -138,8 +138,8 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
 
     try {
       if (vault.status === 'absent') {
-        if (masterPassword.length < 12) {
-          setFormError('Use at least 12 characters. This is the only thing protecting the vault.')
+        if (masterPassword.length < 8) {
+          setFormError('Use at least 8 characters. This is the only thing protecting the vault.')
           return
         }
         if (masterPassword !== confirmPassword) {

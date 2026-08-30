@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, ArrowLeft } from 'lucide-react'
+import { Loader2, ArrowLeft, KeyRound } from 'lucide-react'
 import { useVault } from '@/lib/vault/use-vault'
 import { Button } from '@/components/ui/button'
 import { SettingsForm } from '@/components/workspace/settings-form'
@@ -85,6 +85,24 @@ export default function SettingsPage() {
         <h1 className="text-sm font-semibold tracking-tight">Settings</h1>
       </header>
       <SettingsForm vault={vault} />
+
+      <section className="rounded-lg border bg-card p-4 shadow-sm">
+        <div className="flex items-start gap-3">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <KeyRound className="size-5" />
+          </div>
+          <div className="flex-1 space-y-1">
+            <h2 className="text-sm font-semibold tracking-tight">App PIN</h2>
+            <p className="text-xs text-muted-foreground">
+              The 6-digit PIN that gates the login screen. Rotating it signs
+              out every device at once.
+            </p>
+          </div>
+          <Button size="sm" variant="outline" onClick={() => router.push('/pin')}>
+            Change PIN
+          </Button>
+        </div>
+      </section>
     </main>
   )
 }

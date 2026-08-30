@@ -63,7 +63,7 @@ export async function runSessionTests(): Promise<boolean> {
   })
 
   await check('the token carries no secret', async () => {
-    // The whole point. The old cookie value was APP_PASSWORD itself.
+    // The whole point. The old cookie value was the gate secret itself.
     const token = await mintSession(SECRET)
     assert(!token.includes(SECRET), 'the signing secret appears in the token')
     const decoded = Buffer.from(token.split('.')[1], 'base64url').toString('utf-8')
@@ -137,25 +137,25 @@ export async function runSessionTests(): Promise<boolean> {
   console.log('\nthe signing key')
 
   await check('SESSION_SECRET is preferred when set', () => {
-    equal(sessionSecret({ SESSION_SECRET: 'explicit', APP_PASSWORD: 'pw' }), 'explicit', 'wrong key chosen')
+    equal(sessionSecret({ SESSION_SECRET: 'explicit', APP_PIN: '123456' }), 'explicit', 'wrong key chosen')
   })
 
-  await check('the derived key is never the password itself', () => {
-    const derived = sessionSecret({ APP_PASSWORD: 'hunter2' })
-    assert(derived, 'no key derived from a configured password')
-    assert(derived !== 'hunter2', 'the signing key is the password verbatim')
+  await check('the derived key is never the PIN itself', () => {
+    const derived = sessionSecret({ APP_PIN: '123456' })
+    assert(derived, 'no key derived from a configured PIN')
+    assert(derived !== '123456', 'the signing key is the PIN verbatim')
   })
 
-  await check('no password and no secret means no gate', () => {
+  await check('no PIN and no secret means no gate', () => {
     equal(sessionSecret({}), null, 'a gate was configured out of nothing')
   })
 
-  await check('rotating the password invalidates existing sessions', async () => {
+  await check('rotating the PIN invalidates existing sessions', async () => {
     // This is the "sign out everywhere" control, so it needs to actually work.
-    const before = sessionSecret({ APP_PASSWORD: 'old-password' })!
+    const before = sessionSecret({ APP_PIN: '111111' })!
     const token = await mintSession(before)
-    const after = sessionSecret({ APP_PASSWORD: 'new-password' })!
-    equal(await verifySession(after, token), null, 'a session survived a password rotation')
+    const after = sessionSecret({ APP_PIN: '222222' })!
+    equal(await verifySession(after, token), null, 'a session survived a PIN rotation')
   })
 
   console.log('\nrate limiting')

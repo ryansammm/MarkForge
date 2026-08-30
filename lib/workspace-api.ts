@@ -220,7 +220,7 @@ export function revokeShare(token: string) {
  * Ends the session on this device.
  *
  * Only this device: session tokens are stateless, so a token already copied
- * elsewhere stays valid until it expires. Rotating APP_PASSWORD is what signs
+ * elsewhere stays valid until it expires. Rotating APP_PIN is what signs
  * everyone out — lib/session.ts explains why that is the honest control here.
  */
 export function signOut() {

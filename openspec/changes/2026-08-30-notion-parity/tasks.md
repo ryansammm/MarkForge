@@ -1,8 +1,8 @@
 # Tasks: notion-parity
 
-> **Status:** approved (2026-08-30). Tasks 1-11 shipped to `dev`.
-> Task 12 (master password min length) next. See `proposal.md`
-> for full design and Risks.
+> **Status:** approved (2026-08-30). Tasks 1-12 shipped to `dev`.
+> Task 13 (sidebar `+` popover) next. See `proposal.md` for
+> full design and Risks.
 
 Total: 16 tasks. Sized for 2-hour commits. Numbered so they can be
 re-ordered if a regression forces a rollback. Each task ships as one
@@ -316,17 +316,88 @@ commit on `dev` (push after each).
       round-trips; mixed registry (one with, one without)
       round-trips. 12/12.
 
-## 12. Master password min length
+## 12. Vault master min length + app PIN gate
 
-- [ ] 12.1 `lib/server/env.ts` (new) — `validateEnv(env)` returns
-      `{ warnings: string[] }`. Warns if `APP_PASSWORD` is shorter
-      than 6.
-- [ ] 12.2 `app/api/auth/route.ts` — call `validateEnv`; if
-      `APP_PASSWORD` is shorter than 6, return a `WEAK_PASSWORD`
-      error in the response and log a warning. **Does not** block
-      auth (the existing password keeps working).
-- [ ] 12.3 Self-check `scripts/check-env-validator.ts` — short
-      password warns, long password is silent.
+Replaces the old "master password min length on `APP_PASSWORD`" task
+in two halves: the vault master password gets a real floor, and the
+app gate becomes a 6-digit PIN that the user can rotate from settings.
+
+### 12a. Vault master password ≥ 8
+
+- [x] 12a.1 `lib/vault/record.ts` — `MIN_VAULT_MASTER_LENGTH = 8`
+      and `isValidVaultMaster(value)` export. Strict allowlist
+      preserved; the constant lives next to the other KDF floors.
+- [x] 12a.2 `lib/vault/crypto.ts` — `deriveKey` throws
+      `VaultPasswordTooShortError` when the input is below the
+      floor. `createEnvelope` and `openRecord` go through
+      `deriveKey`, so the check covers all three entry points.
+      The error is a distinct class from `VaultUnlockError` so
+      the UI says "use a longer password", not "wrong password".
+- [x] 12a.3 `components/workspace/passwords-dialog.tsx` —
+      create form's length check drops from 12 to 8, matching the
+      server. Wrong-but-valid-length passwords still surface as
+      "could not open" via `VaultUnlockError`.
+- [x] 12a.4 Self-check `scripts/check-vault-master-min.ts` —
+      17/17.
+
+### 12b. App gate becomes a 6-digit PIN
+
+- [x] 12b.1 `lib/app-settings-shared.ts` (new) — client-safe
+      `APP_PIN_LENGTH = 6`, `isValidAppPin`, placeholder constant.
+      The server-only store at `lib/server/app-settings.ts`
+      re-exports these so there is one source of truth.
+- [x] 12b.2 `lib/server/app-settings.ts` (new) — `AppSettings`
+      envelope (`version`, `appPin`, `updatedAt`) with a strict
+      allowlist parser. `AppSettingsStore.setAppPin` writes to
+      `app-settings.json` in the bucket. `resolveAppPin(env,
+      stored)` honours the order **env > stored > default**
+      (`123098`).
+- [x] 12b.3 `lib/server/env.ts` (new) — `validateEnv(env)`
+      returns `{ warnings, gated }`. Warns when `APP_PASSWORD` is
+      still set (deprecation), when `APP_PIN` is not 6 digits,
+      and when nothing gates the route. Never throws.
+- [x] 12b.4 `lib/session.ts` — `sessionSecret(env)` now reads
+      `APP_PIN` (with `SESSION_SECRET` still winning) and bumps
+      the namespace to `morrow-session-v2:pin:<pin>`. Old
+      `APP_PASSWORD`-derived cookies are no longer valid; this is
+      the intended forced re-login.
+- [x] 12b.5 `app/api/auth/route.ts` — `POST { pin }` instead of
+      `{ password }`. Reads the resolved PIN via
+      `resolveAppPin(...)`. `constantTimeEquals` is unchanged.
+- [x] 12b.6 `app/api/settings/pin/route.ts` (new) — `GET` and
+      `PUT /api/settings/pin`. Both routes verify the session
+      cookie themselves because the auth-exempt list in
+      middleware is a string-prefix test one edit away from being
+      wrong.
+- [x] 12b.7 `components/workspace/pin-keypad.tsx` (new) — six
+      single-cell inputs in a row. Auto-advance on type,
+      backspace moves left, paste of 6 digits fills the row and
+      auto-submits. `inputMode="numeric"`, `type="password"`,
+      `autoComplete="one-time-code"` on the first cell.
+- [x] 12b.8 `app/login/page.tsx` — replaced the single password
+      input with `PinKeypad`. Placeholder reads `123456` (visual
+      hint, not the real default — see spec section 12b.9).
+- [x] 12b.9 `app/pin/page.tsx` (new) — PIN rotation page.
+      Verifies the current PIN against `/api/auth`, then PUTs the
+      new one. The "rotating signs everyone out" warning is the
+      page, not decoration. Auth-gated only (not vault-gated) so
+      a user can rotate before the vault is unlocked.
+- [x] 12b.10 `app/settings/page.tsx` — new "App PIN" card with a
+      `Change PIN` button that links to `/pin`. The vault-gated
+      AI settings live below.
+- [x] 12b.11 `scripts/check-app-pin.ts` — 28/28. Covers
+      `isValidAppPin`, `resolveAppPin` priority, the store
+      round-trip, `validateEnv` warnings, and `sessionSecret`
+      rotation.
+- [x] 12b.12 Audit: `APP_PASSWORD` and `9800` removed from
+      `.env`, `README.md`, scripts (`audit-parent-orphans.ts`,
+      `markforge-e2e.cjs`, `visual-task1.py`), tests
+      (`session.test.ts`, `share.test.ts`, `vault.test.ts`),
+      `lib/workspace-api.ts`, `middleware.ts`, and the
+      `deployment/spec.md`. `APP_PASSWORD` is intentionally still
+      in `lib/server/env.ts` as a deprecation warning, and
+      references in archived change documents are untouched
+      (history).
 
 ## 13. Sidebar `+` button + sidebar page context menu
 
@@ -389,7 +460,7 @@ commit on `dev` (push after each).
         `MarkForge-Online.bat`).
       - Confirm `MarkForge-Offline.bat` is gone.
       - Login, open a page, lock the vault, see placeholder.
-      - Unlock with `9800`.
+      - Unlock with the PIN from `.env` (default `123098`).
       - Edit, save, reload — body still readable.
       - Open the `⋯` page menu, toggle Small text and Full width.
       - `+` in the tab bar, search for a page, open it as a new

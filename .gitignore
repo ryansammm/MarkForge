@@ -8,6 +8,10 @@ __v0_jsx-dev-runtime.ts
 
 # Environment variables
 .env*.local
+.env
+
+# .env.example is the template, not a secret — keep it in the repo.
+!.env.example
 
 # Common ignores
 node_modules
@@ -32,9 +36,7 @@ password-vault.json
 
 # Backup snapshots
 backups/
-.env
 .vercel
-.env*
 
 # nothing - hooks path is repo-local
 
