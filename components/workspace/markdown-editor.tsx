@@ -35,6 +35,7 @@ import { MAX_ASSET_BYTES } from '@/lib/asset-limits'
 import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
+import { hideMarkdownSyntax } from './hide-md-syntax'
 import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
 import { BlockMenu, type OpenTarget } from './block-menu'
 import { blockHasId, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
@@ -473,6 +474,7 @@ export function MarkdownEditor({
         onExpandImage: (src, alt) => setViewing({ src: resolveImageSrc(src), alt, source: src }),
       }),
       hideFrontmatterId(),
+      hideMarkdownSyntax(),
       blockDropHandlers(),
       imageDrop({
         upload: uploadAsset,

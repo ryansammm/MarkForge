@@ -489,3 +489,18 @@ html, body, main, aside, article, header {
 .dark .prose [data-bg="purple"] { background-color: #2e1065; }
 .dark .prose [data-bg="pink"]   { background-color: #500724; }
 .dark .prose [data-bg="red"]    { background-color: #450a0a; }
+
+/*
+  Hide the markdown marker characters of inline emphasis, links, lists,
+  and blockquotes while the user is reading the buffer; reveal them on
+  the line they are currently editing so the source stays in view at
+  the cursor.
+
+  `hide-md-syntax.ts` decorates the marker spans with `.cm-md-syntax`,
+  and `cm-activeLine` is CodeMirror's class for the line the cursor is
+  on. Together they flip visibility on the active line and hide
+  everywhere else — a WYSIWYG-style editor where the formatted text is
+  the default and the source is a single-click away.
+*/
+.cm-md-syntax { display: none; }
+.cm-activeLine .cm-md-syntax { display: inline; }

@@ -1,0 +1,67 @@
+import { EditorView, Decoration, ViewPlugin, type DecorationSet } from '@codemirror/view'
+import { RangeSetBuilder } from '@codemirror/state'
+
+/**
+ * Hides inline markdown syntax markers (`*`, `**`, `~~`, `>`, `-`,
+ * `[`, `]`, `(`, `)`) when their line is not the active line.
+ *
+ * We regex the visible source text for marker characters and add
+ * `cm-md-syntax` mark decorations at those ranges. `app/globals.css`
+ * hides that class everywhere except inside `.cm-activeLine`.
+ *
+ * ponytail: heading marks are not handled. The grammar does not emit
+ * a node for the leading `#`, masking the prefix needs a CSS hack
+ * (pseudo-element overlay) that costs more lines than it saves. Add
+ * when a user actually complains about visible `#`.
+ */
+const MARKER_PATTERNS: RegExp[] = [
+  // strong `**...**` and emphasis `*...*`
+  /\*+/g,
+  // strikethrough `~~...~~`
+  /~~/g,
+  // links `[text](url)`
+  /[\[\]()]/g,
+  // blockquote `> ` and list `- ` / `1. `
+  /^(\s*)(>|[-*+]|\d+\.)\s/gm,
+]
+
+function build(view: EditorView): DecorationSet {
+  const builder = new RangeSetBuilder<Decoration>()
+  for (const { from, to } of view.visibleRanges) {
+    const text = view.state.doc.sliceString(from, to)
+    for (const pattern of MARKER_PATTERNS) {
+      pattern.lastIndex = 0
+      let match: RegExpExecArray | null
+      while ((match = pattern.exec(text)) !== null) {
+        const start = from + match.index
+        const end = start + match[0].length
+        if (end > to) break
+        builder.add(start, end, Decoration.mark({ class: 'cm-md-syntax' }))
+      }
+    }
+  }
+  return builder.finish()
+}
+
+export function hideMarkdownSyntax() {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet
+      constructor(view: EditorView) {
+        this.decorations = build(view)
+      }
+      update(update: {
+        docChanged: boolean
+        viewportChanged: boolean
+        view: EditorView
+      }) {
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = build(update.view)
+        }
+      }
+    },
+    {
+      decorations: (v) => v.decorations,
+    }
+  )
+}
