@@ -1,34 +1,65 @@
 # Tasks: r2-encrypted-nested
 
-Estimated total: 3–4 weeks, single dev. Tasks are sized to fit in
+Estimated total: 4–5 weeks, single dev. Tasks are sized to fit in
 2-hour commits so review is cheap.
 
-## 1. Drop local storage backend
+> **Revisions from initial proposal (2026-08-30):**
+> - Task 1.1 is wrong: `lib/server/workspace-store.ts` is the
+>   abstract `WorkspaceStore` class used by both backends, not a
+>   filesystem implementation. The file to keep is `lib/server/
+>   r2-bucket.ts` (the R2 `Bucket` implementation). The file to
+>   demote-to-test-only is `lib/server/fs-bucket.ts`.
+> - `lib/server/store.ts` is the dispatcher; the change is to make
+>   `createBucket()` throw on missing R2 env instead of falling
+>   back to FsBucket.
+> - 7 test files use FsBucket directly (not via `createBucket()`),
+>   so they keep working. One test
+>   (`tests/grimoire-scope.test.ts`) nullifies R2 to force the
+>   fallback — that test needs to construct FsBucket explicitly.
+> - Total effort revised from 3–4 weeks to 4–5 weeks to account
+>   for the test refactor.
 
-- [ ] 1.1 `lib/server/workspace-store.ts` — delete the file. Search
-      every import; remove the import lines.
-- [ ] 1.2 `lib/server/r2-store.ts` — confirm it is the only
-      `WorkspaceStore` implementation. Promote it to
-      `lib/server/workspace-store.ts` (the file we just deleted) so
-      the path mirrors the abstraction.
-- [ ] 1.3 `app/api/storage/route.ts` — return `{ backend: 'r2',
-      bucket: env.R2_BUCKET }` unconditionally. Remove the
-      `env.R2_*` check that returned `local`.
-- [ ] 1.4 `app/api/health/route.ts` — return 503 when R2 env vars
+## 1. R2-only at boot (FsBucket test-only)
+
+- [ ] 1.1 `lib/server/missing-r2-config.ts` — new file.
+      `MissingR2ConfigError` class + `REQUIRED_R2_VARS` constant
+      listing the four env var names.
+- [ ] 1.2 `lib/server/store.ts` — `createBucket()` calls
+      `r2ConfigFromEnv()`. If true, returns `new R2Bucket()`.
+      If false, throws `MissingR2ConfigError` with the four var
+      names. The `FsBucket` import and the filesystem branch are
+      removed. The `BackendKind` type loses `'filesystem'` —
+      it is `'r2' | 'unknown'` (the unknown case is what the
+      boot screen reports).
+- [ ] 1.3 `lib/server/store.ts` — `backendHealth()` returns
+      `{ kind: 'r2', durable: true }` when `r2ConfigFromEnv()` is
+      true, `{ kind: 'unknown', durable: false, warning: ... }`
+      otherwise. The Vercel/ephemeral filesystem branch is
+      removed.
+- [ ] 1.4 `tests/grimoire-scope.test.ts` — refactor so it
+      constructs `FsBucket` directly instead of relying on
+      `createBucket()` falling back. `getGrimoireStore` is
+      called with an explicit bucket, or the test is rewritten
+      to skip the `getGrimoireStore` path entirely. Goal: the
+      test still proves the grimoire-scope logic but does not
+      require the FsBucket fallback in production code.
+- [ ] 1.5 `app/api/storage/route.ts` — return `{ backend: 'r2',
+      bucket: env.R2_BUCKET }` unconditionally.
+- [ ] 1.6 `app/api/health/route.ts` — return 503 when R2 env vars
       are missing. Update the spec to match.
-- [ ] 1.5 `app/layout.tsx` (or the env-loading entry) — if any
+- [ ] 1.7 `app/layout.tsx` (or the env-loading entry) — if any
       `R2_*` is missing, render a one-screen
       `MarkForge requires R2 configuration` page. List the four
       env vars. Do not mount the editor.
-- [ ] 1.6 `electron/main.cjs` — drop the `%APPDATA%\MarkForge`
+- [ ] 1.8 `electron/main.cjs` — drop the `%APPDATA%\MarkForge`
       user-data directory setup. The Electron shell only loads
       the dev URL and passes env vars through.
-- [ ] 1.7 `.env.example` — remove the "Without these, a local run
+- [ ] 1.9 `.env.example` — remove the "Without these, a local run
       falls back to your disk" sentence. Make the R2 vars
       non-optional in the template.
-- [ ] 1.8 `pnpm verify` — should still pass. Dev server boots on
-      `localhost:3457` and serves the workspace when env vars are
-      set; otherwise shows the config-missing page.
+- [ ] 1.10 `pnpm verify` — should still pass. Dev server boots
+      on `localhost:3457` and serves the workspace when env vars
+      are set; otherwise shows the config-missing page.
 
 ## 2. Encrypted body on the wire
 

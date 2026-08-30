@@ -27,9 +27,13 @@ transform.
 
 ## What Changes
 
-- **R2-only storage.** `lib/workspace-api.ts` no longer has a local
-  fallback. `lib/server/workspace-store.ts` is deleted; the R2 store
-  becomes the only implementation. The Electron shell's
+- **R2-only storage.** `lib/server/store.ts:createBucket()` no
+  longer falls back to `FsBucket` — it requires `R2_*` env vars and
+  throws a clear error otherwise. `lib/server/fs-bucket.ts` is
+  retained for tests that exercise it directly (it is a `Bucket`
+  implementation, used by `tests/{backend,assets,grimoire-scope,
+  data-safety,rename,vault,store}.test.ts` and as a backend in the
+  backend-conformance suite). The Electron shell's
   `%APPDATA%\MarkForge` user-data directory is no longer written to.
   `pnpm dev` requires `R2_*` env vars to start; missing vars → a
   one-screen "Configure R2" message instead of falling back to disk.
@@ -104,6 +108,9 @@ transform.
 
 New code:
 
+- `lib/server/missing-r2-config.ts` — `MissingR2ConfigError` class +
+  the four env var names exported as a constant. The boot-time
+  configuration screen reads them.
 - `lib/crypto/derive-key.ts` — Argon2id wrapper over
   `@noble/hashes/argon2`. Takes a master password, returns a 32-byte
   `CryptoKey` for AES-GCM.
@@ -146,9 +153,12 @@ Edited:
   the server's `readDocument` returns the ciphertext blob (base64
   string). Add `createChildDocument`, `restoreFromTrash`,
   `listTrash`, `permanentDelete`.
-- `lib/server/workspace-store.ts` — removed entirely. The R2 store in
-  `lib/server/r2-store.ts` becomes the only `WorkspaceStore`
-  implementation.
+- `lib/server/store.ts` — `createBucket()` requires R2 env vars
+  (throws `MissingR2ConfigError` with the four var names when
+  absent). `backendHealth()` returns `kind: 'r2'` unconditionally
+  and `durable: true` (R2 is the only supported backend). The
+  filesystem branch and the `BackendKind: 'filesystem'` variant are
+  removed.
 - `lib/server/files-route.ts` — on DELETE, move to `.trash/<ts>/<path>`
   instead of removing. On PUT of an existing path, overwrite in place
   (no per-write versioning).
