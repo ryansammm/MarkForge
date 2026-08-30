@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils'
  *   brief inline explanation rather than the action.
  */
 
-type BlockKind = 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'numbered' | 'todo' | 'quote' | 'code'
+type BlockKind = 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'numbered' | 'todo' | 'toggle_list' | 'callout' | 'quote' | 'code'
 
 interface MenuAction {
   /** Stable id used by tests and the focus trap. */
@@ -100,6 +100,8 @@ const TURN_INTO: { type: BlockKind; label: string; search: string[] }[] = [
   { type: 'bullet', label: 'Bulleted list', search: ['bulleted', 'bullet', 'list', 'ul'] },
   { type: 'numbered', label: 'Numbered list', search: ['numbered', 'list', 'ol'] },
   { type: 'todo', label: 'To-do list', search: ['to-do', 'todo', 'task', 'checkbox'] },
+  { type: 'toggle_list', label: 'Toggle list', search: ['toggle', 'collapsible', 'details', 'disclosure'] },
+  { type: 'callout', label: 'Callout', search: ['callout', 'admonition', 'note', 'warning'] },
   { type: 'quote', label: 'Quote', search: ['quote', 'blockquote'] },
   { type: 'code', label: 'Code', search: ['code', 'fence', 'pre'] },
 ]
@@ -224,13 +226,22 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
         }))
     : []
 
+  // Link submenu: Copy link to block + Open in *. Lives in its own
+  // submenu per Task 2.1 (dropped from the top-level). `copyLinkAction`
+  // is gated on `!disabled` so the entry disappears until the block
+  // has an id.
+  const linkActions: MenuAction[] = [
+    ...(copyLinkAction.disabled ? [] : [copyLinkAction]),
+    ...openItems,
+  ]
+
   // Top-level flat list of items shown when no submenu is hovered. Order
-  // matches the spec: Duplicate, Delete, Copy link, Open in.
+  // matches the spec: Duplicate, Delete, Move to, Turn into, Color.
+  // Copy link and Open in live in dedicated submenus (see below); they
+  // were dropped from the top-level per Task 2.1.
   const topLevel: MenuAction[] = [
     duplicateAction,
     deleteAction,
-    copyLinkAction,
-    ...openItems,
   ]
 
   // "Page" — splits the current selection into a sub-page. Lives
@@ -329,6 +340,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
                 textColorActions={textColorActions}
                 bgColorActions={bgColorActions}
                 moveToActions={moveToActions}
+                linkActions={linkActions}
                 onAction={(action) => {
                   action.run(context.view)
                   onOpenChange(false)
@@ -342,6 +354,7 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
                 textColorActions={textColorActions}
                 bgColorActions={bgColorActions}
                 moveToActions={moveToActions}
+                linkActions={linkActions}
                 onAction={(action) => {
                   action.run(context.view)
                   onOpenChange(false)
@@ -367,9 +380,10 @@ function SubmenuLayout(props: {
   textColorActions: MenuAction[]
   bgColorActions: MenuAction[]
   moveToActions: MenuAction[]
+  linkActions: MenuAction[]
   onAction: (a: MenuAction) => void
 }) {
-  const { topLevel, turnIntoActions, pageAction, textColorActions, bgColorActions, moveToActions, onAction } = props
+  const { topLevel, turnIntoActions, pageAction, textColorActions, bgColorActions, moveToActions, linkActions, onAction } = props
   // Combine the block-kind Turn into entries with the "Page" entry
   // (which turns the selection into a sub-page, not a different block
   // type). The parent label already says "Turn into", so the inner
@@ -437,6 +451,24 @@ function SubmenuLayout(props: {
         </Menu.Root>
       ) : null}
 
+      {linkActions.length > 0 ? (
+        <Menu.Root>
+          <Menu.Trigger className="flex w-full cursor-default items-center justify-between rounded px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent">
+            Link
+            <span aria-hidden>▸</span>
+          </Menu.Trigger>
+          <Menu.Portal>
+            <Menu.Positioner side="right" sideOffset={2} align="start">
+              <Menu.Popup className="z-50 min-w-[200px] rounded-md border bg-popover p-1 shadow-md outline-none">
+                {linkActions.map((a) => (
+                  <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />
+                ))}
+              </Menu.Popup>
+            </Menu.Positioner>
+          </Menu.Portal>
+        </Menu.Root>
+      ) : null}
+
       {topLevel.length === 0 ? null : (
         <>
           <MenuSeparator />
@@ -456,6 +488,7 @@ function FlatLayout(props: {
   textColorActions: MenuAction[]
   bgColorActions: MenuAction[]
   moveToActions: MenuAction[]
+  linkActions: MenuAction[]
   onAction: (a: MenuAction) => void
 }) {
   const turnIntoAll: MenuAction[] = [
@@ -467,6 +500,7 @@ function FlatLayout(props: {
   if (props.textColorActions.length > 0) all.push({ section: 'Text color', items: props.textColorActions })
   if (props.bgColorActions.length > 0) all.push({ section: 'Background', items: props.bgColorActions })
   if (props.moveToActions.length > 0) all.push({ section: 'Move to', items: props.moveToActions })
+  if (props.linkActions.length > 0) all.push({ section: 'Link', items: props.linkActions })
   if (props.topLevel.length > 0) all.push({ section: 'Actions', items: props.topLevel })
 
   if (all.length === 0) return <Empty label="No actions match" />

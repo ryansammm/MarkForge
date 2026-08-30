@@ -27,6 +27,15 @@ export interface BlockMeta {
   id?: string
   color?: string
   bg?: string
+  /**
+   * Block-kind override. The source line itself encodes most kinds
+   * (`- `, `> `, `# `, `1. `, `- [ ] `), but a few do not have a
+   * single-line marker — `toggle_list` rides on a `- ` line and is
+   * only distinguishable from a plain bullet via this meta. Kept as
+   * a free-form string to avoid widening the union every time a
+   * new kind joins the menu.
+   */
+  type?: 'toggle_list'
 }
 
 export interface Block {
@@ -100,22 +109,23 @@ export function splitBlocks(text: string): Block[] {
 
 function peelMeta(lines: string[]): { lines: string[]; meta: BlockMeta } {
   if (lines.length === 0) return { lines, meta: {} }
-  const last = lines[lines.length - 1] ?? ''
-  const trimmed = last.trimEnd()
-  const m = trimmed.match(BLOCK_META_RE)
-  if (!m) return { lines, meta: {} }
-
-  // Standalone-comment form: the line is exactly the comment (or the
-  // comment with a trailing space). The whole line is the meta.
-  if (m.index === 0) {
-    return { lines: lines.slice(0, -1), meta: parseKeys(m[1], m[2]) }
+  // Try the last line first (the common case), then the first line —
+  // a toggle_list stores its meta on line 0, just above the `- `
+  // bullets that follow.
+  for (const idx of [lines.length - 1, 0]) {
+    const candidate = lines[idx] ?? ''
+    const trimmed = candidate.trimEnd()
+    const m = trimmed.match(BLOCK_META_RE)
+    if (!m) continue
+    if (m.index === 0) {
+      return { lines: lines.filter((_, i) => i !== idx), meta: parseKeys(m[1], m[2]) }
+    }
+    const before = trimmed.slice(0, m.index).replace(/\s+$/, '')
+    const out = lines.filter((_, i) => i !== idx)
+    if (before.length > 0) out.push(before)
+    return { lines: out, meta: parseKeys(m[1], m[2]) }
   }
-
-  // Inline form: prose before the comment, on the same line.
-  const before = trimmed.slice(0, m.index).replace(/\s+$/, '')
-  const out = lines.slice(0, -1)
-  if (before.length > 0) out.push(before)
-  return { lines: out, meta: parseKeys(m[1], m[2]) }
+  return { lines, meta: {} }
 }
 
 function parseKeys(id: string, rest: string | undefined): BlockMeta {
@@ -125,6 +135,7 @@ function parseKeys(id: string, rest: string | undefined): BlockMeta {
     const [k, v] = part.split(':')
     if (k === 'color' && v) meta.color = v
     else if (k === 'bg' && v) meta.bg = v
+    else if (k === 'type' && v === 'toggle_list') meta.type = 'toggle_list'
   }
   return meta
 }
@@ -178,7 +189,7 @@ export function moveBlockBetweenDocs(
  */
 export function formatBlockMeta(meta: BlockMeta): string | null {
   if (!meta.id) {
-    if (meta.color || meta.bg) {
+    if (meta.color || meta.bg || meta.type) {
       // ponytail: an id is required to carry meta, but the user picked a
       // color before the menu assigned one. We give the block an id here
       // — the same call site that picked the color will then have a
@@ -191,6 +202,7 @@ export function formatBlockMeta(meta: BlockMeta): string | null {
   const parts = [`mkf:b:${meta.id}`]
   if (meta.color && meta.color !== 'default') parts.push(`color:${meta.color}`)
   if (meta.bg && meta.bg !== 'default') parts.push(`bg:${meta.bg}`)
+  if (meta.type) parts.push(`type:${meta.type}`)
   return `<!-- ${parts.join(' ')} -->`
 }
 
@@ -212,8 +224,14 @@ export function ensureBlockHasId(paragraph: string): { text: string; meta: Block
 /**
  * The first markdown prefix of the block, or `null` for plain text.
  * "List" types group consecutive same-prefix lines.
+ *
+ * Callouts are detected first because their `> [!type]` marker is a
+ * specialisation of the `> ` quote; without this branch a callout
+ * would just read as a quote.
  */
-export function detectBlockType(lines: string[]): 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'numbered' | 'todo' | 'quote' | 'code' {
+export function detectBlockType(
+  lines: string[]
+): 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'numbered' | 'todo' | 'quote' | 'callout' | 'toggle_list' | 'code' {
   const first = lines[0] ?? ''
   if (/^```/.test(first)) return 'code'
   if (/^# /.test(first)) return 'h1'
@@ -223,6 +241,7 @@ export function detectBlockType(lines: string[]): 'text' | 'h1' | 'h2' | 'h3' | 
   if (/^- \[[ x]\] /.test(first)) return 'todo'
   if (/^[-*+] /.test(first)) return 'bullet'
   if (/^\d+\. /.test(first)) return 'numbered'
+  if (/^> \[!(info|warn|warning|danger|success)\] /.test(first)) return 'callout'
   if (/^> /.test(first)) return 'quote'
   return 'text'
 }
@@ -238,6 +257,8 @@ export function blockTypeLabel(type: ReturnType<typeof detectBlockType>): string
     case 'numbered': return 'Numbered list'
     case 'todo': return 'To-do list'
     case 'quote': return 'Quote'
+    case 'callout': return 'Callout'
+    case 'toggle_list': return 'Toggle list'
     case 'code': return 'Code'
   }
 }
@@ -252,6 +273,8 @@ const PREFIX_BY_TYPE: Record<ReturnType<typeof detectBlockType>, string> = {
   numbered: '1. ',
   todo: '- [ ] ',
   quote: '> ',
+  callout: '> [!info] ',
+  toggle_list: '- ',
   code: '```',
 }
 
@@ -265,6 +288,11 @@ const TODO_RE = /^- \[[ x]\] /
  * - Strips the old prefix from line 0.
  * - Applies the new prefix to every non-blank line.
  * - For `code`, opens with ` ``` ` and closes with ` ``` ` on its own line.
+ * - For `callout`, line 0 carries `> [!type] prose...`; the callout
+ *   type defaults to `info` when the source did not declare one.
+ * - For `toggle_list`, the line stays as `- prose`; the renderer
+ *   reads the `type:toggle_list` meta on the block-id comment to
+ *   render as `<details>`.
  */
 export function retypeBlock(lines: string[], type: ReturnType<typeof detectBlockType>): string[] {
   const stripPrefix = (line: string) =>
@@ -272,14 +300,18 @@ export function retypeBlock(lines: string[], type: ReturnType<typeof detectBlock
       .replace(NUMBERED_RE, '')
       .replace(BULLET_RE, '')
       .replace(TODO_RE, '')
+      .replace(/^> \[!(info|warn|warning|danger|success)\] /, '')
       .replace(/^> /, '')
       .replace(/^```\w*\s*$/, '')
 
   const stripped = lines.map(stripPrefix)
-  const prefix = PREFIX_BY_TYPE[type]
   if (type === 'code') {
     return ['```', ...stripped, '```']
   }
+  if (type === 'callout') {
+    return stripped.map((line) => (line.length === 0 ? '' : `> [!info] ${line}`))
+  }
+  const prefix = PREFIX_BY_TYPE[type]
   return stripped.map((line) => (line.length === 0 ? '' : `${prefix}${line}`))
 }
 

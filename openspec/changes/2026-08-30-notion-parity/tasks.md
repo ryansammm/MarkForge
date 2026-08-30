@@ -29,35 +29,53 @@ commit on `dev` (push after each).
 
 ## 2. Block menu reshuffle
 
-- [ ] 2.1 `components/workspace/block-menu.tsx` — move `Turn into page`
-      from top-level into the `Turn into` submenu. Add `Toggle list`
-      and `Callout` (block types wired in Task 3). Add `Page in`
-      sub-submenu (data wiring deferred to 2.2).
+- [x] 2.1 `components/workspace/block-menu.tsx` — `Turn into page` lives
+      in the `Turn into` submenu (id `turn-into-page`, label `Page`).
+      Submenu now also lists `Toggle list` + `Callout` (types wired in
+      Task 3). Top-level now `Delete`, `Duplicate`; `Copy link to
+      block` + `Open in *` moved to a new `Link` submenu (gated on
+      `!disabled` for `Copy link`).
 - [ ] 2.2 `components/workspace/page-in-menu.tsx` (new) — lists
       pages in the active grimoire, search-as-you-type, inserts
-      `[[wikilink]]` on pick. Reads from the live index.
-- [ ] 2.3 Remove from `markdown-editor.tsx` context menu:
-      `Copy link to block`, `Open in side peek`, `Open in new tab`,
-      `Open in new window`, `Open in full page`. Replace with
-      `Delete`, `Duplicate`, `Move to`, `Turn into` (kept).
-- [ ] 2.4 Self-check `scripts/check-block-menu.ts` — menu order,
-      removed items gone, submenu contains new entries.
+      `[[wikilink]]` on pick. Reads from the live index. *(deferred
+      — the block menu context does not yet receive the live index;
+      see follow-up after Task 5 ships the page menu and surfaces
+      page candidates to the block menu.)*
+- [x] 2.3 Removed from `markdown-editor.tsx` top-level: `Copy link
+      to block`, `Open in side peek`, `Open in new tab`, `Open in new
+      window`, `Open in full page`. Replaced with `Delete`,
+      `Duplicate`; the removed items live in a `Link` submenu.
+- [x] 2.4 Self-check `scripts/check-block-menu.ts` — menu order,
+      removed items gone, submenu contains new entries. Exit 0.
 
 ## 3. Toggle list + Callout block types
 
-- [ ] 3.1 `lib/blocks.ts` — extend the block schema with `toggle_list`
-      and `callout`. The block type is recorded in frontmatter or
-      markers; markdown stays the source of truth.
-- [ ] 3.2 `lib/markdown/parser.ts` — recognise `- [ ]` (toggle list)
-      and `> [!type]` (callout, types: `info`, `warn`, `danger`,
-      `success`).
-- [ ] 3.3 `lib/markdown/renderer.tsx` — render toggle list as
-      `<details><summary>...</summary>...</details>`; callout as a
-      coloured box with the type icon (💡/⚠️/❌/✅).
-- [ ] 3.4 `lib/blocks-transforms.ts` — `turnInto` now supports the
-      two new types.
-- [ ] 3.5 Self-check `scripts/check-new-block-types.ts` — round-trip
-      parse + render for each type.
+- [x] 3.1 `lib/blocks.ts` — extended `BlockKind` with `'callout' |
+      'toggle_list'`. `BlockMeta.type?: 'toggle_list'`. `peelMeta`
+      now also recognises a leading `<!-- mkf:b:... type:toggle_list
+      -->` line (toggle_list stores its meta on line 0 because the
+      bullets sit below it).
+- [x] 3.2 Detection: `detectBlockType` reads `> [!info|warn|warning|
+      danger|success] ` before `> ` (so callouts win over plain
+      quotes). Toggle list: the `- ` line is detected as `bullet` —
+      the `type:toggle_list` meta on the block comment is what makes
+      it a toggle. *(Drift: the spec asked for `- [ ]` recognition;
+      we could not do that without breaking the existing
+      `todo` detection, so we use the meta-comment instead. The
+      editor and the doc viewer both read the meta.)*
+- [ ] 3.3 Renderer: callout boxes and `<details><summary>` for
+      toggle_list. *(deferred to a follow-up — the doc viewer
+      currently renders callouts as plain blockquotes and toggle_list
+      as a bulleted list. The block-id meta survives the round trip,
+      so the renderer is purely additive.)*
+- [x] 3.4 `lib/blocks-transforms.ts` — `turnInto` covers
+      `callout` (emits `> [!info] ` prefix) and `toggle_list`
+      (keeps the `- ` line, sets `meta.type: 'toggle_list'`, stamps
+      a block id). `blockTypeLabel` switch + `PREFIX_BY_TYPE` map
+      updated.
+- [x] 3.5 Self-check `scripts/check-new-block-types.ts` — round-trip
+      for both kinds: detect, retype, splitBlocks/joinBlocks with
+      meta, `formatBlockMeta`. Exit 0.
 
 ## 4. Remove page-tree from sidebar
 

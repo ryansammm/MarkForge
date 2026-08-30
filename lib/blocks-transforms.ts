@@ -1,7 +1,7 @@
 import { EditorState, Text } from '@codemirror/state'
 import type { TransactionSpec } from '@codemirror/state'
 import { copyToClipboard } from './clipboard'
-import { detectBlockType, ensureBlockHasId, formatBlockMeta, joinBlocks, retypeBlock, splitBlocks, wordCount } from './blocks'
+import { detectBlockType, ensureBlockHasId, formatBlockMeta, joinBlocks, newBlockId, retypeBlock, splitBlocks, wordCount } from './blocks'
 import type { BlockColor } from './blocks'
 
 /**
@@ -91,13 +91,24 @@ function requireRange(state: EditorState): BlockRange {
  *
  * If the range covers a single block, that block is retried. For multi-
  * block ranges every block is retried.
+ *
+ * For `toggle_list` the source line stays a `- ` bullet — the
+ * distinction lives in the block-id meta (`type:toggle_list`), so we
+ * keep the prefix and toggle the meta flag.
  */
 export function turnInto(state: EditorState, type: ReturnType<typeof detectBlockType>): TransactionSpec {
   const range = requireRange(state)
   const blocks = splitBlocks(range.text)
   const retried = blocks.map((b) => {
-    const lines = retypeBlock(b.lines, type)
-    return { lines, meta: b.meta }
+    const lines = type === 'toggle_list' ? b.lines : retypeBlock(b.lines, type)
+    const meta = { ...b.meta }
+    if (type === 'toggle_list') {
+      if (!meta.id) meta.id = newBlockId()
+      meta.type = 'toggle_list'
+    } else if (meta.type) {
+      delete meta.type
+    }
+    return { lines, meta }
   })
   const newText = joinBlocks(retried)
   return { changes: { from: range.from, to: range.to, insert: newText } }
@@ -203,6 +214,8 @@ function blockTypeLabelByType(type: ReturnType<typeof detectBlockType>): string 
     case 'numbered': return 'Numbered list'
     case 'todo': return 'To-do list'
     case 'quote': return 'Quote'
+    case 'callout': return 'Callout'
+    case 'toggle_list': return 'Toggle list'
     case 'code': return 'Code'
   }
 }
