@@ -29,6 +29,7 @@ function build(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>()
   for (const { from, to } of view.visibleRanges) {
     const text = view.state.doc.sliceString(from, to)
+    const ranges: { from: number; to: number }[] = []
     for (const pattern of MARKER_PATTERNS) {
       pattern.lastIndex = 0
       let match: RegExpExecArray | null
@@ -36,8 +37,16 @@ function build(view: EditorView): DecorationSet {
         const start = from + match.index
         const end = start + match[0].length
         if (end > to) break
-        builder.add(start, end, Decoration.mark({ class: 'cm-md-syntax' }))
+        ranges.push({ from: start, to: end })
       }
+    }
+    // RangeSetBuilder requires ascending `from`. Multiple patterns can
+    // find overlapping or interleaved matches (e.g. a `>` from the
+    // list regex and a `*` from the emphasis regex on the same line);
+    // sort once and add in order.
+    ranges.sort((a, b) => a.from - b.from)
+    for (const r of ranges) {
+      builder.add(r.from, r.to, Decoration.mark({ class: 'cm-md-syntax' }))
     }
   }
   return builder.finish()
