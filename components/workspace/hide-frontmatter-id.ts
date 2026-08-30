@@ -9,14 +9,18 @@ import {
 import type { EditorState } from '@codemirror/state'
 
 /**
- * Hides `id:`, `created:`, and the `---` delimiters from the frontmatter.
+ * Hides `id:`, `created:`, `title:`, and the `---` delimiters from the frontmatter.
  *
- * `title`, `tags`, `updated`, `aliases` etc. remain visible and editable.
- * The hidden lines stay in the document buffer — the server still sees them,
- * and reconciliation is unaffected.
+ * Edit mode is body-first: the document's title is shown in the breadcrumb
+ * (filename-derived) and the reading view's `<h1>`. Putting it in the editor too
+ * repeats the same word twice and makes the body look like it has a stray
+ * heading at the top. `tags`, `updated`, `aliases` etc. stay visible.
+ *
+ * Hidden lines remain in the document buffer — the server still sees them,
+ * reconciliation is unaffected, and the title is still indexed for search.
  */
 
-const HIDE_RE = /^(id|created)\s*:/i
+const HIDE_RE = /^(id|created|title)\s*:/i
 
 class HiddenLineWidget extends WidgetType {
   toDOM() {
