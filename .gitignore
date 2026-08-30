@@ -71,6 +71,8 @@ markforge-smoke.result.json
 run.log
 run.err
 opencode-e2e/
+# Self-check logs (each `check-*.ts` writes its own `check-*.log` next to it)
+check-*.log
 
 # Session logs - moved off repo root into logs/ for non-source artifacts
 logs/

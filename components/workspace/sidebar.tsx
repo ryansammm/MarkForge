@@ -30,7 +30,9 @@ import { openHandlers } from './tab-gestures'
 import { ResizeHandle } from './resize-handle'
 import { collectDroppedFiles } from './explorer-drop'
 import { usePersistedList } from '@/lib/use-persisted'
-import { GrimoireSwitcher } from './grimoire-switcher'
+import { GrimoireSwitcher, type GrimoireSwitcherHandle } from './grimoire-switcher'
+import { SidebarPlusPopover } from './sidebar-plus-popover'
+import { SidebarPageContextMenu } from './sidebar-page-context-menu'
 
 /**
  * Sidebar width, and the range it can be dragged through.
@@ -92,6 +94,12 @@ interface SidebarProps {
   onGrimoireCreated?: (grimoire: { id: string; name: string }) => void
   /** Backend kind from /api/health — drives the "Sync to cloud" visibility. */
   storageKind: string | null
+  /** Direct create (no name dialog) for the top-level `+` popover. */
+  onCreatePageDirect?: () => void
+  /** Open a page in the side peek overlay. */
+  onOpenInSidePeek?: (path: string) => void
+  /** Open a page in a new window (Electron IPC; web fallback: new tab). */
+  onOpenInNewWindow?: (path: string) => void
 }
 
 /**
@@ -152,6 +160,9 @@ export function Sidebar({
   onSelectGrimoire,
   onGrimoireCreated,
   storageKind,
+  onCreatePageDirect,
+  onOpenInSidePeek,
+  onOpenInNewWindow,
 }: SidebarProps) {
   const [expandedFolders, setExpandedFolders] = useState<Record<string, boolean>>({})
   // Depth counter, not a boolean: enter/leave fire for every child element, and a
@@ -174,6 +185,11 @@ export function Sidebar({
     () => Boolean(window.markforge),
     () => false
   )
+  // Imperative handle to the grimoire switcher — the `+ New grimoire` popover
+  // item jumps straight to its create input without opening the dropdown UI.
+  const grimoireSwitcherRef = useRef<GrimoireSwitcherHandle>(null)
+  // Right-click on a folder-tree page. `null` means the menu is closed.
+  const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
 
   /** Explicit push of the local corpus to R2 - the only road to the cloud. */
   const runCloudSync = async () => {
@@ -442,6 +458,10 @@ onDragEnter={() => {
         <div
           key={node.path}
           draggable
+          onContextMenu={(event) => {
+            event.preventDefault()
+            setContextMenu({ path: node.path, x: event.clientX, y: event.clientY })
+          }}
           onDragStart={(event) => {
             dragSource.current = node.path
             event.dataTransfer.effectAllowed = 'move'
@@ -597,6 +617,7 @@ onDrop={(event) => {
       </header>
 
       <GrimoireSwitcher
+        ref={grimoireSwitcherRef}
         activeGrimoireId={activeGrimoireId}
         onSelect={onSelectGrimoire}
         onCreated={onGrimoireCreated ?? (() => {})}
@@ -685,26 +706,18 @@ onDrop={(event) => {
       >
         <div className="mb-2 mt-1 flex items-center justify-between gap-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Folders</span>
-          <span className="flex items-center gap-0.5">
-            <button
-              type="button"
-              className={ACTION_BUTTON}
-              title="New document"
-              aria-label="New document"
-              onClick={() => onCreateDocument('')}
-            >
-              <FilePlus className="size-3.5" />
-            </button>
-            <button
-              type="button"
-              className={ACTION_BUTTON}
-              title="New folder"
-              aria-label="New folder"
-              onClick={() => onCreateFolder('')}
-            >
-              <FolderPlus className="size-3.5" />
-            </button>
-          </span>
+          {/*
+            Single `+` instead of the old two-button row. The new-page and
+            new-grimoire intents used to be peer actions of equal weight;
+            they're not — one makes a page, the other makes an entire vault.
+            The popover groups them under one affordance, and a future
+            `+ New folder` can be added to the same menu without a third
+            header button.
+          */}
+          <SidebarPlusPopover
+            onNewPage={() => onCreatePageDirect?.()}
+            onNewGrimoire={() => grimoireSwitcherRef.current?.requestCreate()}
+          />
         </div>
 
         {tree.length > 0 ? (
@@ -781,6 +794,14 @@ onDrop={(event) => {
           <span>© {APP_SIGNATURE}</span>
         </div>
       </div>
+      <SidebarPageContextMenu
+        path={contextMenu?.path ?? ''}
+        position={contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null}
+        isDesktop={isDesktop}
+        onOpenInSidePeek={(path) => onOpenInSidePeek?.(path)}
+        onOpenInNewWindow={(path) => onOpenInNewWindow?.(path)}
+        onDismiss={() => setContextMenu(null)}
+      />
       </aside>
     </>
   )

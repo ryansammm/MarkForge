@@ -1681,6 +1681,26 @@ export function WorkspaceApp() {
         activeGrimoireId={activeGrimoireId}
         onSelectGrimoire={handleSelectGrimoire}
         storageKind={storageKind}
+        onCreatePageDirect={() => void createDocumentAt('', 'Untitled', '')}
+        onOpenInSidePeek={(path) => {
+          setSidePeekPath(path)
+          setSidebarOpen(false)
+        }}
+        onOpenInNewWindow={(path) => {
+          // Prefer Electron's native window IPC. The web fallback reuses the
+          // tab reducer (same-window, new tab) since there's no per-doc URL
+          // route to point `window.open` at.
+          const desktop = (typeof window !== 'undefined' ? window.markforge : null) as
+            | { openInWindow?: (p: string) => Promise<{ ok: boolean; error?: string }> }
+            | null
+          if (desktop?.openInWindow) {
+            void desktop.openInWindow(path).then((res) => {
+              if (!res.ok) toast.error(res.error ?? 'Failed to open new window')
+            })
+            return
+          }
+          dispatchTabs({ type: 'open', path, newTab: true, background: false })
+        }}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">

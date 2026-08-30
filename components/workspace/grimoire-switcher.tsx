@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { forwardRef, useEffect, useImperativeHandle, useState, useRef } from 'react'
 import { BookOpen, ChevronDown, Plus, Pencil, Trash2, Check, Settings, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -24,11 +24,20 @@ interface GrimoireSwitcherProps {
   onCreated: (grimoire: Grimoire) => void
 }
 
-export function GrimoireSwitcher({
+export interface GrimoireSwitcherHandle {
+  /**
+   * Open the dropdown and jump straight to the create-grimoire input. Used
+   * by the sidebar's `+` popover so the single `+ New grimoire` item lands
+   * the user on the same form the dropdown's "New Grimoire…" button does.
+   */
+  requestCreate: () => void
+}
+
+export const GrimoireSwitcher = forwardRef<GrimoireSwitcherHandle, GrimoireSwitcherProps>(function GrimoireSwitcher({
   activeGrimoireId,
   onSelect,
   onCreated,
-}: GrimoireSwitcherProps) {
+}, ref) {
   const [open, setOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [grimoires, setGrimoires] = useState<Grimoire[]>([])
@@ -38,6 +47,14 @@ export function GrimoireSwitcher({
   const [renameValue, setRenameValue] = useState('')
   const dropdownRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    requestCreate() {
+      setOpen(true)
+      setCreating(true)
+      setSettingsOpen(false)
+    },
+  }), [])
 
   const activeGrimoire = grimoires.find((g) => g.id === activeGrimoireId)
 
@@ -373,4 +390,4 @@ export function GrimoireSwitcher({
       )}
     </div>
   )
-}
+})

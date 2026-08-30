@@ -401,17 +401,33 @@ app gate becomes a 6-digit PIN that the user can rotate from settings.
 
 ## 13. Sidebar `+` button + sidebar page context menu
 
-- [ ] 13.1 `components/workspace/sidebar.tsx` — replace the
+- [x] 13.1 `components/workspace/sidebar.tsx` — replace the
       existing `+` button with a `+` popover: `+ New page` and
       `+ New grimoire`. `+ New page` calls
       `createDocumentAt(activeGrimoireRoot, 'Untitled', '')`,
       opens it as a tab in Electron.
-- [ ] 13.2 `components/workspace/sidebar-page-context-menu.tsx`
+      *Drift:* the spec mentions `activeGrimoireRoot` as the
+      `parentDir`; the workspace app already targets the active
+      grimoire through `fileStore.setGrimoireId`, so the parent dir
+      passed in is `''`. The per-folder `+ New file / + New folder`
+      hover buttons stay (they keep the rename dialog), and the
+      top-level `+` is now a popover (no "New folder" at the top
+      level per spec). `+ New grimoire` is wired through a new
+      `useImperativeHandle` on `GrimoireSwitcher`
+      (`requestCreate()`) — first `forwardRef` in the codebase,
+      no other path to trigger the existing create-grimoire input
+      from outside the dropdown.
+- [x] 13.2 `components/workspace/sidebar-page-context-menu.tsx`
       (new) — right-click on a folder-tree page. Items:
       `Open in side peek` (always), `Open in new window`
       (web only, gated by `isElectron()`).
-- [ ] 13.3 Self-check `scripts/check-sidebar-plus.ts` — `+`
-      popover items, web/Electron gating.
+      *Drift:* no `isElectron()` helper exists in the repo; the
+      sidebar's existing `isDesktop` boolean (which reads
+      `window.markforge`) is the closest. The "Open in new window"
+      item is hidden when `isDesktop` is true; on the web it falls
+      back to the tab reducer (no per-doc URL route).
+- [x] 13.3 Self-check `scripts/check-sidebar-plus.ts` — `+`
+      popover items, web/Electron gating. 33/33 pass.
 
 ## 14. Desktop top tab bar + page picker popover
 
