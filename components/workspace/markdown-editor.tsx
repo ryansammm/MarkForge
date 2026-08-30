@@ -384,7 +384,29 @@ export function MarkdownEditor({
     setView(view)
     view.focus()
 
+    /*
+      Ctrl/Cmd-A must select the whole document, not the whole window. The default
+      `keymap` already binds it, but only when CodeMirror is the focus target — a
+      click that lands on a child of the editor (a completion popup, an inline
+      image's expand button) leaves the active element outside the keymap, and
+      the browser's whole-window select-all runs instead. A window-level guard
+      re-runs CM's selectAll whenever the active element is inside the editor
+      host, regardless of which child owns focus.
+    */
+    const handleSelectAll = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+      if (event.key !== 'a' && event.key !== 'A') return
+      const host = hostRef.current
+      const active = document.activeElement
+      if (!host || !active || !host.contains(active)) return
+      event.preventDefault()
+      view.dispatch({ selection: { anchor: 0, head: view.state.doc.length }, scrollIntoView: true })
+      view.focus()
+    }
+    window.addEventListener('keydown', handleSelectAll)
+
     return () => {
+      window.removeEventListener('keydown', handleSelectAll)
       view.destroy()
       viewRef.current = null
       setView(null)
