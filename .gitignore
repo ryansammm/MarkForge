@@ -23,6 +23,9 @@ shares.json
 # The encrypted password vault. Committing it would publish the ciphertext and pin it
 # in history forever, where rotating the master password cannot reach it.
 password-vault.json
+# Defensive: any repo-local subfolder a user might point the vault at.
+.password-vault/
+*.vault.enc
 
 # Trashed documents — runtime state, recoverable, not source
 .trash/
