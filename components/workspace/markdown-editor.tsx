@@ -570,8 +570,19 @@ export function MarkdownEditor({
           preventDefault: true,
           run: (view) => {
             const sel = view.state.selection.main
-            const from = Math.min(sel.anchor, sel.head)
-            const to = Math.max(sel.anchor, sel.head)
+            // No selection → "turn this paragraph". Expand to the current
+            // line so the new page gets a meaningful title instead of the
+            // `untitled-page` fallback.
+            let from: number
+            let to: number
+            if (sel.empty) {
+              const line = view.state.doc.lineAt(sel.head)
+              from = line.from
+              to = line.to
+            } else {
+              from = Math.min(sel.anchor, sel.head)
+              to = Math.max(sel.anchor, sel.head)
+            }
             const body = view.state.doc.toString()
             const plan = planTurnSelectionIntoPage({
               parentPath: docPath,
@@ -683,11 +694,20 @@ export function MarkdownEditor({
         moveToCandidates: moveToCandidatesRef.current,
         onTurnIntoPage: () => {
           // The selection is the actual cursor range, which can be a single
-          // paragraph or anything between. An empty selection turns into an
-          // "Untitled page" — the user gets feedback either way.
+          // paragraph or anything between. An empty selection means "turn
+          // this paragraph" — expand to the current line so the title is
+          // derived from the line text, not the `untitled-page` fallback.
           const sel = view.state.selection.main
-          const from = Math.min(sel.anchor, sel.head)
-          const to = Math.max(sel.anchor, sel.head)
+          let from: number
+          let to: number
+          if (sel.empty) {
+            const line = view.state.doc.lineAt(sel.head)
+            from = line.from
+            to = line.to
+          } else {
+            from = Math.min(sel.anchor, sel.head)
+            to = Math.max(sel.anchor, sel.head)
+          }
           const body = view.state.doc.toString()
           const plan = planTurnSelectionIntoPage({
             parentPath: docPath,
