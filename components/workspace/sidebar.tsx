@@ -30,6 +30,7 @@ import { ResizeHandle } from './resize-handle'
 import { collectDroppedFiles } from './explorer-drop'
 import { usePersistedList } from '@/lib/use-persisted'
 import { GrimoireSwitcher } from './grimoire-switcher'
+import { PageTree } from './page-tree'
 
 /**
  * Sidebar width, and the range it can be dragged through.
@@ -677,6 +678,12 @@ onDrop={(event) => {
       >
         <div className="mb-2 flex items-center justify-between gap-1 px-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Documents</span>
+        </div>
+        {documents && Object.keys(documents).length > 0 && (
+          <PageTree docs={documents} activePath={activePath} onNavigate={onSelectFile} />
+        )}
+        <div className="mb-2 mt-1 flex items-center justify-between gap-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span>Folders</span>
           <span className="flex items-center gap-0.5">
             <button
               type="button"

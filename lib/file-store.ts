@@ -26,6 +26,16 @@ export interface MarkdownDocument {
   id?: string
   /** Alternative names this document resolves under, from frontmatter `aliases`. */
   aliases?: string[]
+  /**
+   * The id of this document's logical parent in the page-in-page tree.
+   *
+   * Sourced from `parent:` in frontmatter, then remembered in the index. The folder
+   * the file lives in on disk is independent — folder nesting still exists for
+   * storage, but the page hierarchy the user navigates is `parent_id` from here.
+   *
+   * Null when the document is a root page or has no parent set.
+   */
+  parent_id?: string | null
 }
 
 export interface FileTreeNode {

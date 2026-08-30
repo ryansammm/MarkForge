@@ -80,6 +80,13 @@ interface MenuContext {
   onMoveTo?: (destPath: string) => void | Promise<void>
   /** Candidate destinations for the Move to submenu (path → title). */
   moveToCandidates?: { path: string; title: string }[]
+  /**
+   * Turn the current selection into a sub-page. The editor hands the
+   * workspace a fully-built plan (parent rewrite + new child path/body);
+   * the workspace performs the writes and returns the new child's path
+   * for an Open action in the toast.
+   */
+  onTurnIntoPage?: () => void | Promise<void>
 }
 
 export type OpenTarget = 'side-peek' | 'new-tab' | 'new-window' | 'full-page'
@@ -227,6 +234,20 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
     ...openItems,
   ]
 
+  // Turn into page — a top-level action. Lives outside the "Turn into"
+  // submenu because it changes the document structure, not the block
+  // type, and the submenu is reserved for in-place block kind changes.
+  const turnIntoPageAction: MenuAction | null = context.onTurnIntoPage
+    ? {
+        id: 'turn-into-page',
+        label: 'Turn into page',
+        search: ['turn into', 'page', 'sub-page', 'subpage', 'child'],
+        run: () => {
+          void context.onTurnIntoPage?.()
+        },
+      }
+    : null
+
   // When the search query is non-empty, show every action flattened:
   // top-level items + every Turn into + every Color (text & bg).
   // Otherwise show the grouped submenu layout.
@@ -257,7 +278,10 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
   // flattening mode; in flattening mode every Turn into / Color item is
   // always eligible (they are then filtered by the `matches(t.search)`
   // call above).
-  const visibleTopLevel = topLevel.filter((a) => matches(a.search))
+  const visibleTopLevel = [
+    ...(turnIntoPageAction ? [turnIntoPageAction] : []),
+    ...topLevel,
+  ].filter((a) => matches(a.search))
 
   return (
     <Menu.Root open={open} onOpenChange={onOpenChange} modal={false}>

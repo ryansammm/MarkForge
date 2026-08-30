@@ -15,6 +15,21 @@ function readAliases(frontmatter: Record<string, unknown>): string[] | undefined
 }
 
 /**
+ * `parent` in frontmatter is the page-in-page parent id.
+ *
+ * Anything other than a non-empty string is treated as no parent. A typo'd
+ * parent id is the caller's problem at navigation time — the index does not
+ * try to validate that the referenced doc exists, because the referenced doc
+ * may not have been reindexed yet.
+ */
+function readParentId(frontmatter: Record<string, unknown>): string | null | undefined {
+  if (!('parent' in frontmatter)) return undefined
+  const raw = frontmatter.parent
+  if (typeof raw === 'string' && raw.trim()) return raw.trim()
+  return null
+}
+
+/**
  * Derives an index entry from raw file content.
  *
  * Split out from index-patch.ts so that the tree/backlink patching used by the
@@ -121,6 +136,7 @@ export function buildDocument(
     etag: meta.etag,
     id,
     aliases: readAliases(frontmatter),
+    parent_id: readParentId(frontmatter) ?? null,
   }
 }
 

@@ -39,6 +39,7 @@ import { hideMarkdownSyntax } from './hide-md-syntax'
 import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
 import { BlockMenu, type OpenTarget } from './block-menu'
 import { blockHasId, blockRangeAt, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
+import { planTurnSelectionIntoPage } from '@/lib/client/turn-into-page'
 import { newBlockId } from '@/lib/blocks'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
@@ -218,6 +219,12 @@ interface MarkdownEditorProps {
    * and anything it does not want to expose.
    */
   moveToCandidates?: { path: string; title: string }[]
+  /**
+   * Turn the current selection into a sub-page. The editor has already
+   * rewritten its own buffer with the wikilink; the workspace's job is to
+   * actually create the child document.
+   */
+  onTurnIntoPage?: (spec: { newDocPath: string; newDocBody: string; wikilink: string }) => void | Promise<void>
 }
 
 /**
@@ -389,6 +396,7 @@ export function MarkdownEditor({
   onNavigateWikilink,
   documentUpdatedAt,
   onCreatePage,
+  onTurnIntoPage,
   onOpenIn,
   onMoveToBlock,
   moveToCandidates,
@@ -414,6 +422,7 @@ export function MarkdownEditor({
     onOpen?: (target: OpenTarget) => void
     onMoveTo?: (destPath: string) => void | Promise<void>
     moveToCandidates?: { path: string; title: string }[]
+    onTurnIntoPage?: () => void
   } | null>(null)
 
   // Read through refs so the editor is never torn down just because a callback
@@ -428,6 +437,7 @@ export function MarkdownEditor({
   const onOpenInRef = useRef(onOpenIn)
   const onMoveToBlockRef = useRef(onMoveToBlock)
   const moveToCandidatesRef = useRef(moveToCandidates)
+  const onTurnIntoPageRef = useRef(onTurnIntoPage)
   /**
    * The server version this editor has already adopted.
    *
@@ -451,7 +461,8 @@ export function MarkdownEditor({
     onOpenInRef.current = onOpenIn
     onMoveToBlockRef.current = onMoveToBlock
     moveToCandidatesRef.current = moveToCandidates
-  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage, onOpenIn, onMoveToBlock, moveToCandidates])
+    onTurnIntoPageRef.current = onTurnIntoPage
+  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage, onOpenIn, onMoveToBlock, moveToCandidates, onTurnIntoPage])
 
   // A changed index changes which wikilinks resolve. The decorations are rebuilt on
   // any transaction, so an empty one is enough to repaint ghosts that just became
@@ -551,6 +562,35 @@ export function MarkdownEditor({
             return insertNewBlockBelow(view)
           },
         },
+        // Turn the current selection into a sub-page. Same wiring the block
+        // menu's `Turn into page` action uses, exposed as a keyboard
+        // shortcut so the user does not have to reach for the handle.
+        {
+          key: 'Mod-Shift-p',
+          preventDefault: true,
+          run: (view) => {
+            const sel = view.state.selection.main
+            const from = Math.min(sel.anchor, sel.head)
+            const to = Math.max(sel.anchor, sel.head)
+            const body = view.state.doc.toString()
+            const plan = planTurnSelectionIntoPage({
+              parentPath: docPath,
+              parentBody: body,
+              selection: { from, to },
+              allDocs: docsRef.current,
+            })
+            view.dispatch({
+              changes: { from, to, insert: plan.wikilink },
+              selection: { anchor: from + plan.wikilink.length },
+            })
+            void onTurnIntoPageRef.current?.({
+              newDocPath: plan.newDocPath,
+              newDocBody: plan.newDocBody,
+              wikilink: plan.wikilink,
+            })
+            return true
+          },
+        },
         // Del with a non-empty selection → delete the selected block
         // range. With an empty selection the default forward-delete runs.
         {
@@ -641,6 +681,33 @@ export function MarkdownEditor({
           })
         },
         moveToCandidates: moveToCandidatesRef.current,
+        onTurnIntoPage: () => {
+          // The selection is the actual cursor range, which can be a single
+          // paragraph or anything between. An empty selection turns into an
+          // "Untitled page" — the user gets feedback either way.
+          const sel = view.state.selection.main
+          const from = Math.min(sel.anchor, sel.head)
+          const to = Math.max(sel.anchor, sel.head)
+          const body = view.state.doc.toString()
+          const plan = planTurnSelectionIntoPage({
+            parentPath: docPath,
+            parentBody: body,
+            selection: { from, to },
+            allDocs: docsRef.current,
+          })
+          // Apply the parent swap now so the editor is internally consistent
+          // even if the network write fails — the user sees the wikilink
+          // appear, and the failed child creation is reported in a toast.
+          view.dispatch({
+            changes: { from, to, insert: plan.wikilink },
+            selection: { anchor: from + plan.wikilink.length },
+          })
+          void onTurnIntoPageRef.current?.({
+            newDocPath: plan.newDocPath,
+            newDocBody: plan.newDocBody,
+            wikilink: plan.wikilink,
+          })
+        },
       })
       setMenuOpen(true)
     })

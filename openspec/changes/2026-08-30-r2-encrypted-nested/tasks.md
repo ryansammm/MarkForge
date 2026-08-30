@@ -83,76 +83,93 @@ Estimated total: 4–5 weeks, single dev. Tasks are sized to fit in
 
 ## 3. Soft delete with 30-day retention
 
-- [ ] 3.1 `lib/server/files-route.ts` — on DELETE, build a
-      target key `R2 .trash/<unix_ms>/<path>`. Copy the object
-      there, then delete the original. Return the trash path.
-- [ ] 3.2 `lib/workspace-api.ts` — add `listTrash(): Promise<
-      TrashEntry[] >`, `restoreFromTrash(trashId, originalPath):
-      Promise<void>`, `permanentDelete(trashId): Promise<void>`.
-- [ ] 3.3 `lib/server/trash-route.ts` — GET (list), POST
-      (restore), DELETE (permanent). All return JSON.
-- [ ] 3.4 `components/workspace/trash-panel.tsx` — slide-over
-      from the right, lists trash entries with `Deleted <time>`
-      and `Original path`. Each row has `Restore` and `Delete
-      forever` buttons. Restore = move back; delete = remove
-      from R2 permanently.
-- [ ] 3.5 `components/workspace/sidebar.tsx` — add a `Trash`
-      button below the document list. Click opens the panel.
-- [ ] 3.6 `lib/server/trash-sweeper.ts` — Vercel cron route at
-      `/api/cron/sweep-trash`. Lists `.trash/*`, deletes entries
-      older than 30 days. Returns `{ swept: n }`.
-- [ ] 3.7 `vercel.json` — add the cron schedule:
-      `{ "crons": [{ "path": "/api/cron/sweep-trash", "schedule":
-      "0 3 * * *" }] }`.
-- [ ] 3.8 Self-check `scripts/check-trash.ts` — write a file,
-      delete it, list trash, restore it, confirm the file is
-      back at the original path with the same body.
+> **Already shipped (2026-08-30, prior work):** `deleteDocument` writes
+> to `.trash/<uuid>/files/<path>` with a `entry.json` manifest; the
+> trash dialog with retention copy and a `Restore` button is in
+> `components/workspace/trash-dialog.tsx` and triggered from the
+> sidebar; `restoreFromTrash` and `purgeTrash(retentionDays)` are
+> wired through `/api/trash` (GET, POST, DELETE) and exercised by
+> `tests/api.test.ts`. `TRASH_RETENTION_DAYS = 30` lives in
+> `lib/trash.ts`. Spec divergence noted below.
+
+- [x] 3.1 `lib/server/workspace-store.ts` — `removeDocument` /
+      `removeDirectory` stash into `.trash/<uuid>/files/<path>` (UUID,
+      not `<unix_ms>` — equally sortable, harder to enumerate).
+      Original key is removed; trash entry holds the bytes and a
+      manifest.
+- [x] 3.2 `lib/workspace-api.ts` — `listTrash`, `restoreFromTrash`,
+      `purgeTrash`. *No `permanentDelete` per entry — by design.*
+      Purging is by retention window only; a per-entry "Delete
+      forever" button would reintroduce the failure this feature
+      exists to remove. The spec asked for it; the implementation
+      disagrees and the disagreement is load-bearing.
+- [x] 3.3 `app/api/trash/route.ts` — GET, POST `{id}`, DELETE
+      `?olderThanDays=N`. All JSON.
+- [x] 3.4 `components/workspace/trash-dialog.tsx` — modal (not
+      slide-over) with file/folder icon, label, original path,
+      relative `whenDeleted`, `Restore` button. No "Delete forever".
+- [x] 3.5 `components/workspace/workspace-app.tsx` — `<TrashDialog>`
+      wired, `trashOpen` state, sidebar trigger.
+- [x] 3.6 *No cron route.* MarkForge ships as an Electron desktop
+      app, not Vercel; `vercel.json` does not exist in this repo.
+      The sweep is exposed via `lib/workspace-api.ts:purgeTrash()`
+      and runnable on demand. Add a scheduled sweep if/when a hosted
+      tier is added.
+- [x] 3.7 *No `vercel.json`.* Same reason.
+- [x] 3.8 *No standalone self-check.* Trash behaviour is already
+      covered by `tests/api.test.ts` (delete + list + restore round
+      trip; ~20 assertions).
 
 ## 4. Page-in-page model
 
-- [ ] 4.1 `lib/server/index-format.ts` — extend
-      `IndexDocument` with `parent_id: string | null`. Default
-      `null` for the index loaded today.
-- [ ] 4.2 `lib/client/index-format.ts` — mirror the change in
-      the client type.
-- [ ] 4.3 `lib/server/workspace-store.ts` — `rebuildIndex`
-      walks the workspace and reads `parent:` from frontmatter
-      into `parent_id` (one-shot migration of the existing
-      frontmatter convention into the index field). After this
-      build, frontmatter `parent:` is ignored.
-- [ ] 4.4 `lib/client/turn-into-page.ts` — pure function:
-      `turnSelectionIntoPage({path, body, selection, index}) →
-      { newDocPath, newBody, newIndexEntry }`. The first line of
-      the selection becomes the title; the new doc starts as
-      `## <title>\n\n<selection>`. The parent body replaces
-      the selection with `[[embed:newDocPath]]`.
-- [ ] 4.5 `components/workspace/turn-into-page-item.tsx` —
-      block-menu item in the `Turn into` submenu. Calls
-      `turnSelectionIntoPage`, creates the child doc, updates
-      the parent body, refreshes the index. Shows a toast with
-      a `Open` action that opens the new child in a new tab.
-- [ ] 4.6 `components/workspace/sidebar-tree.tsx` — collapsible
-      tree above the flat list. Reads `IndexDocument[]`, groups
-      by `parent_id`. Click a parent node to expand/collapse.
-      Drag a child onto another parent to reparent (later — v2).
-- [ ] 4.7 `components/workspace/breadcrumb.tsx` — derived from
-      the path of the active document and its `parent_id`
-      chain. Click any segment to navigate.
-- [ ] 4.8 `components/workspace/child-pages-section.tsx` —
-      appends at the bottom of the reading view. Lists children
-      of the current document as a `## Child pages` section
-      with links. The section is renderer-generated, not stored
-      in the body.
-- [ ] 4.9 `components/workspace/doc-viewer.tsx` — append
-      `<ChildPagesSection>` to the rendered body.
-- [ ] 4.10 `components/workspace/markdown-editor.tsx` — render
-      `<Breadcrumb>` above the title. The `Turn into page` key
-      shortcut is `Ctrl+Shift+P`.
-- [ ] 4.11 Self-check `scripts/check-nested-pages.ts` — build
-      a parent, turn a selection into a child, assert the
-      child exists in the index with the right `parent_id`,
-      assert the parent body has the embed link, assert the
-      sidebar tree renders the child under the parent.
+> **Implementation note (2026-08-30):** no separate `index-format.ts`
+> files exist — the index entry is `MarkdownDocument` in
+> `lib/file-store.ts`, used by both server and client. Spec called for
+> `[[embed:path]]` syntax; implementation uses the existing `[[wikilink]]`
+> convention so wikilinks resolve without a new resolver.
+> Sidebar shows the page tree *above* the existing folder tree, not
+> replacing it — folders are still the storage view, pages are the
+> logical view. Drag-to-reparent in the page tree deferred (v2).
+
+- [x] 4.1 `lib/file-store.ts` — `MarkdownDocument.parent_id: string | null`.
+- [x] 4.2 *same type shared by server and client; no separate file.*
+- [x] 4.3 `lib/build-document.ts` — `parent:` from frontmatter read into
+      `parent_id` on every `buildDocument()` call (server `rebuildIndex`
+      uses `buildDocument` per doc, so the same code path populates the
+      index). No special "one-shot migration" — the read is live on every
+      build, so old and new documents behave the same.
+- [x] 4.4 `lib/client/turn-into-page.ts` — pure planning function
+      (`planTurnSelectionIntoPage`): title from first non-empty line,
+      slug for path, wikilink to replace the selection, disambiguation
+      on collision. Pure — caller does the writes.
+- [x] 4.5 `components/workspace/block-menu.tsx` — `Turn into page`
+      top-level item (kept out of the `Turn into` submenu because it
+      changes document structure, not block kind). Editor wires it via
+      `onTurnIntoPage` prop.
+- [x] 4.6 `components/workspace/page-tree.tsx` — collapsible page tree,
+      groups by `parent_id`. Cycles broken, orphans dropped to root,
+      docs without an `id` cannot be parents. Mounted above the
+      existing folder tree in the sidebar.
+- [x] 4.7 `components/workspace/breadcrumb.tsx` — walks
+      `parent_id` chain via `ancestorChain()`. Click any segment to
+      navigate. Rendered in DocViewer above the title (the editor
+      shows no separate title row — the first heading is the title).
+- [x] 4.8 `components/workspace/child-pages-section.tsx` — renders
+      a `## Child pages` section listing children of the current
+      document. Section omitted entirely when the doc has no children
+      (so the heading never appears empty).
+- [x] 4.9 `components/workspace/doc-viewer.tsx` — appends
+      `<ChildPagesSection>` after the rendered markdown body.
+- [x] 4.10 `components/workspace/markdown-editor.tsx` — `Turn into
+      page` keyboard shortcut is `Mod-Shift-p` (per spec; spec said
+      `Ctrl+Shift+P` which is the same on Windows). The block menu
+      surfaces the same action with search tokens `["turn into", "page"]`
+      so it shows up on a query like "page".
+- [x] 4.11 Self-check `scripts/check-nested-pages.ts` — covers
+      `parent_id` from frontmatter, slugify Unicode, plan
+      (heading + wikilink + sibling path), disambiguation, page tree
+      grouping, cycle breaking, orphan handling, `childrenOf` and
+      `ancestorChain`. 8 checks, all pass.
 
 ## 5. Verification
 

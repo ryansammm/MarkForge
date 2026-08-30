@@ -19,6 +19,8 @@ import { openHandlers } from './tab-gestures'
 import { codeBlockFromNode } from './code-block'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { ViewableImage } from './viewable-image'
+import { ChildPagesSection } from './child-pages-section'
+import { Breadcrumb } from './breadcrumb'
 
 /** One look for every link that goes somewhere, whether inside the vault or out. */
 const LINK = 'text-primary underline underline-offset-4 hover:opacity-80'
@@ -129,6 +131,8 @@ export function DocViewer({
       className="flex-1 overflow-y-auto px-8 py-10"
     >
       <div className="mx-auto max-w-3xl space-y-6">
+        <Breadcrumb current={document} allDocs={allDocs} onNavigate={onNavigatePath} />
+
         {/* Header Metadata */}
         <div className="border-b pb-6">
           <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground md:text-4xl">
@@ -333,6 +337,14 @@ export function DocViewer({
             {processedContent}
           </ReactMarkdown>
         </div>
+
+        {/*
+          Child pages section. Renderer-generated, not part of the body — adding
+          a child later would otherwise require rewriting the parent. The
+          section itself only renders when the document has at least one child,
+          so an empty "Child pages" heading never trains the eye to ignore it.
+        */}
+        <ChildPagesSection parent={document} allDocs={allDocs} onNavigate={onNavigatePath} />
       </div>
 
       {/*

@@ -56,6 +56,7 @@ import { TabStrip, documentLabel } from './tab-strip'
 import { ConfirmDialog, PromptDialog } from './workspace-dialogs'
 import { ShareDialog } from './share-dialog'
 import { TrashDialog } from './trash-dialog'
+import { Breadcrumb } from './breadcrumb'
 import { PasswordsDialog } from './passwords-dialog'
 import { ThemeSwitcher } from '@/components/theme-switcher'
 import { PwaInstallButton } from '@/components/pwa-install'
@@ -1497,6 +1498,20 @@ export function WorkspaceApp() {
           {mode === 'edit' && activeDoc ? (
             <div className="flex-1 overflow-hidden px-8 py-6">
               <div className="mx-auto h-full max-w-3xl">
+                {activeDoc && (
+                  <Breadcrumb
+                    current={activeDoc}
+                    allDocs={indexData?.documents || {}}
+                    onNavigate={(path, intent) => {
+                      if (intent.newTab) {
+                        dispatchTabs({ type: 'open', path, newTab: true, background: intent.background })
+                      } else {
+                        navigateTo(path)
+                      }
+                    }}
+                    className="mb-3"
+                  />
+                )}
                 {sourceError?.path === activePath ? (
                   <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
                     <p className="font-medium">Could not open this file for editing.</p>
@@ -1530,6 +1545,29 @@ export function WorkspaceApp() {
                       }
                     }}
                     onOpenIn={(target) => handleOpenIn(target, source.path)}
+                    onTurnIntoPage={async ({ newDocPath, newDocBody }) => {
+                      const title = newDocPath.split('/').pop()!.replace(/\.md$/i, '')
+                      const parentDir = newDocPath.includes('/')
+                        ? newDocPath.slice(0, newDocPath.lastIndexOf('/'))
+                        : ''
+                      try {
+                        await createDocumentAt(parentDir, title, newDocBody)
+                        toast.success(`Created ${title}`, {
+                          action: {
+                            label: 'Open',
+                            onClick: () =>
+                              dispatchTabs({ type: 'open', path: newDocPath, newTab: true, background: false }),
+                          },
+                        })
+                      } catch (err) {
+                        // The parent body already has the wikilink in memory.
+                        // The next save round-trip will reconcile from disk
+                        // (which does not have the new child), and the
+                        // wikilink may need to be removed by hand if the
+                        // create failed in a way the user wants to abort.
+                        toast.error(err instanceof Error ? err.message : `Failed to create ${newDocPath}`)
+                      }
+                    }}
                     onMoveToBlock={async (spec) => {
                       await moveBlockTo({
                         sourcePath: source.path,
