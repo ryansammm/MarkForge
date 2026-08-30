@@ -37,7 +37,8 @@ import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
 import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
 import { BlockMenu } from './block-menu'
-import { blockHasId, blockTypeLabel, blockWordCount } from '@/lib/blocks-transforms'
+import { blockHasId, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate } from '@/lib/blocks-transforms'
+import { newBlockId } from '@/lib/blocks'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
 import { wikilinkCompletions } from './wikilink-complete'
@@ -50,6 +51,54 @@ import {
   toggleItalic,
   toggleStrikethrough,
 } from './editor-commands'
+
+/**
+ * Inserts a blank line below the cursor and moves the cursor into the
+ * new paragraph. The new paragraph gets a fresh block id so it is
+ * immediately addressable by the menu and by future `[[#mkf:b:...]]`
+ * links.
+ *
+ * Implemented as a single transaction: split the line at the cursor
+ * (which leaves the cursor where it is, then a `\n\n` after it), then
+ * if the line was not blank already add a single `\n` to terminate the
+ * previous line cleanly. The block id is added as a `<!-- mkf:b:... -->`
+ * comment on a fresh line after the cursor.
+ */
+function insertNewBlockBelow(view: EditorView): boolean {
+  const state = view.state
+  const sel = state.selection.main
+  const head = sel.head
+  const line = state.doc.lineAt(head)
+  // Make sure the line ends with a newline so the new block starts on
+  // its own line.
+  const inserts: { from: number; to: number; insert: string }[] = []
+  let newCursor = head
+  if (line.to < state.doc.length) {
+    // There is content after the cursor on this line; split first.
+    inserts.push({ from: head, to: head, insert: '\n' })
+    newCursor = head + 1
+  }
+  // Then insert a blank line + a meta comment line + put cursor on the
+  // blank line. We use a short-lived id generated here; the menu
+  // re-assigns on its next read if the user has not yet taken a
+  // menu action on this block.
+  const id = newBlockId()
+  inserts.push({ from: newCursor, to: newCursor, insert: `\n<!-- mkf:b:${id} -->\n` })
+  // Move the cursor onto the blank line between the two paragraphs.
+  const cursorAt = newCursor + 1
+  view.dispatch({
+    changes: inserts,
+    selection: { anchor: cursorAt, head: cursorAt },
+    scrollIntoView: true,
+  })
+  return true
+}
+
+async function runCopyLink(view: EditorView, docPath: string): Promise<void> {
+  const ok = await copyLink(view.state, docPath)
+  if (ok) toast.success('Link copied')
+  else toast.error('Block has no id yet — apply a colour or duplicate it first')
+}
 
 /**
  * CodeMirror 6 editor, live-preview style.
@@ -382,6 +431,42 @@ export function MarkdownEditor({
         { key: 'Mod-i', preventDefault: true, run: toggleItalic },
         { key: 'Mod-`', preventDefault: true, run: toggleInlineCode },
         { key: 'Mod-Shift-x', preventDefault: true, run: toggleStrikethrough },
+        // Block menu shortcuts. Listed before `defaultKeymap` so they win
+        // — the editor's own keys otherwise take precedence.
+        {
+          key: 'Mod-d',
+          preventDefault: true,
+          run: (view) => {
+            view.dispatch(duplicate(view.state))
+            return true
+          },
+        },
+        {
+          key: 'Alt-Shift-l',
+          preventDefault: true,
+          run: (view) => {
+            void runCopyLink(view, docPath)
+            return true
+          },
+        },
+        {
+          key: 'Mod-Enter',
+          preventDefault: true,
+          run: (view) => {
+            return insertNewBlockBelow(view)
+          },
+        },
+        // Del with a non-empty selection → delete the selected block
+        // range. With an empty selection the default forward-delete runs.
+        {
+          key: 'Delete',
+          run: (view) => {
+            const sel = view.state.selection.main
+            if (sel.empty) return false
+            view.dispatch(deleteBlock(view.state))
+            return true
+          },
+        },
         /*
           Reopens the document list inside a `[[` that has already been dismissed —
           Escape closes the popup, and without this the only way back was to delete
