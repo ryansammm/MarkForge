@@ -1,8 +1,8 @@
 # Tasks: notion-parity
 
-> **Status:** approved (2026-08-30). Tasks 1-6 shipped to `dev`.
-> Task 7 (`/api/ai/stream` server endpoint) next. See `proposal.md`
-> for full design and Risks.
+> **Status:** approved (2026-08-30). Tasks 1-7 shipped to `dev`.
+> Task 8 (AI block in the editor) next. See `proposal.md` for
+> full design and Risks.
 
 Total: 16 tasks. Sized for 2-hour commits. Numbered so they can be
 re-ordered if a regression forces a rollback. Each task ships as one
@@ -172,17 +172,36 @@ commit on `dev` (push after each).
 
 ## 7. `/api/ai/stream` server endpoint
 
-- [ ] 7.1 `lib/server/ai.ts` (new) — `streamOpenAI` and
-      `streamGemini`. Both take `(apiKey, baseUrl, model, prompt,
-      system, signal) => AsyncIterable<string>`.
-- [ ] 7.2 `app/api/ai/stream/route.ts` (new) — accepts the request,
-      dispatches by provider, returns `text/event-stream`. Per-vault
-      rate limit (10 req/min).
-- [ ] 7.3 `lib/server/ai-stream-client.ts` (new) — typed
-      `EventSource`-like consumer with `AbortController` integration.
-- [ ] 7.4 Self-check `scripts/check-ai-stream.ts` — wire both
-      providers against a mock server; verify SSE chunks, abort,
-      rate-limit.
+- [x] 7.1 `lib/server/ai.ts` (new) — `streamOpenAI` and
+      `streamGemini`, both `(apiKey, baseUrl, model, prompt,
+      system?, signal?) => AsyncGenerator<string, void, void>`.
+      Generic `parseSse` reads a `text/event-stream` response and
+      hands each `data:` line to a provider-specific `extract`
+      (delta for OpenAI, candidates.parts.text for Gemini).
+      `dispatchStream(provider, options)` picks the right one.
+- [x] 7.2 `app/api/ai/stream/route.ts` (new) — POST body
+      `{ provider, baseUrl, model, apiKey, prompt, system? }`,
+      rate-limited per client (10/min via a new `AI_LIMIT` in
+      `lib/server/rate-limit.ts`) and returns
+      `text/event-stream`. Each event is `data: <token>` and
+      `data: [DONE]`; failures become `event: error` +
+      `data: { error }`. The upstream `fetch` is wired to
+      `request.signal` so an aborted browser request cancels the
+      provider call mid-stream. Middleware already gates the
+      route; no in-route auth check.
+- [x] 7.3 `lib/client/ai-stream-client.ts` (new) —
+      `streamCompletion` is an `AsyncGenerator<string>` over
+      `fetch` + `ReadableStream` (so we can set `Authorization`
+      semantics and a body, which `EventSource` cannot).
+      `complete(options)` collects the full text. Abort through
+      `AbortController.signal`; 429 surfaces as
+      `AiClientError` with the status.
+- [x] 7.4 Self-check `scripts/check-ai-stream.ts` — 14/14 pass.
+      Spins up three real HTTP listeners (OpenAI, Gemini, abort
+      trap) on ephemeral ports and exercises the providers
+      end-to-end: chunk counts, joined text, headers, system
+      messages, abort, and 11-call rate limit with positive
+      `Retry-After`.
 
 ## 8. AI block in the editor
 

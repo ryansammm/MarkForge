@@ -39,6 +39,9 @@ export interface RateLimitResult {
 
 export const AUTH_LIMIT: RateLimitRule = { limit: 5, windowMs: 15 * 60 * 1000 }
 export const WRITE_LIMIT: RateLimitRule = { limit: 120, windowMs: 60 * 1000 }
+/** Per-client AI stream allowance. The server has no vault identity, so this
+ *  is the closest the server gets to "per vault" without a shared store. */
+export const AI_LIMIT: RateLimitRule = { limit: 10, windowMs: 60 * 1000 }
 
 export function checkRateLimit(
   key: string,
