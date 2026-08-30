@@ -22,12 +22,15 @@ interface GrimoireSwitcherProps {
   activeGrimoireId: string | null
   onSelect: (id: string) => void
   onCreated: (grimoire: Grimoire) => void
+  /** Backend kind from /api/health — drives the auto-pick-root prompt after create. */
+  storageKind: string | null
 }
 
 export function GrimoireSwitcher({
   activeGrimoireId,
   onSelect,
   onCreated,
+  storageKind,
 }: GrimoireSwitcherProps) {
   const [open, setOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -83,6 +86,27 @@ export function GrimoireSwitcher({
       onCreated(grimoire)
       onSelect(grimoire.id)
       toast.success(`Grimoire "${name}" created`)
+      // Offline desktop: a grimoire without a root folder is a stub. Prompt now
+      // while the user's intent is fresh; the next reload reindexes against the
+      // chosen directory. Online grimoires live in R2, not on disk, so skip.
+      const mk = (window as unknown as { markforge?: { selectDirectory?: () => Promise<string | null> } }).markforge
+      if (storageKind !== 'cloud' && mk?.selectDirectory) {
+        const p = await mk.selectDirectory()
+        if (p) {
+          const put = await fetch(`/api/grimoires/${grimoire.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ path: p }),
+          })
+          if (put.ok) {
+            setGrimoires((prev) => prev.map((g) => g.id === grimoire.id ? { ...g, path: p } : g))
+            window.location.reload()
+          } else {
+            const err = await put.json()
+            toast.error(err.error || 'Failed to set root folder')
+          }
+        }
+      }
     } catch {
       toast.error('Failed to create grimoire')
     }

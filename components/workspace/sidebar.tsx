@@ -591,6 +591,7 @@ onDrop={(event) => {
         activeGrimoireId={activeGrimoireId}
         onSelect={onSelectGrimoire}
         onCreated={onGrimoireCreated ?? (() => {})}
+        storageKind={storageKind}
       />
 
       <div className="px-3 pb-3">
