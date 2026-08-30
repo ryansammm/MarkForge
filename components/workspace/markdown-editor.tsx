@@ -35,7 +35,9 @@ import { MAX_ASSET_BYTES } from '@/lib/asset-limits'
 import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
-import { blockHandle } from './block-handle'
+import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
+import { BlockMenu } from './block-menu'
+import { blockHasId, blockTypeLabel, blockWordCount } from '@/lib/blocks-transforms'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
 import { wikilinkCompletions } from './wikilink-complete'
@@ -89,6 +91,8 @@ interface MarkdownEditorProps {
    * already spoken for here — see LivePreviewConfig.
    */
   onNavigateWikilink?: (target: string, intent: OpenIntent) => void
+  /** Document `updatedAt` from the index. Used by the block menu's footer. */
+  documentUpdatedAt?: string | null
 }
 
 /**
@@ -256,6 +260,7 @@ export function MarkdownEditor({
   onRequestSave,
   reconciledContent,
   onNavigateWikilink,
+  documentUpdatedAt,
 }: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -263,6 +268,19 @@ export function MarkdownEditor({
   const [view, setView] = useState<EditorView | null>(null)
   /** The picture the viewer is showing, if any. */
   const [viewing, setViewing] = useState<ViewedImage | null>(null)
+  /** The block menu's open state. Context is rebuilt from the live view
+      on every open, so the menu always reflects the block the cursor
+      is actually in. */
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuContext, setMenuContext] = useState<{
+    view: EditorView
+    docPath: string
+    rect: DOMRect
+    blockLabel: string
+    wordCount: number
+    hasId: boolean
+    updatedAt: string | null
+  } | null>(null)
 
   // Read through refs so the editor is never torn down just because a callback
   // identity changed — that would cost the user their cursor position mid-sentence.
@@ -404,6 +422,28 @@ export function MarkdownEditor({
     view.focus()
 
     /*
+      A click on a drag handle reaches here through the module-level
+      handler registered by `setBlockHandleClickHandler`. We rebuild
+      the menu context from the live view so the menu always sees the
+      block the cursor is in — a click on a handle after editing is
+      enough to have moved the cursor.
+    */
+    setBlockHandleClickHandler((ctx: BlockHandleContext) => {
+      // The view passed to the menu is captured at click time, so a
+      // pending render never has the menu dispatch against a stale view.
+      setMenuContext({
+        view,
+        docPath,
+        rect: ctx.rect,
+        blockLabel: blockTypeLabel(view.state),
+        wordCount: blockWordCount(view.state),
+        hasId: blockHasId(view.state),
+        updatedAt: documentUpdatedAt ?? null,
+      })
+      setMenuOpen(true)
+    })
+
+    /*
       Ctrl/Cmd-A must select the whole document, not the whole window. The default
       `keymap` already binds it, but only when CodeMirror is the focus target — a
       click that lands on a child of the editor (a completion popup, an inline
@@ -426,6 +466,7 @@ export function MarkdownEditor({
 
     return () => {
       window.removeEventListener('keydown', handleSelectAll)
+      setBlockHandleClickHandler(null)
       view.destroy()
       viewRef.current = null
       setView(null)
@@ -460,6 +501,13 @@ export function MarkdownEditor({
     <div className="relative h-full w-full">
       <div ref={hostRef} className="h-full w-full overflow-hidden" />
       {view && <EditorToolbar view={view} />}
+      {/*
+        The block menu is rendered here (not in the workspace shell) so
+        the click handler in `setBlockHandleClickHandler` always has a
+        live `view` to dispatch against. Mounting it inline also means
+        the menu is destroyed with the editor — no stale views.
+      */}
+      <BlockMenu open={menuOpen} onOpenChange={setMenuOpen} context={menuContext ? { ...menuContext, onClose: () => setMenuOpen(false) } : null} />
       <ImageLightbox
         image={viewing}
         onClose={() => setViewing(null)}

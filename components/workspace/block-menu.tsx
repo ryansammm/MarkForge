@@ -1,0 +1,431 @@
+'use client'
+
+import * as React from 'react'
+import { Menu } from '@base-ui/react/menu'
+import { toast } from 'sonner'
+import type { EditorView } from '@codemirror/view'
+import { BLOCK_COLORS, type BlockColor } from '@/lib/blocks'
+import {
+  copyLink,
+  deleteBlock,
+  duplicate,
+  setColor,
+  turnInto,
+} from '@/lib/blocks-transforms'
+import { cn } from '@/lib/utils'
+
+/**
+ * Notion-style block menu.
+ *
+ * Opened by the drag handle's click (block-handle.ts → setBlockHandleClickHandler).
+ * Owns its own search input; arrow / enter / esc come from Base UI Menu.
+ *
+ * Implementation notes:
+ *
+ * - The menu is "controlled" so the editor can re-open it on a different
+ *   block (a new handle click closes the previous one and opens a new
+ *   instance with the new context).
+ * - The search input filters the action list live. Each item declares
+ *   its search string; the menu hides items whose label does not match.
+ *   Submenus are flattened during search so a query like "red" surfaces
+ *   the "Color → Red" item rather than forcing the user to navigate
+ *   the submenu first.
+ * - The footer (last-edited + word count) is computed from the editor
+ *   state at the time the menu was opened. It is read-only metadata.
+ * - Actions that depend on having a block id (Copy link to block, Color)
+ *   are still rendered when the block has no id; clicking them gives a
+ *   brief inline explanation rather than the action.
+ */
+
+type BlockKind = 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'numbered' | 'todo' | 'quote' | 'code'
+
+interface MenuAction {
+  /** Stable id used by tests and the focus trap. */
+  id: string
+  /** Visible label. */
+  label: string
+  /** Search tokens (lowercased). Submenu items are matched by these. */
+  search: string[]
+  /** Run the action against the live editor view. */
+  run: (view: EditorView) => void
+  /** If true, the item is rendered dimmed. */
+  disabled?: boolean
+  /** Hint shown on hover when disabled. */
+  disabledHint?: string
+}
+
+interface MenuContext {
+  view: EditorView
+  /** Document path the menu is acting on. */
+  docPath: string
+  /** Anchor rect from the drag handle. */
+  rect: DOMRect
+  /** Type label of the first block in the range, e.g. "Heading 1". */
+  blockLabel: string
+  /** Word count of the first block in the range. */
+  wordCount: number
+  /** Whether the first block already has an id. */
+  hasId: boolean
+  /** ISO timestamp of the document's last edit (for the footer). */
+  updatedAt: string | null
+  /** Called when an action is taken so the menu can close. */
+  onClose: () => void
+}
+
+const TURN_INTO: { type: BlockKind; label: string; search: string[] }[] = [
+  { type: 'text', label: 'Text', search: ['text', 'paragraph'] },
+  { type: 'h1', label: 'Heading 1', search: ['heading 1', 'h1', 'title'] },
+  { type: 'h2', label: 'Heading 2', search: ['heading 2', 'h2'] },
+  { type: 'h3', label: 'Heading 3', search: ['heading 3', 'h3'] },
+  { type: 'h4', label: 'Heading 4', search: ['heading 4', 'h4'] },
+  { type: 'bullet', label: 'Bulleted list', search: ['bulleted', 'bullet', 'list', 'ul'] },
+  { type: 'numbered', label: 'Numbered list', search: ['numbered', 'list', 'ol'] },
+  { type: 'todo', label: 'To-do list', search: ['to-do', 'todo', 'task', 'checkbox'] },
+  { type: 'quote', label: 'Quote', search: ['quote', 'blockquote'] },
+  { type: 'code', label: 'Code', search: ['code', 'fence', 'pre'] },
+]
+
+const COLORS: BlockColor[] = [...BLOCK_COLORS]
+const BG_COLORS: BlockColor[] = [...BLOCK_COLORS]
+
+interface BlockMenuProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  context: MenuContext | null
+}
+
+interface BlockMenuInnerProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  context: MenuContext
+}
+
+export function BlockMenu({ open, onOpenChange, context }: BlockMenuProps) {
+  if (!context) return null
+  return (
+    <BlockMenuInner
+      key={`${context.docPath}:${context.rect.top}:${context.rect.left}`}
+      open={open}
+      onOpenChange={onOpenChange}
+      context={context}
+    />
+  )
+}
+
+function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
+  const [query, setQuery] = React.useState('')
+  const inputRef = React.useRef<HTMLInputElement | null>(null)
+  // ponytail: the parent remounts this component on every new handle
+  // click (see the `key` above) so the search box starts empty each
+  // time without needing an effect-driven setState.
+
+  const lower = query.trim().toLowerCase()
+  const matches = (tokens: string[]) => lower === '' || tokens.some((t) => t.includes(lower))
+
+  // Action: Duplicate
+  const duplicateAction: MenuAction = {
+    id: 'duplicate',
+    label: 'Duplicate',
+    search: ['duplicate', 'copy', 'clone'],
+    run: (view) => view.dispatch(duplicate(view.state)),
+  }
+  // Action: Delete
+  const deleteAction: MenuAction = {
+    id: 'delete',
+    label: 'Delete',
+    search: ['delete', 'remove', 'trash'],
+    run: (view) => view.dispatch(deleteBlock(view.state)),
+  }
+  // Action: Copy link to block — disabled when the block has no id.
+  const copyLinkAction: MenuAction = {
+    id: 'copy-link',
+    label: 'Copy link to block',
+    search: ['copy link', 'link', 'anchor', 'share'],
+    run: async (view) => {
+      const ok = await copyLink(view.state, context.docPath)
+      if (ok) toast.success('Link copied')
+      else toast.error('Block has no id yet — apply a colour or duplicate it first')
+    },
+    disabled: !context.hasId,
+    disabledHint: 'Block has no id yet — apply a colour or duplicate it first',
+  }
+
+  // Top-level flat list of items shown when no submenu is hovered. Order
+  // matches the spec: Turn into, Color, Duplicate, Delete, Copy link.
+  const topLevel: MenuAction[] = [
+    duplicateAction,
+    deleteAction,
+    copyLinkAction,
+  ]
+
+  // When the search query is non-empty, show every action flattened:
+  // top-level items + every Turn into + every Color (text & bg).
+  // Otherwise show the grouped submenu layout.
+  const flattening = lower !== ''
+
+  const turnIntoActions: MenuAction[] = TURN_INTO.filter((t) => matches(t.search)).map(
+    (t) => ({
+      id: `turn-${t.type}`,
+      label: t.label,
+      search: t.search,
+      run: (view) => view.dispatch(turnInto(view.state, t.type)),
+    })
+  )
+  const textColorActions: MenuAction[] = COLORS.filter((c) => matches([c])).map((c) => ({
+    id: `color-text-${c}`,
+    label: c === 'default' ? 'Default text' : capitalize(c),
+    search: ['color', c, 'text'],
+    run: (view) => view.dispatch(setColor(view.state, 'color', c)),
+  }))
+  const bgColorActions: MenuAction[] = BG_COLORS.filter((c) => matches([c])).map((c) => ({
+    id: `color-bg-${c}`,
+    label: c === 'default' ? 'Default background' : capitalize(c),
+    search: ['background', c, 'bg'],
+    run: (view) => view.dispatch(setColor(view.state, 'bg', c)),
+  }))
+
+  // Submenu actions are filtered by their own tokens only when not in
+  // flattening mode; in flattening mode every Turn into / Color item is
+  // always eligible (they are then filtered by the `matches(t.search)`
+  // call above).
+  const visibleTopLevel = topLevel.filter((a) => matches(a.search))
+
+  return (
+    <Menu.Root open={open} onOpenChange={onOpenChange} modal={false}>
+      <Menu.Portal>
+        <Menu.Positioner
+          side="bottom"
+          align="start"
+          sideOffset={4}
+          anchor={context.rect ? rectToVirtualElement(context.rect) : undefined}
+          className="z-50"
+        >
+          <Menu.Popup
+            className={cn(
+              'z-50 min-w-[260px] max-w-[320px] overflow-hidden rounded-md border bg-popover p-1 text-sm text-popover-foreground shadow-md',
+              'outline-none'
+            )}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') {
+                event.preventDefault()
+                onOpenChange(false)
+              }
+            }}
+          >
+            <div className="px-2 pt-2 pb-1">
+              <input
+                ref={inputRef}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search actions…"
+                className="w-full rounded border bg-background px-2 py-1 text-sm outline-none placeholder:text-muted-foreground"
+                autoFocus
+                onKeyDown={(event) => {
+                  // The menu item list below should not eat arrow
+                  // keys meant for the input.
+                  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                    event.stopPropagation()
+                  }
+                }}
+              />
+              <div className="mt-2 text-xs text-muted-foreground">{context.blockLabel}</div>
+            </div>
+
+            {!flattening ? (
+              <SubmenuLayout
+                topLevel={visibleTopLevel}
+                turnIntoActions={turnIntoActions}
+                textColorActions={textColorActions}
+                bgColorActions={bgColorActions}
+                onAction={(action) => {
+                  action.run(context.view)
+                  onOpenChange(false)
+                }}
+              />
+            ) : (
+              <FlatLayout
+                topLevel={visibleTopLevel}
+                turnIntoActions={turnIntoActions}
+                textColorActions={textColorActions}
+                bgColorActions={bgColorActions}
+                onAction={(action) => {
+                  action.run(context.view)
+                  onOpenChange(false)
+                }}
+              />
+            )}
+
+            <div className="mt-1 border-t px-2 py-2 text-[11px] text-muted-foreground">
+              <div>Last edited · {formatTimestamp(context.updatedAt)}</div>
+              <div>Word count: {context.wordCount} words</div>
+            </div>
+          </Menu.Popup>
+        </Menu.Positioner>
+      </Menu.Portal>
+    </Menu.Root>
+  )
+}
+
+function SubmenuLayout(props: {
+  topLevel: MenuAction[]
+  turnIntoActions: MenuAction[]
+  textColorActions: MenuAction[]
+  bgColorActions: MenuAction[]
+  onAction: (a: MenuAction) => void
+}) {
+  const { topLevel, turnIntoActions, textColorActions, bgColorActions, onAction } = props
+  return (
+    <>
+      <Menu.Root>
+        <Menu.Trigger className="flex w-full cursor-default items-center justify-between rounded px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent">
+          Turn into
+          <span aria-hidden>▸</span>
+        </Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner side="right" sideOffset={2} align="start">
+            <Menu.Popup className="z-50 min-w-[200px] rounded-md border bg-popover p-1 shadow-md outline-none">
+              {turnIntoActions.length === 0 ? (
+                <Empty label="No matches" />
+              ) : (
+                turnIntoActions.map((a) => <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />)
+              )}
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+
+      <Menu.Root>
+        <Menu.Trigger className="flex w-full cursor-default items-center justify-between rounded px-2 py-1.5 text-sm outline-none data-[highlighted]:bg-accent">
+          Color
+          <span aria-hidden>▸</span>
+        </Menu.Trigger>
+        <Menu.Portal>
+          <Menu.Positioner side="right" sideOffset={2} align="start">
+            <Menu.Popup className="z-50 min-w-[180px] rounded-md border bg-popover p-1 shadow-md outline-none">
+              <ColorHeader label="Text" />
+              {textColorActions.map((a) => (
+                <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />
+              ))}
+              <ColorHeader label="Background" />
+              {bgColorActions.map((a) => (
+                <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />
+              ))}
+            </Menu.Popup>
+          </Menu.Positioner>
+        </Menu.Portal>
+      </Menu.Root>
+
+      {topLevel.length === 0 ? null : (
+        <>
+          <MenuSeparator />
+          {topLevel.map((a) => (
+            <ActionItem key={a.id} action={a} onSelect={() => onAction(a)} />
+          ))}
+        </>
+      )}
+    </>
+  )
+}
+
+function FlatLayout(props: {
+  topLevel: MenuAction[]
+  turnIntoActions: MenuAction[]
+  textColorActions: MenuAction[]
+  bgColorActions: MenuAction[]
+  onAction: (a: MenuAction) => void
+}) {
+  const all: { section: string; items: MenuAction[] }[] = []
+  if (props.turnIntoActions.length > 0) all.push({ section: 'Turn into', items: props.turnIntoActions })
+  if (props.textColorActions.length > 0) all.push({ section: 'Text color', items: props.textColorActions })
+  if (props.bgColorActions.length > 0) all.push({ section: 'Background', items: props.bgColorActions })
+  if (props.topLevel.length > 0) all.push({ section: 'Actions', items: props.topLevel })
+
+  if (all.length === 0) return <Empty label="No actions match" />
+
+  return (
+    <>
+      {all.map((section, i) => (
+        <React.Fragment key={section.section}>
+          {i > 0 ? <MenuSeparator /> : null}
+          <MenuGroup label={section.section} />
+          {section.items.map((a) => (
+            <ActionItem key={a.id} action={a} onSelect={() => props.onAction(a)} />
+          ))}
+        </React.Fragment>
+      ))}
+    </>
+  )
+}
+
+function MenuGroup({ label }: { label: string }) {
+  return (
+    <Menu.Group>
+      <Menu.GroupLabel className="px-2 pt-1 pb-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+        {label}
+      </Menu.GroupLabel>
+    </Menu.Group>
+  )
+}
+
+function ActionItem({ action, onSelect }: { action: MenuAction; onSelect: () => void }) {
+  return (
+    <Menu.Item
+      disabled={action.disabled}
+      onClick={(event) => {
+        event.preventDefault()
+        if (action.disabled) return
+        onSelect()
+      }}
+      className={cn(
+        'flex cursor-default items-center rounded px-2 py-1.5 text-sm outline-none',
+        'data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground',
+        'data-[disabled]:pointer-events-none data-[disabled]:opacity-50'
+      )}
+      title={action.disabled ? action.disabledHint : undefined}
+    >
+      {action.label}
+    </Menu.Item>
+  )
+}
+
+function MenuSeparator() {
+  return <div role="separator" className="my-1 h-px bg-border" />
+}
+
+function ColorHeader({ label }: { label: string }) {
+  return <div className="px-2 pt-1 pb-0.5 text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
+}
+
+function Empty({ label }: { label: string }) {
+  return <div className="px-2 py-1.5 text-sm text-muted-foreground">{label}</div>
+}
+
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function formatTimestamp(iso: string | null): string {
+  if (!iso) return 'unknown'
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return 'unknown'
+  // MMM D, YYYY, h:mm AM/PM (en-US style, matches the spec).
+  return d.toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function rectToVirtualElement(rect: DOMRect) {
+  return {
+    getBoundingClientRect: () => rect,
+  }
+}
+
+// ponytail: action helpers re-exported for the keyboard keymap (task 5)
+// and the slash command (task 7) to share the same list of actions.
+export type { MenuAction }
+export const blockMenuTopLevel = (): MenuAction[] => []

@@ -1,5 +1,4 @@
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet } from '@codemirror/view'
-import type { EditorState } from '@codemirror/state'
 import { RangeSetBuilder } from '@codemirror/state'
 import { splitBlocks } from '@/lib/blocks'
 

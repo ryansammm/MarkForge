@@ -1339,6 +1339,7 @@ export function WorkspaceApp() {
                     onRequestSave={saveNow}
                     reconciledContent={reconciled}
                     onNavigateWikilink={handleNavigateWikilink}
+                    documentUpdatedAt={activeDoc?.updatedAt ?? null}
                   />
                 )}
               </div>
