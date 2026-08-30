@@ -192,6 +192,12 @@ interface MarkdownEditorProps {
   onNavigateWikilink?: (target: string, intent: OpenIntent) => void
   /** Document `updatedAt` from the index. Used by the block menu's footer. */
   documentUpdatedAt?: string | null
+  /**
+   * Create a new sub-document from the slash command. Receives the
+   * user-supplied name; returns the `[[wikilink]]` text to insert or
+   * `null` to abort.
+   */
+  onCreatePage?: (name: string) => Promise<string | null> | string | null
 }
 
 /**
@@ -362,6 +368,7 @@ export function MarkdownEditor({
   reconciledContent,
   onNavigateWikilink,
   documentUpdatedAt,
+  onCreatePage,
 }: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -391,6 +398,7 @@ export function MarkdownEditor({
   const initialValueRef = useRef(initialValue)
   const onNavigateRef = useRef(onNavigateWikilink)
   const reconciledRef = useRef(reconciledContent)
+  const onCreatePageRef = useRef(onCreatePage)
   /**
    * The server version this editor has already adopted.
    *
@@ -410,7 +418,8 @@ export function MarkdownEditor({
     initialValueRef.current = initialValue
     onNavigateRef.current = onNavigateWikilink
     reconciledRef.current = reconciledContent
-  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent])
+    onCreatePageRef.current = onCreatePage
+  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage])
 
   // A changed index changes which wikilinks resolve. The decorations are rebuilt on
   // any transaction, so an empty one is enough to repaint ghosts that just became
@@ -466,7 +475,7 @@ export function MarkdownEditor({
         onNotice: (message) => toast.info(message),
       }),
       autocompletion({
-        override: [wikilinkCompletions(() => docsRef.current), slashCommands()],
+        override: [wikilinkCompletions(() => docsRef.current), slashCommands({ onCreatePage: (name) => onCreatePageRef.current?.(name) ?? null })],
         closeOnBlur: true,
         icons: false,
       }),

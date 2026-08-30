@@ -37,6 +37,21 @@ export const SLASH_ITEMS: SlashItem[] = [
 ]
 
 /**
+ * Commands that need extra context from the editor (a callback into
+ * the workspace) are passed via `slashCommands({...})`. The Page
+ * command creates a new sub-document and replaces the token with a
+ * `[[link]]` to it; the rest are pure snippets.
+ */
+export interface SlashOptions {
+  /**
+   * Called with the user-provided name from `/page "Name"`. Returns the
+   * `[[wikilink]]` text to insert. Returning `null` aborts the apply
+   * (the token stays in the buffer for the user to fix).
+   */
+  onCreatePage?: (name: string) => Promise<string | null> | string | null
+}
+
+/**
  * Finds an active slash query in the text between the line start and the cursor.
  * Returns where the "/token" begins and what has been typed after it.
  */
@@ -66,7 +81,7 @@ export function snippetEdit(
 }
 
 /** The autocomplete source; register alongside wikilink completions. */
-export function slashCommands() {
+export function slashCommands(options: SlashOptions = {}) {
   return (context: CompletionContext): CompletionResult | null => {
     const line = context.state.doc.lineAt(context.pos)
     const before = context.state.sliceDoc(line.from, context.pos)
@@ -74,7 +89,7 @@ export function slashCommands() {
     if (!hit) return null
 
     const query = hit.query.toLowerCase()
-    const options: Completion[] = SLASH_ITEMS.filter((item) =>
+    const optionsList: Completion[] = SLASH_ITEMS.filter((item) =>
       item.label.toLowerCase().includes(query)
     ).map((item) => ({
       label: item.label,
@@ -94,7 +109,45 @@ export function slashCommands() {
         })
       },
     }))
-    if (options.length === 0) return null
+
+    // /page — create a sub-document. Snippet is empty because the apply
+    // callback replaces the whole token with the returned wikilink.
+    if ('page'.includes(query) && options.onCreatePage) {
+      optionsList.push({
+        label: 'New page',
+        detail: '/page "Name"',
+        type: 'keyword',
+        apply: (view, _completion, _from, to) => {
+          // Look at the text the user has actually typed after `/page`
+          // for an inline argument. We accept either a quoted form
+          // (`/page "My Note"`) or a bare token (`/page My-Note`).
+          const typed = view.state.sliceDoc(hit.from, to)
+          const name = extractPageName(typed)
+          if (!name) {
+            // No name provided — leave the token alone and bail. The
+            // user can finish typing it.
+            return
+          }
+          const result = options.onCreatePage!(name)
+          void Promise.resolve(result).then((replacement) => {
+            if (!replacement) return
+            const edit = snippetEdit(
+              view.state.doc.length,
+              hit.from,
+              to,
+              replacement
+            )
+            view.dispatch({
+              changes: { from: edit.from, to: edit.to, insert: edit.insert },
+              selection: { anchor: edit.anchor },
+              scrollIntoView: true,
+            })
+          })
+        },
+      })
+    }
+
+    if (optionsList.length === 0) return null
 
     return {
       // `to` bounds the replace range; `filter: false` because the menu was
@@ -102,8 +155,24 @@ export function slashCommands() {
       // the raw token ("/he", slash included) and every option dies.
       from: hit.from,
       to: context.pos,
-      options,
+      options: optionsList,
       filter: false,
     }
   }
+}
+
+/**
+ * Pulls the page name out of a `/page...` token. Accepts:
+ *   /page "My Note"   -> "My Note"
+ *   /page 'My Note'   -> "My Note"
+ *   /page My-Note     -> "My-Note"
+ */
+function extractPageName(typed: string): string | null {
+  // Strip the leading `/page` keyword (the trigger character is the
+  // last char of `hit.from` per `slashContextBefore`).
+  const after = typed.replace(/^\/page\s*/, '')
+  if (!after) return null
+  const quoted = /^["'](.+?)["']\s*$/.exec(after)
+  if (quoted) return quoted[1].trim()
+  return after.trim() || null
 }

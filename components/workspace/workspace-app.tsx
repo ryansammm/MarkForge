@@ -1340,6 +1340,18 @@ export function WorkspaceApp() {
                     reconciledContent={reconciled}
                     onNavigateWikilink={handleNavigateWikilink}
                     documentUpdatedAt={activeDoc?.updatedAt ?? null}
+                    onCreatePage={async (name) => {
+                      const parent = source.path.includes('/')
+                        ? source.path.slice(0, source.path.lastIndexOf('/'))
+                        : ''
+                      try {
+                        await createDocumentAt(parent, name)
+                        return `[[${name}]]`
+                      } catch (err) {
+                        toast.error(err instanceof Error ? err.message : 'Failed to create page')
+                        return null
+                      }
+                    }}
                   />
                 )}
               </div>
