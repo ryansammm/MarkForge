@@ -65,6 +65,16 @@ interface UseDocumentSaveOptions {
   /** Etag of the loaded document, as read from the server. */
   initialEtag: string | undefined
   /**
+   * The note-encryption key, or null when the vault is locked/absent.
+   *
+   * When provided, the buffer is encrypted client-side before it leaves the
+   * browser. When null, the buffer is sent as-is (the unencrypted path —
+   * used before the user has set a master password). The function form is
+   * used rather than a static value because the key is held in a ref that
+   * mutates without re-rendering.
+   */
+  getNoteKey?: () => CryptoKey | null
+  /**
    * Called after a write lands, so the index in memory can be patched.
    *
    * `content` is what is now on the server — the buffer that was sent, or the
@@ -117,6 +127,7 @@ interface UseDocumentSaveResult {
 export function useDocumentSave({
   path,
   initialEtag,
+  getNoteKey,
   onSaved,
   onContentReconciled,
   onConflict,
@@ -166,10 +177,12 @@ export function useDocumentSave({
   const onSavedRef = useRef(onSaved)
   const onReconciledRef = useRef(onContentReconciled)
   const onConflictRef = useRef(onConflict)
+  const getNoteKeyRef = useRef(getNoteKey)
   latestEtagRef.current = initialEtag
   onSavedRef.current = onSaved
   onReconciledRef.current = onContentReconciled
   onConflictRef.current = onConflict
+  getNoteKeyRef.current = getNoteKey
 
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
@@ -259,10 +272,17 @@ export function useDocumentSave({
       const ifMatch = job?.etag ?? etagRef.current
       if (ifMatch) headers['If-Match'] = `"${ifMatch}"`
 
+      // Encrypt the buffer when the vault is unlocked. The key may flip between
+      // schedule and flush (the user can lock and unlock while a debounce is
+      // pending) — read live at flush time, not at schedule time.
+      const key = getNoteKeyRef.current?.() ?? null
+      const { encryptBody } = await import('./client/note-crypto')
+      const bodyContent = key ? await encryptBody(content, key) : content
+
       const response = await fetch(`/api/files?path=${encodeURIComponent(targetPath)}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content: bodyContent }),
       })
 
       if (response.status === 409) {

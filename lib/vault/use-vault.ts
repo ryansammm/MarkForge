@@ -71,6 +71,17 @@ export interface UseVault {
   lockedReason: string | null
   updatedAt: string | null
 
+  /**
+   * The unlocked `CryptoKey`, or null when the vault is locked or absent.
+   * Same handle the vault uses to seal and unseal — note body encryption
+   * in `lib/client/note-crypto.ts` reuses it instead of deriving a second
+   * key from the same master password.
+   */
+  getKey: () => CryptoKey | null
+  /** The KDF parameters the key was derived with. Used to record what
+   *  the key is keyed to; null when the vault is locked or absent. */
+  getKdf: () => VaultKdf | null
+
   create: (masterPassword: string) => Promise<void>
   unlock: (masterPassword: string) => Promise<void>
   lock: (reason?: string) => void
@@ -361,6 +372,10 @@ export function useVault(active: boolean): UseVault {
     conflict,
     lockedReason,
     updatedAt,
+
+    getKey: () => keyRef.current,
+    getKdf: () => kdfRef.current,
+
     create,
     unlock,
     lock,

@@ -26,7 +26,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordItemForm } from './password-item-form'
-import { useVault } from '@/lib/vault/use-vault'
+import { type UseVault } from '@/lib/vault/use-vault'
 import { CLIPBOARD_CLEAR_SECONDS, copySecret } from '@/lib/vault/clipboard'
 import {
   filterItems,
@@ -60,15 +60,18 @@ import { cn } from '@/lib/utils'
 interface PasswordsDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+  /**
+   * The vault instance is owned by the workspace (so the unlocked key can
+   * be exposed to note body encryption). The dialog borrows it.
+   */
+  vault: UseVault
 }
 
 type Pane = { kind: 'list' } | { kind: 'add' } | { kind: 'edit'; item: VaultItem }
 
 const PANEL_ERROR = 'rounded-md border border-destructive/40 bg-destructive/10 p-2 text-xs text-destructive'
 
-export function PasswordsDialog({ open, onOpenChange }: PasswordsDialogProps) {
-  const vault = useVault(open)
-
+export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogProps) {
   const [pane, setPane] = useState<Pane>({ kind: 'list' })
   const [query, setQuery] = useState('')
   const [revealedId, setRevealedId] = useState<string | null>(null)

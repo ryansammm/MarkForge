@@ -39,6 +39,9 @@ import { keyboardIsClaimed } from '@/lib/modal-keys'
 import { grimoireHeaders } from '@/lib/grimoire-client'
 import * as api from '@/lib/workspace-api'
 import { moveBlockBetweenDocs } from '@/lib/blocks'
+import { useVault } from '@/lib/vault/use-vault'
+import { VaultKeyProvider, useNoteKey } from '@/lib/client/vault-key'
+import { readDocument as readDocumentEncrypted, writeDocument as writeDocumentEncrypted, createDocument as createDocumentEncrypted } from '@/lib/client/encrypted-fetch'
 import { Sidebar, SIDEBAR_WIDTH } from './sidebar'
 import { ResizeHandle } from './resize-handle'
 import { DocViewer } from './doc-viewer'
@@ -176,6 +179,23 @@ export function WorkspaceApp() {
   const [shareOpen, setShareOpen] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
   const [passwordsOpen, setPasswordsOpen] = useState(false)
+
+  /**
+   * The vault lives here, not inside the dialog, so the unlocked key is
+   * reachable from the rest of the workspace. The dialog is a thin
+   * presentation layer over this hook — the data, the key, the lock state
+   * all flow through `vault` below.
+   */
+  const vault = useVault(true)
+
+  /**
+   * The note-encryption key, sourced from the unlocked vault. `null` when
+   * the vault is locked or absent — in that case note bodies pass through
+   * the API as plaintext. The pass-through is intentional: a user who has
+   * not yet set a master password can keep using the app, and a future
+   * unlock re-encrypts the next save.
+   */
+  const noteKey = useNoteKey()
   const [loading, setLoading] = useState(true)
   /** Set when the backend reports that writes will not survive. Never dismissible. */
   const [storageWarning, setStorageWarning] = useState<string | null>(null)
@@ -528,8 +548,7 @@ export function WorkspaceApp() {
     const requestedPath = activePath
     const writesBefore = writeCountRef.current[requestedPath] ?? 0
 
-    api
-      .readDocument(requestedPath)
+    readDocumentEncrypted(requestedPath, noteKey)
       .then((data) => {
         if (cancelled) return
         // A save for this document landed while the read was in flight. Its response
@@ -638,6 +657,10 @@ export function WorkspaceApp() {
   } = useDocumentSave({
     path: editingPath,
     initialEtag: source?.etag,
+    // Live read: the user can lock and unlock the vault while a debounce is
+    // pending. Reading `noteKey` directly would capture the value at render
+    // time; the ref is mutated by the VaultKeyProvider effect.
+    getNoteKey: () => noteKey,
     onSaved: handleSaved,
     onContentReconciled: setReconciled,
     onConflict: handleConflict,
@@ -821,7 +844,7 @@ export function WorkspaceApp() {
       if (!name) throw new api.ApiError('That name has no usable characters in it.', 0, 'BAD_NAME')
 
       const path = api.joinPath(parentDir, `${name}.md`)
-      const result = await api.createDocument(path, body ?? api.newDocumentTemplate(name))
+      const result = await createDocumentEncrypted(path, body ?? api.newDocumentTemplate(name), noteKey)
 
       patchIndex((index) => applyUpsert(index, result.document))
       // The create response is the file, so the new tab opens without a read at all.
@@ -1189,11 +1212,11 @@ export function WorkspaceApp() {
       const { remainder, newDest } = move
 
       try {
-        const destRead = await api.readDocument(destPath)
+        const destRead = await readDocumentEncrypted(destPath, noteKey)
         const destBody = (destRead.document.content ?? '').replace(/\n+$/, '')
         const finalDest = destBody.length === 0 ? blockText : `${destBody}\n\n${blockText}`
-        await api.writeDocument(destPath, finalDest)
-        await api.writeDocument(sourcePath, remainder)
+        await writeDocumentEncrypted({ path: destPath, content: finalDest }, noteKey)
+        await writeDocumentEncrypted({ path: sourcePath, content: remainder }, noteKey)
       } catch (err) {
         toast.error((err as Error).message || 'Move failed', { duration: Infinity, closeButton: true })
         return
@@ -1247,7 +1270,8 @@ export function WorkspaceApp() {
     path ? `${fallback} to ${documentLabel(path, indexData?.documents || {})}` : fallback
 
   return (
-    <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
+    <VaultKeyProvider vault={vault}>
+      <div className="flex h-dvh w-full overflow-hidden bg-background text-foreground">
       <Sidebar
         tree={indexData?.tree || []}
         activePath={activePath}
@@ -1644,7 +1668,12 @@ export function WorkspaceApp() {
         so there is no path by which a credential reaches the tree, the search, or a
         share, and no future refactor that can create one by accident.
       */}
-      <PasswordsDialog open={passwordsOpen} onOpenChange={setPasswordsOpen} />
+      <PasswordsDialog
+        open={passwordsOpen}
+        onOpenChange={setPasswordsOpen}
+        // The workspace owns the vault instance. The dialog borrows it.
+        vault={vault}
+      />
 
       <PromptDialog
         open={dialog.kind === 'newDocument'}
@@ -1744,5 +1773,6 @@ export function WorkspaceApp() {
         onOpenChange={(open) => !open && closeDialog()}
       />
     </div>
+    </VaultKeyProvider>
   )
 }
