@@ -586,6 +586,34 @@ export function MarkdownEditor({
             return true
           },
         },
+        // Notion-style: Space at the start of an empty block turns the
+        // line into an AI fence. The fence's first line is the JSON
+        // header the renderer reads; the prompt goes on the second
+        // line. Cursor lands in the header so the user can pick a
+        // provider before typing the prompt.
+        // ponytail: only fires on truly empty paragraphs; an explicit
+        // "convert" command (or a `/:ai` slash entry) is a separate
+        // path that does not need this guard.
+        {
+          key: 'Space',
+          run: (view) => {
+            const sel = view.state.selection.main
+            if (!sel.empty) return false
+            const line = view.state.doc.lineAt(sel.head)
+            if (line.text !== '') return false
+            const fence = '```ai\n{"configId":""}\n\n```\n'
+            const insertAt = line.from
+            // Place the caret between the two double-quotes of `configId`
+            // so the user can paste a provider id without having to find
+            // the right spot.
+            const cursorAt = insertAt + '```ai\n{"configId":"'.length
+            view.dispatch({
+              changes: { from: insertAt, to: line.to, insert: fence },
+              selection: { anchor: cursorAt },
+            })
+            return true
+          },
+        },
         // Turn the current selection into a sub-page. Same wiring the
         // block menu's `Turn into > Page` action uses, exposed as a
         // keyboard shortcut so the user does not have to reach for the

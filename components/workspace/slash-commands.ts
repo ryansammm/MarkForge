@@ -28,6 +28,11 @@ export const SLASH_ITEMS: SlashItem[] = [
   { label: 'To-do', detail: '- [ ]', snippet: '- [ ] ' },
   { label: 'Quote', detail: '>', snippet: '> ' },
   { label: 'Code block', detail: '```', snippet: '```\n^\n```\n' },
+  {
+    label: 'AI block',
+    detail: '```ai',
+    snippet: '```ai\n{"configId":""}\n^\n```\n',
+  },
   { label: 'Divider', detail: '---', snippet: '---\n' },
   {
     label: 'Table',

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { highlightCode, languageLabel, type HighlightedCode } from './code-highlight'
+import { AiBlock } from './ai-block'
 
 /**
  * A fenced code block, the way a reader expects one.
@@ -172,5 +173,11 @@ export function codeBlockFromNode(node: unknown, fallback: React.ReactNode): Rea
 
   // The trailing newline every fence carries is the renderer's, not the author's.
   // Copying it would paste an extra blank line into a terminal.
-  return <CodeBlock code={text.replace(/\n$/, '')} language={language} />
+  const cleanText = text.replace(/\n$/, '')
+
+  if (language === 'ai') {
+    return <AiBlock body={cleanText} />
+  }
+
+  return <CodeBlock code={cleanText} language={language} />
 }

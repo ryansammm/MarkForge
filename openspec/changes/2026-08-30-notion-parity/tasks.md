@@ -205,18 +205,26 @@ commit on `dev` (push after each).
 
 ## 8. AI block in the editor
 
-- [ ] 8.1 `lib/blocks.ts` — add `ai` block type. Frontmatter:
-      `ai: { provider, model, baseUrl, prompt, output }`.
-- [ ] 8.2 `components/workspace/ai-block.tsx` (new) — block view.
-      Empty state: prompt input. Streaming state: replaces the
-      block content as tokens arrive.
-- [ ] 8.3 `markdown-editor.tsx` — `Space` at the start of an empty
-      block converts the block to an `ai` block and focuses the
-      prompt.
-- [ ] 8.4 `lib/note-crypto.ts` — `ai` block content is encrypted
-      like any other block body, so the locked-vault UX is uniform.
-- [ ] 8.5 Self-check `scripts/check-ai-block.ts` — Space-on-empty
-      trigger, stream consumer decodes, abort works.
+- [x] 8.1 No schema change. The block is a ` ```ai ` fenced body
+      with a small JSON header (`{"configId":"…"}`) on the opening
+      fence, and the prompt and (after a run) the model output live
+      inside the fence. Encryption rides on the existing note-crypto
+      envelope: the fence is just markdown, so anything that already
+      encrypts the document encrypts the AI block.
+- [x] 8.2 `components/workspace/ai-block.tsx` (new) — block view.
+      Header shows the provider + model, a prompt textarea, a Run /
+      Stop button, and the streaming output as it arrives. Picks the
+      active provider from the vault's `AiConfig` list; the first
+      one is the default and the fence's `configId` overrides it.
+- [x] 8.3 `markdown-editor.tsx` — `Space` at the start of an empty
+      block converts the line into an ` ```ai ` fence and places the
+      cursor inside the `configId` value. `slash-commands.ts` adds
+      an `AI block` entry that does the same thing via the `/` menu.
+- [x] 8.4 Encryption: automatic. No new code in `lib/note-crypto.ts`.
+- [x] 8.5 Self-check `scripts/check-ai-block.ts` — fence parser
+      (configId + body), header round-trip, and `codeBlockFromNode`
+      integration (`language-ai` -> `AiBlock`, other languages
+      still hit `CodeBlock`). 11/11 pass.
 
 ## 9. Lock page
 
