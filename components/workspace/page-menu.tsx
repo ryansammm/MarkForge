@@ -16,7 +16,7 @@ import { copyToClipboard } from '@/lib/clipboard'
  * Notion has on every page:
  *  - Copy page content  (decrypted body to clipboard)
  *  - Duplicate          (creates a copy in the same folder, opens a new tab)
- *  - Move to            (folder picker scoped to the active grimoire)
+ *  - Move to            (folder picker scoped to the workspace)
  *  - Move to trash      (same flow as the sidebar Delete)
  *  - Small text / Full width (writes `view` / `width` to frontmatter)
  *  - Lock page / Import / Export
@@ -29,7 +29,7 @@ import { copyToClipboard } from '@/lib/clipboard'
 export interface PageMenuProps {
   document: MarkdownDocument
   body: string | null
-  /** Folder tree of the active grimoire. Used by the Move to picker. */
+  /** Folder tree of the workspace. Used by the Move to picker. */
   tree: FileTreeNode[]
   /** When true, the menu hides (during load / error / no document). */
   disabled?: boolean
@@ -278,7 +278,7 @@ function MenuSeparator() {
 
 /**
  * The "Move to" item hosts a nested submenu. Clicking it opens a list of
- * every folder in the active grimoire, plus the workspace root. Filtering
+ * every folder in the workspace, plus the workspace root. Filtering
  * the current document's own folder is the caller's job; here we just
  * present the candidates flat.
  */

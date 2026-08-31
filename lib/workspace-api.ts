@@ -2,7 +2,6 @@ import type { MarkdownDocument, WriteResult } from './file-store'
 import type { RenamePlan, RenameReport } from './server/rename'
 import type { TrashEntry } from './trash'
 import type { ShareScope, ShareSummary } from './share'
-import { grimoireHeaders } from './grimoire-client'
 
 /**
  * Typed client for the workspace routes.
@@ -30,7 +29,7 @@ async function request<T>(url: string, init?: RequestInit): Promise<T> {
     response = await fetch(url, {
       cache: 'no-store',
       ...init,
-      headers: { ...grimoireHeaders(), ...init?.headers },
+      headers: { ...init?.headers },
     })
   } catch (err) {
     throw new ApiError(`Could not reach the server: ${(err as Error).message}`, 0, 'NETWORK')

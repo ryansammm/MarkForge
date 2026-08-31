@@ -43,8 +43,6 @@ import {
 } from '@/lib/tabs'
 import { resolveWikiLink } from '@/lib/resolve-link'
 import { keyboardIsClaimed } from '@/lib/modal-keys'
-import { fireShortcutAction } from '@/lib/shortcut-bus'
-import { grimoireHeaders } from '@/lib/grimoire-client'
 import * as api from '@/lib/workspace-api'
 import { moveBlockBetweenDocs } from '@/lib/blocks'
 import { setFrontmatterField, setFrontmatterObject, removeFrontmatterField, frontmatterLock } from '@/lib/markdown/frontmatter'
@@ -78,8 +76,6 @@ import { PwaInstallButton } from '@/components/pwa-install'
 import { TRASH_RETENTION_DAYS } from '@/lib/trash'
 import { usePersistedFlag, usePersistedSize } from '@/lib/use-persisted'
 import { cn } from '@/lib/utils'
-import { getActiveGrimoireId, setActiveGrimoireId } from '@/lib/grimoire-client'
-
 /** The context rail's width, and the range its handle can drag through. */
 const RAIL_WIDTH = { default: 288, min: 220, max: 560 } as const
 
@@ -300,7 +296,6 @@ export function WorkspaceApp() {
   const [storageKind, setStorageKind] = useState<string | null>(null)
   /** Drawer state below md. Closed by default so a phone opens on the document. */
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [activeGrimoireId, setActiveGrimoire] = useState<string | null>(getActiveGrimoireId)
   /** Context rail, remembered across sessions and across tabs. */
   const [railOpen, setRailOpen] = usePersistedFlag('markforge:rail-open', true)
   /**
@@ -372,22 +367,6 @@ export function WorkspaceApp() {
 
   const fileStore = useMemo(() => new StaticFileStore('/api/index'), [])
 
-  // Update fileStore grimoire ID when it changes
-  useEffect(() => {
-    fileStore.setGrimoireId(activeGrimoireId)
-  }, [fileStore, activeGrimoireId])
-
-  const handleSelectGrimoire = useCallback((id: string) => {
-    // Skip if selecting the same grimoire
-    if (id === activeGrimoireId) return
-    setDevLogs([])
-    setActiveGrimoireId(id)
-    setActiveGrimoire(id)
-    // Reload index for the new grimoire
-    setIndexData(null)
-    setLoading(true)
-  }, [activeGrimoireId])
-
   /** Reading or editing, for the tab on screen. */
   const setMode = useCallback(
     (next: TabMode) => dispatchTabs({ type: 'setMode', mode: next }),
@@ -397,7 +376,7 @@ export function WorkspaceApp() {
   useEffect(() => {
     async function loadWorkspaceData() {
       try {
-        pushLog(`Fetching index${activeGrimoireId ? ` (grimoire: ${activeGrimoireId})` : ' (default)'}`)
+        pushLog('Fetching index')
         const index = await fileStore.getIndex()
         pushLog(`Index loaded: ${Object.keys(index.documents).length} docs, ${index.tree.length} tree items`)
         setIndexData(index)
@@ -415,13 +394,6 @@ export function WorkspaceApp() {
         const paths = Object.keys(index.documents)
         if (paths.length > 0) dispatchTabs({ type: 'open', path: paths[0] })
       } catch (err) {
-        // Stale grimoire ID in localStorage — clear and let GrimoireSwitcher re-select
-        if ((err as { code?: string })?.code === 'GRIMOIRE_NOT_FOUND') {
-          pushLog('Grimoire not found — clearing stale selection')
-          setActiveGrimoireId(null)
-          setActiveGrimoire(null)
-          return
-        }
         pushLog(`Error: ${err instanceof Error ? err.message : String(err)}`)
         console.error('Failed to load workspace index:', err)
       } finally {
@@ -429,7 +401,7 @@ export function WorkspaceApp() {
       }
     }
     loadWorkspaceData()
-  }, [fileStore, dispatchTabs, activeGrimoireId, pushLog])
+  }, [fileStore, dispatchTabs, pushLog])
 
   /**
    * Warns when writes will not survive.
@@ -514,10 +486,6 @@ export function WorkspaceApp() {
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault()
         openNewDocumentRef.current('')
-      }
-      if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
-        e.preventDefault()
-        fireShortcutAction('open-new-grimoire')
       }
       /*
         Opens the vault. Deliberately not a toggle, unlike Cmd+K: the passwords
@@ -1030,7 +998,7 @@ export function WorkspaceApp() {
    * is small; refetching it is the honest option.
    */
   const reloadIndex = useCallback(async () => {
-    const response = await fetch('/api/index', { cache: 'no-store', headers: grimoireHeaders() })
+    const response = await fetch('/api/index', { cache: 'no-store' })
     if (!response.ok) return
     setIndexData((await response.json()) as WorkspaceIndex)
   }, [])
@@ -1895,8 +1863,6 @@ export function WorkspaceApp() {
         onClose={() => setSidebarOpen(false)}
         width={sidebarWidth}
         onWidthChange={setSidebarWidth}
-        activeGrimoireId={activeGrimoireId}
-        onSelectGrimoire={handleSelectGrimoire}
         storageKind={storageKind}
         onCreatePageDirect={() => openNewDocument('')}
         onOpenInSidePeek={(path) => {

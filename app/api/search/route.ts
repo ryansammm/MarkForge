@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ hits: [] }, { headers: { 'Cache-Control': 'no-store' } })
     }
 
-    // Search the active grimoire (via X-Grimoire-Id / ?grimoireId), not always root.
+    // Single workspace; resolveStore kept for grep-ability.
     const store = await resolveStore(request)
     const hits = await getSearchIndex(store).query(term, limit)
     return NextResponse.json({ hits }, { headers: { 'Cache-Control': 'no-store' } })

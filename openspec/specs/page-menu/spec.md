@@ -107,14 +107,14 @@ beneath it. Picking a folder moves the document there.
 
 `Import` accepts a `.md` file via a file picker, parses the title from
 frontmatter / first H1 / filename, and creates a new page in the
-active grimoire root. `Export` writes the active document via the
+workspace root. `Export` writes the active document via the
 Electron Save-As dialog or a browser download.
 
 #### Scenario: Import creates a sibling page
 
 - **WHEN** the user picks a `.md` file from `Import`
 - **THEN** a new document is created with the parsed title as filename
-- **AND** the new document sits at the grimoire root, not as a child
+- **AND** the new document sits at the workspace root, not as a child
   of the source page
 - **AND** the editor opens the new page as the active tab
 

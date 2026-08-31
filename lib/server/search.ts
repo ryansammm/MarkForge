@@ -69,14 +69,11 @@ export class SearchIndex {
   constructor(private readonly store: WorkspaceStore) {}
 
   /**
-   * The corpus snapshot key, scoped per grimoire.
-   *
-   * Root keeps the historical `search.json`. Grimoires get their own key so their
-   * snapshots (and the shared/meta keyspace they live in) never collide with each
-   * other or with the root corpus.
+   * The corpus snapshot key. Single workspace; the historical `search.json`
+   * is kept so old snapshots still load.
    */
   private get snapshotKey(): string {
-    return this.store.grimoireId ? `_grimoires/${this.store.grimoireId}/search.json` : SEARCH_FILE
+    return SEARCH_FILE
   }
 
   /** Records a write immediately, so a document is findable the moment it is saved. */
@@ -273,26 +270,22 @@ export function snippetFor(text: string, term: string, width = 160): string {
   return `${start > 0 ? '…' : ''}${source.slice(start, end).trim()}${end < source.length ? '…' : ''}`
 }
 
-const searchIndexes = new Map<string, SearchIndex>()
+let sharedSearchIndex: SearchIndex | null = null
 
 /**
- * A search index backed by the given store, cached per grimoire (root = one entry).
- *
- * Because a grimoire has its own corpus and snapshot (see `snapshotKey`), search must
- * not share the root store's index — querying a grimoire must search that grimoire.
+ * A search index backed by the given store, cached per process. One workspace,
+ * one index; `store` is kept as a parameter so the call site can be grepped
+ * and so the test seam can swap the store.
  */
 export function getSearchIndex(store: WorkspaceStore = getStore()): SearchIndex {
-  const key = store.grimoireId ?? '__root__'
-  let index = searchIndexes.get(key)
-  if (!index) {
-    index = new SearchIndex(store)
-    searchIndexes.set(key, index)
+  if (!sharedSearchIndex) {
+    sharedSearchIndex = new SearchIndex(store)
   }
-  return index
+  return sharedSearchIndex
 }
 
 /** Test seam. */
 export function resetSearchIndex(): void {
-  for (const index of searchIndexes.values()) index.reset()
-  searchIndexes.clear()
+  sharedSearchIndex?.reset()
+  sharedSearchIndex = null
 }

@@ -11,13 +11,13 @@ the exported bytes.
 ### Requirement: Import accepts a `.md` file and creates a sibling page
 
 The file picker returns a `File`; the parser reads the bytes, picks a
-title, and creates a new page in the active grimoire. The new page is
+title, and creates a new page in the workspace. The new page is
 a sibling of the source — not a child.
 
 #### Scenario: A `.md` file becomes a new page
 
 - **WHEN** the user picks a `.md` file from the page menu's `Import`
-- **THEN** a new document is written to the active grimoire root with
+- **THEN** a new document is written to the workspace root with
   the parsed body
 - **AND** the new document's title is taken, in order, from: the file's
   `title` frontmatter, the first `# H1` line, or the filename (minus

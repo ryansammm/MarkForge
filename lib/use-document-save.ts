@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MarkdownDocument, WriteResult } from './file-store'
-import { grimoireHeaders } from './grimoire-client'
 
 /**
  * Debounced save with an honest state machine.
@@ -268,7 +267,7 @@ export function useDocumentSave({
     let chained: PendingWrite | null = null
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json', ...grimoireHeaders() }
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
       const ifMatch = job?.etag ?? etagRef.current
       if (ifMatch) headers['If-Match'] = `"${ifMatch}"`
 

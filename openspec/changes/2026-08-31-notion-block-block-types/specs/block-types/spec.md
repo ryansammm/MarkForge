@@ -156,6 +156,6 @@ of the referenced page.
 #### Scenario: chip text matches the page title
 
 - **WHEN** a block contains `[[Project Plan]]` and a page
-  titled "Project Plan" exists in the active grimoire
+  titled "Project Plan" exists in the workspace
 - **THEN** the editor renders a chip whose text is "Project
   Plan" and whose click target opens the page

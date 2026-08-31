@@ -51,8 +51,6 @@ import {
  * One implementation makes that a property of the code rather than a hope.
  */
 
-import { grimoireIndexPath } from './grimoire'
-
 export const INDEX_FILE = 'index.json'
 
 export function computeEtag(content: string): string {
@@ -90,23 +88,11 @@ export class WorkspaceStore implements WritableFileStore {
    */
   private queue: Promise<unknown> = Promise.resolve()
 
-  /**
-   * When set, all index and document operations are scoped to this grimoire.
-   * The index lives at `_grimoires/{grimoireId}/index.json` and documents are
-   * read/written under the grimoire's notes subdirectory.
-   */
-  readonly grimoireId?: string
-  /** The grimoire's folder name under notes/ — used as prefix for listKeys. */
-  readonly grimoireName?: string
+  constructor(readonly bucket: Bucket) {}
 
-  constructor(readonly bucket: Bucket, opts?: { grimoireId?: string; grimoireName?: string }) {
-    this.grimoireId = opts?.grimoireId
-    this.grimoireName = opts?.grimoireName
-  }
-
-  /** The index file path for the current grimoire (or root). */
+  /** The index file path. Single workspace; no scope to consult. */
   private indexFile(): string {
-    return this.grimoireId ? grimoireIndexPath(this.grimoireId) : INDEX_FILE
+    return INDEX_FILE
   }
 
   // --- path safety ----------------------------------------------------------
@@ -854,10 +840,7 @@ export class WorkspaceStore implements WritableFileStore {
         ensureDirectory(index.tree, folder)
       }
 
-      // When in a grimoire, only index files under that grimoire's notes directory.
-      const prefix = this.grimoireName || undefined
-
-      for (const key of await this.bucket.listKeys(prefix)) {
+      for (const key of await this.bucket.listKeys()) {
         const raw = await this.bucket.readText(key)
         if (raw === null) continue
         applyUpsert(

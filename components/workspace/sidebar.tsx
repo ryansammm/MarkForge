@@ -24,7 +24,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { FileTreeNode, MarkdownDocument } from '@/lib/file-store'
-import { grimoireHeaders } from '@/lib/grimoire-client'
 import { APP_SIGNATURE, APP_VERSION } from '@/lib/version'
 import type { OpenIntent } from '@/lib/tabs'
 import { cn } from '@/lib/utils'
@@ -32,8 +31,6 @@ import { openHandlers } from './tab-gestures'
 import { ResizeHandle } from './resize-handle'
 import { collectDroppedFiles } from './explorer-drop'
 import { usePersistedList } from '@/lib/use-persisted'
-import { onShortcutAction } from '@/lib/shortcut-bus'
-import { GrimoireSwitcher, type GrimoireSwitcherHandle } from './grimoire-switcher'
 import { SidebarPageContextMenu } from './sidebar-page-context-menu'
 
 /**
@@ -94,10 +91,6 @@ interface SidebarProps {
   /** Width in pixels, applied from md up. Below that this is a fixed-width drawer. */
   width: number
   onWidthChange: (width: number) => void
-  /** Grimoire state */
-  activeGrimoireId: string | null
-  onSelectGrimoire: (id: string) => void
-  onGrimoireCreated?: (grimoire: { id: string; name: string }) => void
   /** Backend kind from /api/health — drives the "Sync to cloud" visibility. */
   storageKind: string | null
   /** Direct create (no name dialog) for the top-level `+` popover. */
@@ -106,6 +99,7 @@ interface SidebarProps {
   onOpenInSidePeek?: (path: string) => void
   /** Open a page in a new window (Electron IPC; web fallback: new tab). */
   onOpenInNewWindow?: (path: string) => void
+  // ponytail: grimoire props removed — single workspace, no switcher.
 }
 
 /**
@@ -164,9 +158,6 @@ export function Sidebar({
   onClose,
   width,
   onWidthChange,
-  activeGrimoireId,
-  onSelectGrimoire,
-  onGrimoireCreated,
   storageKind,
   onCreatePageDirect,
   onOpenInSidePeek,
@@ -193,20 +184,6 @@ export function Sidebar({
     () => Boolean(window.markforge),
     () => false
   )
-  // Imperative handle to the grimoire switcher — the `+` button next to the
-  // grimoire name calls `requestCreate` to open the inline name input
-  // directly, without first opening the dropdown.
-  const grimoireSwitcherRef = useRef<GrimoireSwitcherHandle>(null)
-  /*
-    Cmd/Ctrl-Shift-N fires from the workspace's global keydown handler; this
-    subscription catches it and routes to the same `requestCreate` the
-    sidebar's "New grimoire" button uses.
-  */
-  useEffect(() => {
-    return onShortcutAction('open-new-grimoire', () => {
-      grimoireSwitcherRef.current?.requestCreate()
-    })
-  }, [])
   // Right-click on a folder-tree page. `null` means the menu is closed.
   const [contextMenu, setContextMenu] = useState<{ path: string; x: number; y: number } | null>(null)
 
@@ -234,7 +211,7 @@ export function Sidebar({
       )
       const response = await fetch('/api/import', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...grimoireHeaders() },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files: payload }),
       })
       if (!response.ok) {
@@ -635,13 +612,6 @@ onDrop={(event) => {
         </div>
       </header>
 
-      <GrimoireSwitcher
-        ref={grimoireSwitcherRef}
-        activeGrimoireId={activeGrimoireId}
-        onSelect={onSelectGrimoire}
-        onCreated={onGrimoireCreated ?? (() => {})}
-      />
-
       <div className="px-3 pb-3">
         <button
           type="button"
@@ -726,12 +696,8 @@ onDrop={(event) => {
         <div className="mb-2 mt-1 flex items-center justify-between gap-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Folders</span>
           {/*
-            Two affordances: `New page` writes to the active grimoire and
-            opens it as a tab; `New folder` creates a folder under the
-            active grimoire. The `New grimoire` button lives next to the
-            grimoire switcher name instead — folders are not grimoires, and
-            putting the grimoire creator in the grimoire section lets the
-            shortcut hint and the dropdown picklist share a single button.
+            Two affordances: `New page` writes to the workspace and opens
+            it as a tab; `New folder` creates a folder under the workspace.
           */}
           <div className="flex shrink-0 items-center gap-0.5">
             <button
@@ -777,7 +743,7 @@ onDrop={(event) => {
         )}
         {/*
           Import file / Import folder: pull text files from disk into the
-          active grimoire. The page menu already has an Import file action
+          workspace. The page menu already has an Import file action
           for the active page — this is the same surface, surfaced in the
           sidebar so it is reachable when no page is open.
         */}

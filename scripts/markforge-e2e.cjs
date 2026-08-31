@@ -1,20 +1,17 @@
 // MarkForge live HTTP end-to-end checks against a running dev server.
-// Verifies the multi-root grimoire fixes at the HTTP layer (not just page boot):
-//   - grimoire CRUD + isolation (doc in grimoire not visible from root)
-//   - external grimoire backed by a real folder (written in place)
-//   - search scoped to the active grimoire (X-Grimoire-Id header)
-//   - asset delivery via ?grimoireId= query param (the <img> fallback)
-//   - rename + trash restore on a grimoire doc
+// After grimoire removal: single workspace, no scoping headers, no registry.
+//   - document write/read/delete/restore
+//   - search across the workspace
+//   - asset upload + read
+//   - rename + trash restore
+//   - notion-parity §16 e2e extension: + new page, page menu Copy, standalone URL
 // Usage: node scripts/markforge-e2e.cjs
 // Requires the server up on 127.0.0.1:3457. Reads APP_PIN from .env to log in.
 const fs = require('fs')
-const os = require('os')
 const path = require('path')
 
 const BASE = process.env.MF_URL || 'http://127.0.0.1:3457'
 const ts = Date.now()
-const GRIMOIRE = `e2e-test-${ts}`
-const EXT_FOLDER = fs.mkdtempSync(path.join(os.tmpdir(), 'markforge-e2e-'))
 
 let cookie = ''
 let results = []
@@ -35,7 +32,7 @@ function loadEnvPin() {
 }
 
 async function api(method, url, { json, query, headers = {} } = {}) {
-  let h = { ...headers }
+  const h = { ...headers }
   const u = new URL(url, BASE)
   if (query) for (const [k, v] of Object.entries(query)) u.searchParams.set(k, v)
   if (cookie) h['Cookie'] = cookie
@@ -63,114 +60,72 @@ async function main() {
   check('login sets session', login.status === 200 && !!cookie, `status=${login.status}, cookie=${!!cookie}`)
   if (!cookie) return
 
-  // --- grimoire CRUD --------------------------------------------------------
-  const created = await api('POST', '/api/grimoires', { json: { name: GRIMOIRE } })
-  check('create grimoire', created.status === 201 && created.body && created.body.id, `status=${created.status}`)
-  const grimoireId = created.body?.id
-  const g = grimoireId ? { 'X-Grimoire-Id': grimoireId } : {}
+  // --- document write + read ---------------------------------------------
+  const docBody = `# Hello ${ts}\n\nThis is a workspace doc.\n`
+  const w = await api('PUT', `/api/files`, { json: { content: docBody }, query: { path: 'note.md' } })
+  check('write doc', w.status === 200, `status=${w.status}`)
 
-  const extCreated = await api('POST', '/api/grimoires', { json: { name: GRIMOIRE + '-ext', path: EXT_FOLDER } })
-  check('create external grimoire', extCreated.status === 201 && !!extCreated.body?.id, `status=${extCreated.status}`)
-  const extId = extCreated.body?.id
-  const eh = extId ? { 'X-Grimoire-Id': extId } : {}
+  const rooted = await api('GET', `/api/files`, { query: { path: 'note.md' } })
+  check('read doc', rooted.status === 200 && rooted.text.includes('workspace doc'), `status=${rooted.status}`)
 
-  // --- document write + isolation -----------------------------------------
-  const docBody = `# Hello ${ts}\n\nThis is a scoped doc.\n`
-  const w = await api('PUT', `/api/files`, { json: { content: docBody }, query: { path: 'note.md' }, headers: g })
-  check('write doc in grimoire', w.status === 200, `status=${w.status}`)
+  // --- search -------------------------------------------------------------
+  await api('PUT', `/api/files`, { json: { content: '# ZooMarks\n\nquokka polarbear nested\n' }, query: { path: 'searchable.md' } })
+  const sR = await api('GET', '/api/search', { query: { q: 'quokka' } })
+  const rHit = sR.body?.hits?.some((h) => h.path === 'searchable.md')
+  check('search finds the workspace doc', sR.status === 200 && rHit === true, `hit=${String(rHit)}`)
 
-  const rooted = await api('GET', `/api/files`, { query: { path: 'note.md' }, headers: g })
-  check('read doc from grimoire', rooted.status === 200 && rooted.text.includes('scoped doc'), `status=${rooted.status}`)
-
-  const rootRead = await api('GET', `/api/files`, { query: { path: 'note.md' } })
-  check('doc isolated from root', rootRead.status === 404, `root status=${rootRead.status}`)
-
-  // --- external grimoire: written in place ---------------------------------
-  const extBody = `# External ${ts}\n\nEdited in place.\n`
-  const extWrite = await api('PUT', `/api/files`, { json: { content: extBody }, query: { path: 'extnote.md' }, headers: eh })
-  check('write doc in external grimoire', extWrite.status === 200, `status=${extWrite.status}`)
-  const onDisk = fs.existsSync(path.join(EXT_FOLDER, 'extnote.md'))
-    ? fs.readFileSync(path.join(EXT_FOLDER, 'extnote.md'), 'utf8').includes('Edited in place')
-    : null
-  check('external grimoire file on disk (in place)', onDisk === true, `onDisk=${String(onDisk)}`)
-
-  // --- search scoping ------------------------------------------------------
-  await api('PUT', `/api/files`, { json: { content: '# ZooMarks\n\nquokka polarbear nested\n' }, query: { path: 'searchable.md' }, headers: g })
-  const sG = await api('GET', '/api/search', { query: { q: 'quokka' }, headers: g })
-  const sRoot = await api('GET', '/api/search', { query: { q: 'quokka' } })
-  const gHit = sG.body?.hits?.some((h) => h.path === 'searchable.md')
-  const rootHit = sRoot.body?.hits?.some((h) => h.path === 'searchable.md')
-  check('search scoped to grimoire', sG.status === 200 && gHit === true, `grimoireHit=${String(gHit)}`)
-  check('search not leaking to root', sRoot.status === 200 && rootHit === false, `rootHit=${String(rootHit)}`)
-
-  // --- asset delivery via ?grimoireId= (the <img> fallback) ----------------
+  // --- asset upload + read ------------------------------------------------
   const png = Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d4944415478da63fcffff3f030005fe02fea73fbe2f0000000049454e44ae426082', 'hex')
   const fd = new FormData()
   fd.append('file', new Blob([png], { type: 'image/png' }), 'img.png')
-  const up = await fetch(`${BASE}/api/assets`, { method: 'POST', headers: { Cookie: cookie, ...g }, body: fd })
+  const up = await fetch(`${BASE}/api/assets`, { method: 'POST', headers: { Cookie: cookie }, body: fd })
   const upJson = await up.json()
   const assetPath = upJson?.path
-  check('upload asset to grimoire', up.status === 201 && !!assetPath, `status=${up.status}, path=${assetPath}`)
+  check('upload asset', up.status === 201 && !!assetPath, `status=${up.status}, path=${assetPath}`)
 
   if (assetPath) {
-    // header-only fetch
-    const viaHeader = await fetch(`${BASE}/api/assets?path=${encodeURIComponent(assetPath)}`, { headers: { Cookie: cookie, ...g } })
-    // query-param fetch (what an <img> can actually do — no header)
-    const viaQuery = await fetch(`${BASE}/api/assets?path=${encodeURIComponent(assetPath)}&grimoireId=${encodeURIComponent(grimoireId)}`, { headers: { Cookie: cookie } })
-    check('asset via header', viaHeader.status === 200 && viaHeader.headers.get('content-type') === 'image/png', `status=${viaHeader.status}`)
-    check('asset via ?grimoireId query param', viaQuery.status === 200 && viaQuery.headers.get('content-type') === 'image/png', `status=${viaQuery.status}`)
+    const viaHeader = await fetch(`${BASE}/api/assets?path=${encodeURIComponent(assetPath)}`, { headers: { Cookie: cookie } })
+    check('asset read via header', viaHeader.status === 200 && viaHeader.headers.get('content-type') === 'image/png', `status=${viaHeader.status}`)
   }
 
-  // --- rename + trash restore ----------------------------------------------
-  const rn = await api('POST', '/api/rename', { json: { from: 'note.md', to: 'renamed.md' }, headers: g })
-  check('rename doc in grimoire', rn.status === 200, `status=${rn.status}`)
-  const renamed = await api('GET', `/api/files`, { query: { path: 'renamed.md' }, headers: g })
+  // --- rename + trash restore --------------------------------------------
+  const rn = await api('POST', '/api/rename', { json: { from: 'note.md', to: 'renamed.md' } })
+  check('rename doc', rn.status === 200, `status=${rn.status}`)
+  const renamed = await api('GET', `/api/files`, { query: { path: 'renamed.md' } })
   check('renamed doc readable', renamed.status === 200, `status=${renamed.status}`)
 
-  const del = await api('DELETE', `/api/files`, { query: { path: 'renamed.md' }, headers: g })
+  const del = await api('DELETE', `/api/files`, { query: { path: 'renamed.md' } })
   check('delete doc', del.status === 200 && !!del.body?.trashId, `status=${del.status}`)
   const trashId = del.body?.trashId
   if (trashId) {
-    const tr = await api('POST', '/api/trash', { json: { id: trashId, action: 'restore' }, headers: g })
+    const tr = await api('POST', '/api/trash', { json: { id: trashId, action: 'restore' } })
     check('trash restore', tr.status === 200, `status=${tr.status}`)
   }
 
-  // --- notion-parity §16 e2e extension --------------------------------------
-  // These are HTTP-level checks that back the §1-§15 UI flows. The flows
-  // themselves are client-side (slash menu, page menu Copy, the desktop
-  // tab bar's React state); what we can reach from fetch is the storage
-  // round-trip and the standalone URL the Electron tab-bar IPC opens.
-
+  // --- notion-parity §16 e2e extension ------------------------------------
   // `+ New page` in the sidebar popover: PUT creates a document, the UI
   // then dispatches it as the active tab.
   const newPath = `e2e-newpage-${ts}.md`
   const newBody = `# Created via + popover\n\n${ts}\n`
-  const np = await api('PUT', `/api/files`, { json: { content: newBody }, query: { path: newPath }, headers: g })
+  const np = await api('PUT', `/api/files`, { json: { content: newBody }, query: { path: newPath } })
   check('+ new page: PUT creates a fresh document', np.status === 200, `status=${np.status}`)
-  const npRead = await api('GET', `/api/files`, { query: { path: newPath }, headers: g })
+  const npRead = await api('GET', `/api/files`, { query: { path: newPath } })
   check('+ new page: round-trip reads the body back', npRead.status === 200 && npRead.text.includes(String(ts)), `status=${npRead.status}`)
 
   // Page menu "Copy": GET the source, PUT to a new path.
-  // `npRead.body.raw` is the on-disk file; `npRead.text` is the JSON envelope.
   const copyPath = `e2e-copy-${ts}.md`
-  const copyResp = await api('PUT', `/api/files`, { json: { content: npRead.body.raw }, query: { path: copyPath }, headers: g })
+  const copyResp = await api('PUT', `/api/files`, { json: { content: npRead.body.raw }, query: { path: copyPath } })
   check('page menu Copy: GET+PUT duplicates the document', copyResp.status === 200, `status=${copyResp.status}`)
-  const copyRead = await api('GET', `/api/files`, { query: { path: copyPath }, headers: g })
+  const copyRead = await api('GET', `/api/files`, { query: { path: copyPath } })
   check('page menu Copy: duplicate has the same body', copyRead.body?.raw === npRead.body.raw, 'body mismatch')
 
-  // Standalone URL — what `electron/main.cjs` opens for `Open in new window`
-  // and what the desktop tab bar's IPC would issue. The query params are
-  // unencrypted (this is a single-user local app), so the path is visible
-  // to anyone with the URL; the workspace reads them on mount.
+  // Standalone URL — what `electron/main.cjs` opens for `Open in new window`.
   const standalone = await fetch(`${BASE}/?path=${encodeURIComponent(newPath)}&standalone=1`, { headers: { Cookie: cookie } })
   check('desktop tab bar: standalone URL loads the workspace', standalone.status === 200, `status=${standalone.status}`)
 
-  // --- cleanup ---------------------------------------------------------------
-  if (newPath) await api('DELETE', `/api/files`, { query: { path: newPath }, headers: g })
-  if (copyPath) await api('DELETE', `/api/files`, { query: { path: copyPath }, headers: g })
-  if (extId) await api('DELETE', `/api/grimoires/${extId}`)
-  if (grimoireId) await api('DELETE', `/api/grimoires/${grimoireId}`)
-  try { fs.rmSync(EXT_FOLDER, { recursive: true, force: true }) } catch {}
+  // --- cleanup -------------------------------------------------------------
+  if (newPath) await api('DELETE', `/api/files`, { query: { path: newPath } })
+  if (copyPath) await api('DELETE', `/api/files`, { query: { path: copyPath } })
   await api('DELETE', '/api/auth')
 
   const failed = results.filter((r) => !r.ok)
@@ -180,6 +135,5 @@ async function main() {
 
 main().catch((e) => {
   console.error('E2E FAILED:', e)
-  try { fs.rmSync(EXT_FOLDER, { recursive: true, force: true }) } catch {}
   process.exit(1)
 })

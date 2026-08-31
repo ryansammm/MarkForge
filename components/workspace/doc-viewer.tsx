@@ -58,7 +58,7 @@ interface DocViewerProps {
    */
   scrollFor?: (path: string) => number
   onScroll?: (path: string, top: number) => void
-  /** Folder tree of the active grimoire. The `⋯` menu now lives in the editor header,
+  /** Folder tree of the workspace. The `⋯` menu now lives in the editor header,
       not in the viewer; this is still passed so any future side-peek viewer that wants
       the same menu has the data. */
   tree: FileTreeNode[]

@@ -31,7 +31,7 @@ transform.
   longer falls back to `FsBucket` — it requires `R2_*` env vars and
   throws a clear error otherwise. `lib/server/fs-bucket.ts` is
   retained for tests that exercise it directly (it is a `Bucket`
-  implementation, used by `tests/{backend,assets,grimoire-scope,
+  implementation, used by `tests/{backend,assets,
   data-safety,rename,vault,store}.test.ts` and as a backend in the
   backend-conformance suite). The Electron shell's
   `%APPDATA%\MarkForge` user-data directory is no longer written to.
