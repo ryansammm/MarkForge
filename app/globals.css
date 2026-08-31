@@ -218,6 +218,13 @@
 
 /* A wide table must scroll inside the document, not widen the page. */
 .prose :where(table) { @apply block w-full overflow-x-auto text-sm; }
+/* Notion-style table cells: thin border, comfortable padding, muted
+   header row. The borders sit on the cell, not the table, so wide
+   tables scroll cleanly inside their overflow container. */
+.prose :where(thead) { @apply border-b border-border; }
+.prose :where(th) { @apply px-3 py-2 text-left font-semibold text-foreground bg-muted/40; }
+.prose :where(td) { @apply px-3 py-2 align-top border-b border-border/60; }
+.prose :where(tr:last-child td) { @apply border-b-0; }
 
 /*
   Room above a heading the outline just jumped to, so it does not sit flush against

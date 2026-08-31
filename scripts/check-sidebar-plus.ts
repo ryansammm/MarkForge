@@ -124,8 +124,8 @@ check(
 // --- workspace-app wiring ------------------------------------------------
 
 check(
-  'workspace-app wires onCreatePageDirect to createDocumentAt',
-  /onCreatePageDirect=\{\(\) => void createDocumentAt\(/.test(workspaceApp)
+  'workspace-app wires onCreatePageDirect to openNewDocument',
+  /onCreatePageDirect=\{\(\) => openNewDocument\(/.test(workspaceApp)
 )
 check(
   'workspace-app wires onImportFile + onImportFolder',
@@ -142,8 +142,8 @@ check(
   /dispatchTabs\(\{ type: 'open', path, newTab: true/.test(workspaceApp)
 )
 check(
-  'workspace-app Mod-N fires createDocumentAt via ref',
-  /createDocumentAtRef\.current\(/.test(workspaceApp)
+  'workspace-app Mod-N fires openNewDocument via ref',
+  /openNewDocumentRef\.current\(/.test(workspaceApp)
 )
 check(
   'workspace-app Mod-Shift-N fires open-new-grimoire via shortcut bus',
