@@ -13,14 +13,15 @@ function LoginForm() {
   const searchParams = useSearchParams()
   const from = searchParams.get('from') || '/'
 
-  async function submit() {
+  async function submit(pinToSend?: string) {
+    const value = pinToSend ?? pin
     setError('')
     setLoading(true)
     try {
       const res = await fetch('/api/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pin }),
+        body: JSON.stringify({ pin: value }),
       })
       if (res.ok) {
         router.push(from)
@@ -54,11 +55,10 @@ function LoginForm() {
 
       <PinKeypad
         value={pin}
-        onChange={setPin}
-        onSubmit={() => {
-          if (!loading && pin.length === 6) void submit()
+        onChange={(next) => {
+          setPin(next)
+          if (!loading && next.length === 6) void submit(next)
         }}
-        label="PIN"
         placeholder="······"
         error={error || null}
         disabled={loading}
@@ -73,7 +73,7 @@ function LoginForm() {
       */}
       <p className="text-center text-[11px] text-muted-foreground">
         First time using the app? Leave the PIN as the default{' '}
-        <span className="font-mono font-medium text-foreground">123456</span>{' '}
+        <span className="font-mono font-medium text-foreground">123098</span>{' '}
         unless you have set one in Settings.
       </p>
 

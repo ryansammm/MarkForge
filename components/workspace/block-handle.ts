@@ -60,7 +60,9 @@ class BlockHandleWidget extends WidgetType {
     readonly to: number,
     /** Full paragraph range (may span multiple lines), used for drag. */
     readonly blockFrom: number,
-    readonly blockTo: number
+    readonly blockTo: number,
+    /** Pixel height of the full block, used to vertically center the handle. */
+    readonly blockHeightPx: number
   ) {
     super()
   }
@@ -77,6 +79,9 @@ class BlockHandleWidget extends WidgetType {
   toDOM(): HTMLElement {
     const wrap = document.createElement('span')
     wrap.className = 'cm-block-handle'
+    // The handle's height matches the block so `align-items: center` lands
+    // the icons on the block's vertical middle, not just the first line.
+    if (this.blockHeightPx > 0) wrap.style.height = `${this.blockHeightPx}px`
     wrap.setAttribute('aria-label', 'Block actions')
 
     const plus = document.createElement('button')
@@ -188,13 +193,20 @@ function buildDecorations(view: EditorView): DecorationSet {
     const blockText = state.doc.sliceString(blockFrom, blockTo)
     lastDragText = blockText
 
+    // Pixel height of the full block, used to center the handle on the
+    // block's middle, not just the first line.
+    const top = view.coordsAtPos(blockFrom)
+    const bottom = view.coordsAtPos(blockTo)
+    const blockHeightPx = top && bottom ? Math.max(0, bottom.bottom - top.top) : 0
+
     const widget = new BlockHandleWidget(
       blockIndex,
       block.meta.id,
       firstLine.from,
       firstLine.to,
       blockFrom,
-      blockTo
+      blockTo,
+      blockHeightPx
     )
     builder.add(firstLine.from, firstLine.from, Decoration.widget({ widget, side: -1 }))
     blockIndex++

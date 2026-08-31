@@ -19,7 +19,14 @@ import { APP_PIN_LENGTH } from '@/lib/app-settings-shared'
 export interface PinKeypadProps {
   value: string
   onChange: (value: string) => void
-  label: string
+  /**
+   * Optional form label rendered above the cells. The login page omits this —
+   * its card already says "Enter your 6-digit PIN…" — so the label would only
+   * repeat the obvious. The PIN-change page keeps its "Current PIN" /
+   * "New PIN" labels because there the same shape appears twice in a row
+   * and the label is the only thing telling them apart.
+   */
+  label?: string
   /**
    * Visual hint shown in each empty cell. Defaults to a neutral dot per
    * cell — putting the real default in here would teach a shoulder surfer
@@ -30,8 +37,8 @@ export interface PinKeypadProps {
   autoFocus?: boolean
   error?: string | null
   disabled?: boolean
-  /** Fires when all 6 cells are filled. */
-  onSubmit?: () => void
+  /** Fires when all 6 cells are filled, with the just-completed value. */
+  onSubmit?: (value: string) => void
 }
 
 export function PinKeypad({
@@ -44,6 +51,8 @@ export function PinKeypad({
   disabled = false,
   onSubmit,
 }: PinKeypadProps) {
+  // ponytail: `label` falls through to `aria-label` on each cell when omitted,
+  // so screen readers still get "PIN digit 1…6" without a visible label.
   const refs = useRef<Array<HTMLInputElement | null>>([])
 
   useEffect(() => {
@@ -55,11 +64,12 @@ export function PinKeypad({
     const next = (value.padEnd(APP_PIN_LENGTH, ' ').split('').slice(0, APP_PIN_LENGTH) as string[])
       .map((c) => (c === ' ' ? '' : c))
     next[index] = char
-    onChange(next.join('').slice(0, APP_PIN_LENGTH))
+    const joined = next.join('').slice(0, APP_PIN_LENGTH)
+    onChange(joined)
     if (char && index < APP_PIN_LENGTH - 1) {
       refs.current[index + 1]?.focus()
     }
-    if (next.every((c) => c) && onSubmit) onSubmit()
+    if (next.every((c) => c) && onSubmit) onSubmit(joined)
   }
 
   function handleChange(index: number, e: React.ChangeEvent<HTMLInputElement>) {
@@ -67,10 +77,11 @@ export function PinKeypad({
     if (raw.length > 1) {
       // Pasted or autofilled — fill the row from the right.
       const digits = raw.slice(-APP_PIN_LENGTH).split('')
-      onChange(digits.join(''))
+      const joined = digits.join('')
+      onChange(joined)
       const focusIndex = Math.min(digits.length, APP_PIN_LENGTH) - 1
       refs.current[focusIndex]?.focus()
-      if (digits.length === APP_PIN_LENGTH && onSubmit) onSubmit()
+      if (digits.length === APP_PIN_LENGTH && onSubmit) onSubmit(joined)
       return
     }
     setCell(index, raw)
@@ -94,7 +105,9 @@ export function PinKeypad({
 
   return (
     <div className="space-y-2">
-      <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+      {label ? (
+        <label className="block text-xs font-medium text-muted-foreground">{label}</label>
+      ) : null}
       <div className="flex justify-center gap-2">
         {cells.map((i) => (
           <input
@@ -112,7 +125,7 @@ export function PinKeypad({
             onChange={(e) => handleChange(i, e)}
             onKeyDown={(e) => handleKeyDown(i, e)}
             onFocus={(e) => e.currentTarget.select()}
-            aria-label={`${label} digit ${i + 1}`}
+            aria-label={`${label ?? 'PIN'} digit ${i + 1}`}
             className={cn(
               'h-12 w-10 rounded-md border bg-background text-center text-lg font-medium tabular-nums',
               'outline-none ring-primary/20 focus:border-primary focus:ring-2',

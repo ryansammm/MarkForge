@@ -62,7 +62,7 @@ export default function PinSettingsPage() {
     return null
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(value?: string) {
     setError(null)
     if (stage === 'idle') {
       setStage('verifying')
@@ -70,7 +70,7 @@ export default function PinSettingsPage() {
         const res = await fetch('/api/auth', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin: currentPin }),
+          body: JSON.stringify({ pin: value ?? currentPin }),
         })
         if (!res.ok) {
           setError('Current PIN is incorrect.')
@@ -91,7 +91,7 @@ export default function PinSettingsPage() {
         const res = await fetch('/api/settings/pin', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pin: newPin }),
+          body: JSON.stringify({ pin: value ?? newPin }),
         })
         if (!res.ok) {
           const data = await res.json().catch(() => ({}))

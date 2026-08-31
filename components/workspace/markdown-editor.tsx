@@ -311,6 +311,7 @@ const editorTheme = EditorView.theme({
   '.cm-block-handle': {
     position: 'absolute',
     left: '-2px',
+    top: '0',
     display: 'flex',
     flexDirection: 'row',
     alignItems: 'center',
@@ -320,7 +321,7 @@ const editorTheme = EditorView.theme({
     userSelect: 'none',
     transition: 'opacity 100ms ease',
     fontSize: '13px',
-    lineHeight: 'inherit',
+    lineHeight: '1',
     pointerEvents: 'auto',
   },
   '.cm-block-handle-plus, .cm-block-handle-grip': {
