@@ -105,7 +105,9 @@ handle, anchored to the left edge of the editor pane.
 The menu contains these items:
 
 - Turn into (submenu): Text, Heading 1, Heading 2, Heading 3, Heading 4,
-  Bulleted list, Numbered list, To-do list, Quote, Code.
+  Bulleted list, Numbered list, To-do list, Toggle list, Callout,
+  Toggle heading 1, Toggle heading 2, Toggle heading 3, Toggle heading
+  4, Quote, Code, Divider.
 - Color (submenu): Default, Gray, Brown, Orange, Yellow, Green, Blue,
   Purple, Pink, Red. Submenu of background colors too (Default, Gray,
   Brown, Orange, Yellow, Green, Blue, Purple, Pink, Red).
@@ -132,6 +134,18 @@ The menu contains these items:
 
 - **WHEN** a multi-line block is turned into a bulleted list
 - **THEN** every non-blank line of the block gets `- ` prepended
+
+#### Scenario: Turn into a divider drops the body
+
+- **WHEN** a non-empty text block is turned into a Divider
+- **THEN** the block's body becomes the single line `---` (the
+  original text is dropped)
+
+#### Scenario: Turn into a toggle heading sets the meta flag
+
+- **WHEN** a heading is turned into Toggle heading N (N in 1..4)
+- **THEN** the markdown prefix is preserved (`# `, `## `, ...)
+- **AND** the trailing block comment gains `type:toggle_hN`
 
 #### Scenario: Color stores inline meta
 

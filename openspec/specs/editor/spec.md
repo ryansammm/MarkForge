@@ -100,3 +100,50 @@ reading view does not require the passphrase.
   (kdf, salt, iterations, or hash)
 - **THEN** `frontmatterLock` returns `null`
 - **AND** the editor mounts without prompting
+
+### Requirement: New-page modal routes through `openNewDocument`
+
+The sidebar's `+ New page` button and the `Mod-N` keymap both
+invoke the same `openNewDocument('')` callback. The callback is
+exposed via a ref (`openNewDocumentRef`) that is mirrored from
+the `useCallback` so the keydown handler can reference the
+function before its declaration.
+
+#### Scenario: Mod-N opens the new-page modal
+
+- **WHEN** the editor has focus and `Mod-N` is pressed
+- **THEN** the new-page modal opens with the same behaviour as
+  the sidebar's `+ New page`
+
+#### Scenario: ref mirrors the latest callback
+
+- **WHEN** `openNewDocument` is recreated by React
+- **THEN** `openNewDocumentRef.current` points at the latest
+  closure (no stale reference)
+
+### Requirement: Page-ref chip for wikilinks
+
+A `[[Page Title]]` wikilink in a block renders as a chip in the
+editor and as a link in the reader. The chip's text is the page
+title; the chip's click target is the workspace-relative path
+of the referenced page.
+
+#### Scenario: chip text matches the page title
+
+- **WHEN** a block contains `[[Project Plan]]` and a page
+  titled "Project Plan" exists in the active grimoire
+- **THEN** the editor renders a chip whose text is "Project
+  Plan" and whose click target opens the page
+
+### Requirement: `requireRange` is null-safe
+
+Editor commands that need a non-collapsed selection do not
+crash when the active selection is collapsed. They either no-op
+or fall back to single-cursor behaviour.
+
+#### Scenario: collapsed selection on a range-only command
+
+- **WHEN** the user invokes a command that requires a range
+  (e.g. a transform over a selection) and the active selection
+  is collapsed
+- **THEN** the command is a no-op; no exception is raised
