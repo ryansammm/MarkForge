@@ -44,34 +44,42 @@ class PageRefWidget extends WidgetType {
 }
 
 function build(view: EditorView): DecorationSet {
-  const builder = new RangeSetBuilder<Decoration>()
   const text = view.state.doc.toString()
-  const activeRanges = view.state.selection.ranges
-  // The block model splits on blank lines; we only need to know whether
-  // a match is on the cursor's line, so re-derive the line of every
-  // match.
-  const lines = new Map<number, number>() // from -> lineFrom
-  for (const r of activeRanges) {
-    const line = view.state.doc.lineAt(r.from)
-    lines.set(line.from, line.from)
+  const activeLines = new Set<number>()
+  for (const r of view.state.selection.ranges) {
+    activeLines.add(view.state.doc.lineAt(r.from).from)
   }
 
+  const entries: { from: number; to: number; deco: Decoration }[] = []
   WIKILINK_RE.lastIndex = 0
   let match: RegExpExecArray | null
   while ((match = WIKILINK_RE.exec(text)) !== null) {
     const start = match.index
     const end = start + match[0].length
     const line = view.state.doc.lineAt(start)
-    if (lines.has(line.from)) continue
+    if (activeLines.has(line.from)) continue
 
     const label = (match[1] ?? '').trim() || 'Untitled'
-    builder.add(start, end, Decoration.mark({ class: 'cm-page-ref-hidden' }))
-    builder.add(
-      line.from,
-      line.from,
-      Decoration.widget({ widget: new PageRefWidget(label, start, end), side: -1, block: false })
-    )
+    entries.push({
+      from: start,
+      to: end,
+      deco: Decoration.mark({ class: 'cm-page-ref-hidden' }),
+    })
+    entries.push({
+      from: line.from,
+      to: line.from,
+      deco: Decoration.widget({
+        widget: new PageRefWidget(label, start, end),
+        side: -1,
+        block: false,
+      }),
+    })
   }
+  // ponytail: sort by [from, startSide] to satisfy RangeSetBuilder's contract.
+  // startSide comes from the Decoration itself: widget side -1 → -1, mark → 0.
+  entries.sort((a, b) => a.from - b.from || a.deco.startSide - b.deco.startSide)
+  const builder = new RangeSetBuilder<Decoration>()
+  for (const e of entries) builder.add(e.from, e.to, e.deco)
   void splitBlocks
   return builder.finish()
 }
