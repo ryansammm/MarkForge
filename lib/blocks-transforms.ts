@@ -1,7 +1,7 @@
 import { EditorState, Text } from '@codemirror/state'
 import type { TransactionSpec } from '@codemirror/state'
 import { copyToClipboard } from './clipboard'
-import { detectBlockType, ensureBlockHasId, formatBlockMeta, joinBlocks, newBlockId, retypeBlock, splitBlocks, wordCount } from './blocks'
+import { detectBlockType, ensureBlockHasId, formatBlockMeta, joinBlocks, newBlockId, retypeBlock, splitBlocks, wordCount, blockTypeLabel as blockTypeLabelByTypeFromBlocks } from './blocks'
 import type { BlockColor } from './blocks'
 
 /**
@@ -113,11 +113,15 @@ export function turnInto(state: EditorState, type: ReturnType<typeof detectBlock
   if (!range || range.text === '') return null
   const blocks = splitBlocks(range.text)
   const retried = blocks.map((b) => {
-    const lines = type === 'toggle_list' ? b.lines : retypeBlock(b.lines, type)
+    // `toggle_list` and the four `toggle_h{1..4}` kinds ride on a
+    // normal markdown line (bullet or heading); the only difference
+    // is the `type:` meta flag. Everything else is a prefix swap.
+    const isToggle = type === 'toggle_list' || /^toggle_h[1-4]$/.test(type)
+    const lines = isToggle ? b.lines : retypeBlock(b.lines, type)
     const meta = { ...b.meta }
-    if (type === 'toggle_list') {
+    if (isToggle) {
       if (!meta.id) meta.id = newBlockId()
-      meta.type = 'toggle_list'
+      meta.type = type as 'toggle_list' | 'toggle_h1' | 'toggle_h2' | 'toggle_h3' | 'toggle_h4'
     } else if (meta.type) {
       delete meta.type
     }
@@ -216,25 +220,18 @@ export function blockTypeLabel(state: EditorState): string {
   const range = blockRangeAt(state)
   if (!range) return 'Text'
   const blocks = splitBlocks(range.text)
-  const type = detectBlockType(blocks[0]?.lines ?? ['text'])
-  return blockTypeLabelByType(type)
-}
-
-function blockTypeLabelByType(type: ReturnType<typeof detectBlockType>): string {
-  switch (type) {
-    case 'text': return 'Text'
-    case 'h1': return 'Heading 1'
-    case 'h2': return 'Heading 2'
-    case 'h3': return 'Heading 3'
-    case 'h4': return 'Heading 4'
-    case 'bullet': return 'Bulleted list'
-    case 'numbered': return 'Numbered list'
-    case 'todo': return 'To-do list'
-    case 'quote': return 'Quote'
-    case 'callout': return 'Callout'
-    case 'toggle_list': return 'Toggle list'
-    case 'code': return 'Code'
+  const first = blocks[0]
+  // A `toggle_h{1..4}` block is line-shape-identical to a plain
+  // heading — the disambiguation lives in the `type:` meta. The
+  // toggle_list case is different (a `- ` bullet is a bullet unless
+  // the meta overrides), but for consistency we also lift it from
+  // meta when present.
+  const metaType = first?.meta.type
+  if (metaType === 'toggle_h1' || metaType === 'toggle_h2' || metaType === 'toggle_h3' || metaType === 'toggle_h4' || metaType === 'toggle_list') {
+    return blockTypeLabelByTypeFromBlocks(metaType)
   }
+  const type = detectBlockType(first?.lines ?? ['text'])
+  return blockTypeLabelByTypeFromBlocks(type)
 }
 
 /** Word count for the cursor block (the first block in the range). */

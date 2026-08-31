@@ -37,7 +37,7 @@ import { cn } from '@/lib/utils'
  *   brief inline explanation rather than the action.
  */
 
-type BlockKind = 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'numbered' | 'todo' | 'toggle_list' | 'callout' | 'quote' | 'code'
+type BlockKind = import('@/lib/blocks').BlockKind
 
 interface MenuAction {
   /** Stable id used by tests and the focus trap. */
@@ -101,9 +101,14 @@ const TURN_INTO: { type: BlockKind; label: string; search: string[] }[] = [
   { type: 'numbered', label: 'Numbered list', search: ['numbered', 'list', 'ol'] },
   { type: 'todo', label: 'To-do list', search: ['to-do', 'todo', 'task', 'checkbox'] },
   { type: 'toggle_list', label: 'Toggle list', search: ['toggle', 'collapsible', 'details', 'disclosure'] },
+  { type: 'toggle_h1', label: 'Toggle heading 1', search: ['toggle heading 1', 'toggle h1', 'collapsible heading'] },
+  { type: 'toggle_h2', label: 'Toggle heading 2', search: ['toggle heading 2', 'toggle h2'] },
+  { type: 'toggle_h3', label: 'Toggle heading 3', search: ['toggle heading 3', 'toggle h3'] },
+  { type: 'toggle_h4', label: 'Toggle heading 4', search: ['toggle heading 4', 'toggle h4'] },
   { type: 'callout', label: 'Callout', search: ['callout', 'admonition', 'note', 'warning'] },
   { type: 'quote', label: 'Quote', search: ['quote', 'blockquote'] },
   { type: 'code', label: 'Code', search: ['code', 'fence', 'pre'] },
+  { type: 'divider', label: 'Divider', search: ['divider', 'hr', 'horizontal rule', 'separator'] },
 ]
 
 const COLORS: BlockColor[] = [...BLOCK_COLORS]

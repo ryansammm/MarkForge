@@ -35,7 +35,7 @@ export interface BlockMeta {
    * a free-form string to avoid widening the union every time a
    * new kind joins the menu.
    */
-  type?: 'toggle_list'
+  type?: 'toggle_list' | 'toggle_h1' | 'toggle_h2' | 'toggle_h3' | 'toggle_h4'
   /**
    * Toggle-list state. Absent = open (the default for new blocks,
    * matches the read view's native <details open>); the string
@@ -142,7 +142,9 @@ function parseKeys(id: string, rest: string | undefined): BlockMeta {
     const [k, v] = part.split(':')
     if (k === 'color' && v) meta.color = v
     else if (k === 'bg' && v) meta.bg = v
-    else if (k === 'type' && v === 'toggle_list') meta.type = 'toggle_list'
+    else if (k === 'type' && (v === 'toggle_list' || v === 'toggle_h1' || v === 'toggle_h2' || v === 'toggle_h3' || v === 'toggle_h4')) {
+      meta.type = v
+    }
   }
   return meta
 }
@@ -236,9 +238,26 @@ export function ensureBlockHasId(paragraph: string): { text: string; meta: Block
  * specialisation of the `> ` quote; without this branch a callout
  * would just read as a quote.
  */
-export function detectBlockType(
-  lines: string[]
-): 'text' | 'h1' | 'h2' | 'h3' | 'h4' | 'bullet' | 'numbered' | 'todo' | 'quote' | 'callout' | 'toggle_list' | 'code' {
+export type BlockKind =
+  | 'text'
+  | 'h1'
+  | 'h2'
+  | 'h3'
+  | 'h4'
+  | 'bullet'
+  | 'numbered'
+  | 'todo'
+  | 'quote'
+  | 'callout'
+  | 'toggle_list'
+  | 'toggle_h1'
+  | 'toggle_h2'
+  | 'toggle_h3'
+  | 'toggle_h4'
+  | 'code'
+  | 'divider'
+
+export function detectBlockType(lines: string[]): BlockKind {
   const first = lines[0] ?? ''
   if (/^```/.test(first)) return 'code'
   if (/^# /.test(first)) return 'h1'
@@ -250,10 +269,11 @@ export function detectBlockType(
   if (/^\d+\. /.test(first)) return 'numbered'
   if (/^> \[!(info|warn|warning|danger|success)\] /.test(first)) return 'callout'
   if (/^> /.test(first)) return 'quote'
+  if (/^---+$/.test(first.trim())) return 'divider'
   return 'text'
 }
 
-export function blockTypeLabel(type: ReturnType<typeof detectBlockType>): string {
+export function blockTypeLabel(type: BlockKind): string {
   switch (type) {
     case 'text': return 'Text'
     case 'h1': return 'Heading 1'
@@ -266,11 +286,16 @@ export function blockTypeLabel(type: ReturnType<typeof detectBlockType>): string
     case 'quote': return 'Quote'
     case 'callout': return 'Callout'
     case 'toggle_list': return 'Toggle list'
+    case 'toggle_h1': return 'Toggle heading 1'
+    case 'toggle_h2': return 'Toggle heading 2'
+    case 'toggle_h3': return 'Toggle heading 3'
+    case 'toggle_h4': return 'Toggle heading 4'
     case 'code': return 'Code'
+    case 'divider': return 'Divider'
   }
 }
 
-const PREFIX_BY_TYPE: Record<ReturnType<typeof detectBlockType>, string> = {
+const PREFIX_BY_TYPE: Record<BlockKind, string> = {
   text: '',
   h1: '# ',
   h2: '## ',
@@ -282,7 +307,12 @@ const PREFIX_BY_TYPE: Record<ReturnType<typeof detectBlockType>, string> = {
   quote: '> ',
   callout: '> [!info] ',
   toggle_list: '- ',
+  toggle_h1: '# ',
+  toggle_h2: '## ',
+  toggle_h3: '### ',
+  toggle_h4: '#### ',
   code: '```',
+  divider: '---',
 }
 
 const NUMBERED_RE = /^\d+\. /
@@ -318,7 +348,21 @@ export function retypeBlock(lines: string[], type: ReturnType<typeof detectBlock
   if (type === 'callout') {
     return stripped.map((line) => (line.length === 0 ? '' : `> [!info] ${line}`))
   }
+  // A divider is a single `---` line — no body. Discarding the
+  // existing line content is the Notion behaviour: turn-into-divider
+  // is a structural change, not a reformat of the current prose.
+  // Symmetrically, converting a divider to any text kind drops the
+  // `---` line so the result is empty body.
+  if (type === 'divider') {
+    return ['---']
+  }
   const prefix = PREFIX_BY_TYPE[type]
+  // When converting FROM a divider (a single `---` line that stripPrefix
+  // did not touch), discard it. The other path adds the new prefix to
+  // every stripped line.
+  if (lines.length === 1 && /^---+$/.test(lines[0].trim())) {
+    return []
+  }
   return stripped.map((line) => (line.length === 0 ? '' : `${prefix}${line}`))
 }
 

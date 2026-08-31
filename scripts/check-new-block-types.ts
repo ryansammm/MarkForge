@@ -111,6 +111,53 @@ check(
   bulletRound
 )
 
+// --- divider (notion §20) -----------------------------------------
+check('detect divider on `---` line', detectBlockType(['---']) === 'divider')
+check(
+  'detect divider on `--- ` with trailing space',
+  detectBlockType(['--- ']) === 'divider'
+)
+const dividerOut = retypeBlock(['some paragraph body'], 'divider')
+check(
+  'retypeBlock: text → divider drops the body and emits `---`',
+  dividerOut.length === 1 && dividerOut[0] === '---',
+  JSON.stringify(dividerOut)
+)
+check(
+  'retypeBlock: divider → text emits empty body',
+  retypeBlock(['---'], 'text').join('\n') === '',
+  retypeBlock(['---'], 'text').join('\n')
+)
+
+// --- toggle heading 1..4 (notion §20) -----------------------------
+check(
+  'detect toggle_h2: `## text` line still reads as h2 (meta disambiguates)',
+  detectBlockType(['## Section']) === 'h2'
+)
+check(
+  'parseBlockMeta reads `type:toggle_h2`',
+  splitBlocks('## Section\n<!-- mkf:b:abc type:toggle_h2 -->')[0].meta.type === 'toggle_h2'
+)
+const toggleH2 = retypeBlock(['## Section'], 'toggle_h2')
+check(
+  'retypeBlock: text → toggle_h2 keeps the `## ` prefix',
+  toggleH2[0] === '## Section',
+  JSON.stringify(toggleH2)
+)
+const toggleH2Round = joinBlocks([{ lines: toggleH2, meta: { id: 'abc', type: 'toggle_h2' } }])
+check(
+  'toggle_h2 round-trip emits `## Section` + `type:toggle_h2` meta',
+  toggleH2Round.includes('## Section') && toggleH2Round.includes('type:toggle_h2'),
+  toggleH2Round
+)
+// Clearing the type should drop the meta flag (turnInto path).
+const toggleH2Clear = joinBlocks([{ lines: toggleH2, meta: {} }])
+check(
+  'toggle_h2 → bullet drops the `type:toggle_h2` flag',
+  !toggleH2Clear.includes('type:toggle_h2'),
+  toggleH2Clear
+)
+
 if (failures.length === 0) {
   console.log('\nALL OK')
   process.exit(0)
