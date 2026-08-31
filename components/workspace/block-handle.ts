@@ -32,11 +32,17 @@ export interface BlockHandleContext {
 }
 
 export type BlockHandleClickHandler = (context: BlockHandleContext) => void
+export type BlockInsertHandler = (context: BlockHandleContext) => void
 
 let clickHandler: BlockHandleClickHandler | null = null
+let insertHandler: BlockInsertHandler | null = null
 
 export function setBlockHandleClickHandler(handler: BlockHandleClickHandler | null): void {
   clickHandler = handler
+}
+
+export function setBlockInsertHandler(handler: BlockInsertHandler | null): void {
+  insertHandler = handler
 }
 
 /**
@@ -69,23 +75,49 @@ class BlockHandleWidget extends WidgetType {
   }
 
   toDOM(): HTMLElement {
-    const el = document.createElement('span')
-    el.className = 'cm-block-handle'
-    el.textContent = '⠿'
-    el.setAttribute('aria-label', 'Block menu')
-    el.setAttribute('draggable', 'true')
-    if (this.blockId) el.dataset.blockId = this.blockId
-    el.addEventListener('mousedown', (event) => {
+    const wrap = document.createElement('span')
+    wrap.className = 'cm-block-handle'
+    wrap.setAttribute('aria-label', 'Block actions')
+
+    const plus = document.createElement('button')
+    plus.type = 'button'
+    plus.className = 'cm-block-handle-plus'
+    plus.textContent = '+'
+    plus.title = 'Add block below'
+    plus.setAttribute('aria-label', 'Add block below')
+    plus.addEventListener('mousedown', (event) => event.preventDefault())
+    plus.addEventListener('click', (event) => {
+      if (!insertHandler) return
+      event.preventDefault()
+      event.stopPropagation()
+      const rect = wrap.getBoundingClientRect()
+      insertHandler({
+        blockIndex: this.blockIndex,
+        blockId: this.blockId,
+        from: this.from,
+        to: this.to,
+        rect,
+      })
+    })
+
+    const grip = document.createElement('span')
+    grip.className = 'cm-block-handle-grip'
+    grip.textContent = '⠿'
+    grip.title = 'Drag to reorder, click for menu'
+    grip.setAttribute('aria-label', 'Block menu')
+    grip.setAttribute('draggable', 'true')
+    if (this.blockId) grip.dataset.blockId = this.blockId
+    grip.addEventListener('mousedown', (event) => {
       // A mousedown on the handle should not move the cursor into the
       // first character of the paragraph. Capture and re-emit a click
       // synchronously if the user did not drag.
       event.preventDefault()
     })
-    el.addEventListener('click', (event) => {
+    grip.addEventListener('click', (event) => {
       if (!clickHandler) return
       event.preventDefault()
       event.stopPropagation()
-      const rect = el.getBoundingClientRect()
+      const rect = grip.getBoundingClientRect()
       clickHandler({
         blockIndex: this.blockIndex,
         blockId: this.blockId,
@@ -94,7 +126,7 @@ class BlockHandleWidget extends WidgetType {
         rect,
       })
     })
-    el.addEventListener('dragstart', (event) => {
+    grip.addEventListener('dragstart', (event) => {
       if (!event.dataTransfer) return
       const payload = JSON.stringify({
         from: this.blockFrom,
@@ -105,12 +137,14 @@ class BlockHandleWidget extends WidgetType {
       event.dataTransfer.setData('application/x-mkf-block', payload)
       event.dataTransfer.setData('text/plain', lastDragText)
       event.dataTransfer.effectAllowed = 'move'
-      el.classList.add('cm-block-handle-dragging')
+      wrap.classList.add('cm-block-handle-dragging')
     })
-    el.addEventListener('dragend', () => {
-      el.classList.remove('cm-block-handle-dragging')
+    grip.addEventListener('dragend', () => {
+      wrap.classList.remove('cm-block-handle-dragging')
     })
-    return el
+
+    wrap.append(plus, grip)
+    return wrap
   }
 
   ignoreEvent(): boolean {

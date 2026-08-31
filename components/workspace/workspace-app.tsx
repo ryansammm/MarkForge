@@ -162,6 +162,13 @@ export function WorkspaceApp() {
     setDevLogs((prev) => [...prev, `${new Date().toLocaleTimeString()} ${msg}`])
   }, [])
   /**
+   * Latest setter for the `Mod-N` keydown shortcut. We mirror
+   * `openNewDocument` into this ref on every render so the keydown
+   * effect (registered once) can read the freshest callback without
+   * a stale closure or a re-register on every render.
+   */
+  const openNewDocumentRef = useRef<(parentDir: string) => void>(() => {})
+  /**
    * Which documents are open, and where each has been.
    *
    * Replaces the single `activePath` this component used to hold. Only one tab is
@@ -506,7 +513,7 @@ export function WorkspaceApp() {
       */
       if ((e.metaKey || e.ctrlKey) && !e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault()
-        void createDocumentAtRef.current('', 'Untitled', '')
+        openNewDocumentRef.current('')
       }
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'n') {
         e.preventDefault()
@@ -932,11 +939,17 @@ export function WorkspaceApp() {
     setDialogError(null)
     setDialog({ kind: 'newDocument', parentDir })
   }, [])
-
   const openNewFolder = useCallback((parentDir: string) => {
     setDialogError(null)
     setDialog({ kind: 'newFolder', parentDir })
   }, [])
+
+  // Mirror the latest openNewDocument callback into the ref so the
+  // keydown effect (registered once) can call it without a stale
+  // closure and without re-binding on every render.
+  useEffect(() => {
+    openNewDocumentRef.current = openNewDocument
+  }, [openNewDocument])
 
   /**
    * Opens the rename dialog, then asks the server how many documents the rename
@@ -1885,7 +1898,7 @@ export function WorkspaceApp() {
         activeGrimoireId={activeGrimoireId}
         onSelectGrimoire={handleSelectGrimoire}
         storageKind={storageKind}
-        onCreatePageDirect={() => void createDocumentAt('', 'Untitled', '')}
+        onCreatePageDirect={() => openNewDocument('')}
         onOpenInSidePeek={(path) => {
           setSidePeekPath(path)
           setSidebarOpen(false)

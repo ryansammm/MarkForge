@@ -1,4 +1,5 @@
 import { EditorSelection, type ChangeSpec, type StateCommand } from '@codemirror/state'
+import { selectionInFrontmatter } from './frontmatter-region'
 
 /**
  * Formatting commands for the toolbar and the keymap.
@@ -19,6 +20,10 @@ function wrapCommand(marker: string, userEvent: string): StateCommand {
   const len = marker.length
 
   return ({ state, dispatch }) => {
+    // Toolbar commands must not mutate hidden frontmatter — the prefix would
+    // be invisible, the line would no longer match the frontmatter regex, and
+    // the whole block would suddenly become visible. See frontmatter-region.
+    if (selectionInFrontmatter(state)) return false
     const spec = state.changeByRange((range) => {
       const before = state.sliceDoc(Math.max(0, range.from - len), range.from)
       const after = state.sliceDoc(range.to, Math.min(state.doc.length, range.to + len))
@@ -73,6 +78,7 @@ export const toggleStrikethrough = wrapCommand('~~', 'input.format.strike')
  * caller opens the completion list — the same in-memory index the `[[` trigger uses.
  */
 export const wrapWikilink: StateCommand = ({ state, dispatch }) => {
+  if (selectionInFrontmatter(state)) return false
   const spec = state.changeByRange((range) => ({
     changes: [
       { from: range.from, insert: '[[' },
@@ -119,6 +125,7 @@ function mapSelection(state: Parameters<StateCommand>[0]['state'], changes: Chan
  * through six states is worse than typing the hashes.
  */
 export const cycleHeading: StateCommand = ({ state, dispatch }) => {
+  if (selectionInFrontmatter(state)) return false
   const changes: ChangeSpec[] = []
 
   for (const line of selectedLines(state)) {
@@ -141,6 +148,7 @@ export const cycleHeading: StateCommand = ({ state, dispatch }) => {
 
 /** Adds `- ` to every touched line, or removes it if every line already has it. */
 export const toggleBulletList: StateCommand = ({ state, dispatch }) => {
+  if (selectionInFrontmatter(state)) return false
   const lines = selectedLines(state)
   if (lines.length === 0) return false
 

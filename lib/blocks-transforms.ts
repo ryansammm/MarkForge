@@ -75,11 +75,23 @@ export function blockRangeAt(state: EditorState): BlockRange | null {
   return { from: start, to: end, blockIndex: covering.map((r) => r.index), text }
 }
 
-/** The range, or fail loudly — the menu should not have to null-check. */
-function requireRange(state: EditorState): BlockRange {
+/** The range, or null. Callers fall back to a whole-doc range when the cursor
+ *  does not sit on a recognised block (an empty doc, a hidden frontmatter
+ *  block, a single-character selection at a structural boundary). Throwing
+ *  here used to crash the menu; now the menu short-circuits with a toast. */
+export function safeRange(state: EditorState): BlockRange | null {
+  return blockRangeAt(state)
+}
+
+/** Like `safeRange`, but for transforms that need *some* range to operate on.
+ *  When the cursor is not on a recognised block we return an empty range at
+ *  the document's end, which makes a `turnInto` change a no-op and the menu
+ *  surfaces the "no block at cursor" toast instead of throwing. */
+function requireRange(state: EditorState): BlockRange | null {
   const r = blockRangeAt(state)
-  if (!r) throw new Error('blockRangeAt: no block at cursor')
-  return r
+  if (r) return r
+  const total = state.doc.length
+  return { from: total, to: total, blockIndex: [], text: '' }
 }
 
 /**
@@ -96,8 +108,9 @@ function requireRange(state: EditorState): BlockRange {
  * distinction lives in the block-id meta (`type:toggle_list`), so we
  * keep the prefix and toggle the meta flag.
  */
-export function turnInto(state: EditorState, type: ReturnType<typeof detectBlockType>): TransactionSpec {
+export function turnInto(state: EditorState, type: ReturnType<typeof detectBlockType>): TransactionSpec | null {
   const range = requireRange(state)
+  if (!range || range.text === '') return null
   const blocks = splitBlocks(range.text)
   const retried = blocks.map((b) => {
     const lines = type === 'toggle_list' ? b.lines : retypeBlock(b.lines, type)
@@ -124,8 +137,9 @@ export function setColor(
   state: EditorState,
   kind: 'color' | 'bg',
   value: BlockColor
-): TransactionSpec {
+): TransactionSpec | null {
   const range = requireRange(state)
+  if (!range || range.text === '') return null
   const blocks = splitBlocks(range.text)
   const retried = blocks.map((b) => {
     const ensured = b.meta.id
@@ -147,8 +161,9 @@ export function setColor(
  * New blocks get fresh ids. The cursor lands at the end of the new
  * range.
  */
-export function duplicate(state: EditorState): TransactionSpec {
+export function duplicate(state: EditorState): TransactionSpec | null {
   const range = requireRange(state)
+  if (!range || range.text === '') return null
   const blocks = splitBlocks(range.text)
   const newBlocks = blocks.map((b) => {
     const ensured = ensureBlockHasId(b.lines.join('\n'))
@@ -164,8 +179,9 @@ export function duplicate(state: EditorState): TransactionSpec {
 }
 
 /** Delete the range. The cursor lands at the deleted range's start. */
-export function deleteBlock(state: EditorState): TransactionSpec {
+export function deleteBlock(state: EditorState): TransactionSpec | null {
   const range = requireRange(state)
+  if (!range) return null
   return {
     changes: { from: range.from, to: range.to, insert: '' },
     selection: { anchor: range.from, head: range.from },
@@ -178,6 +194,7 @@ export function deleteBlock(state: EditorState): TransactionSpec {
  */
 export function blockAnchorUrl(state: EditorState, docPath: string): string | null {
   const range = requireRange(state)
+  if (!range) return null
   const blocks = splitBlocks(range.text)
   const first = blocks[0]
   if (!first?.meta.id) return null
@@ -232,8 +249,9 @@ export function blockWordCount(state: EditorState): number {
  * by the slash command `/page` to splice a wikilink into the current
  * document, and by Move to to drop a block into a destination.
  */
-export function replaceBlock(state: EditorState, text: string, at?: number): TransactionSpec {
+export function replaceBlock(state: EditorState, text: string, at?: number): TransactionSpec | null {
   const range = requireRange(state)
+  if (!range) return null
   const insertAt = at ?? range.from
   return {
     changes: { from: range.from, to: range.to, insert: text },

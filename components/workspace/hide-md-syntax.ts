@@ -21,8 +21,8 @@ const MARKER_PATTERNS: RegExp[] = [
   /~~/g,
   // links `[text](url)`
   /[\[\]()]/g,
-  // blockquote `> ` and list `- ` / `1. `
-  /^(\s*)(>|[-*+]|\d+\.)\s/gm,
+  // blockquote `> ` — the leading `>` is decorative and clutters prose.
+  /^(\s*)>\s/gm,
   // block-id comments `<!-- mkf:b:... -->` — hidden in the editor;
   // the comment stays in the markdown source for support/debug
   // (see `lib/blocks.ts`). Active-line override in `globals.css`

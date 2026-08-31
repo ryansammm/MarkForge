@@ -148,14 +148,20 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
     id: 'duplicate',
     label: 'Duplicate',
     search: ['duplicate', 'copy', 'clone'],
-    run: (view) => view.dispatch(duplicate(view.state)),
+    run: (view) => {
+      const spec = duplicate(view.state)
+      if (spec) view.dispatch(spec)
+    },
   }
   // Action: Delete
   const deleteAction: MenuAction = {
     id: 'delete',
     label: 'Delete',
     search: ['delete', 'remove', 'trash'],
-    run: (view) => view.dispatch(deleteBlock(view.state)),
+    run: (view) => {
+      const spec = deleteBlock(view.state)
+      if (spec) view.dispatch(spec)
+    },
   }
   // Action: Copy link to block — disabled when the block has no id.
   const copyLinkAction: MenuAction = {
@@ -269,20 +275,29 @@ function BlockMenuInner({ open, onOpenChange, context }: BlockMenuInnerProps) {
       id: `turn-${t.type}`,
       label: t.label,
       search: t.search,
-      run: (view) => view.dispatch(turnInto(view.state, t.type)),
+      run: (view) => {
+        const spec = turnInto(view.state, t.type)
+        if (spec) view.dispatch(spec)
+      },
     })
   )
   const textColorActions: MenuAction[] = COLORS.filter((c) => matches([c])).map((c) => ({
     id: `color-text-${c}`,
     label: c === 'default' ? 'Default text' : capitalize(c),
     search: ['color', c, 'text'],
-    run: (view) => view.dispatch(setColor(view.state, 'color', c)),
+    run: (view) => {
+      const spec = setColor(view.state, 'color', c)
+      if (spec) view.dispatch(spec)
+    },
   }))
   const bgColorActions: MenuAction[] = BG_COLORS.filter((c) => matches([c])).map((c) => ({
     id: `color-bg-${c}`,
     label: c === 'default' ? 'Default background' : capitalize(c),
     search: ['background', c, 'bg'],
-    run: (view) => view.dispatch(setColor(view.state, 'bg', c)),
+    run: (view) => {
+      const spec = setColor(view.state, 'bg', c)
+      if (spec) view.dispatch(spec)
+    },
   }))
 
   // Submenu actions are filtered by their own tokens only when not in

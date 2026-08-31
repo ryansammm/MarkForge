@@ -36,6 +36,13 @@ export interface BlockMeta {
    * new kind joins the menu.
    */
   type?: 'toggle_list'
+  /**
+   * Toggle-list state. Absent = open (the default for new blocks,
+   * matches the read view's native <details open>); the string
+   * "false" = collapsed. Kept as a string so it round-trips through
+   * the meta comment unchanged.
+   */
+  open?: string
 }
 
 export interface Block {

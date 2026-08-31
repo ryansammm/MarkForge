@@ -35,9 +35,12 @@ import { MAX_ASSET_BYTES } from '@/lib/asset-limits'
 import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
+import { aiBlockEdit } from './ai-block-edit'
+import { pageRefEdit } from './page-ref-edit'
+import { toggleListEdit } from './toggle-list-edit'
 import { hideMarkdownSyntax } from './hide-md-syntax'
 import { emptyBlockPlaceholder } from './empty-block-placeholder'
-import { blockHandle, setBlockHandleClickHandler, type BlockHandleContext } from './block-handle'
+import { blockHandle, setBlockHandleClickHandler, setBlockInsertHandler, type BlockHandleContext } from './block-handle'
 import { BlockMenu, type OpenTarget } from './block-menu'
 import { blockHasId, blockRangeAt, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
 import { planTurnSelectionIntoPage } from '@/lib/client/turn-into-page'
@@ -81,20 +84,47 @@ function insertNewBlockBelow(view: EditorView): boolean {
     inserts.push({ from: head, to: head, insert: '\n' })
     newCursor = head + 1
   }
-  // Then insert a blank line + a meta comment line + put cursor on the
-  // blank line. We use a short-lived id generated here; the menu
-  // re-assigns on its next read if the user has not yet taken a
-  // menu action on this block.
+  // Auto-continue list markers. A new block right after a list line
+  // inherits the same prefix so the user does not have to type `- `
+  // or `1. ` again — the same gesture Notion uses. The text part
+  // stays empty; the user types the next item.
+  const prefix = listPrefix(line.text)
   const id = newBlockId()
-  inserts.push({ from: newCursor, to: newCursor, insert: `\n<!-- mkf:b:${id} -->\n` })
-  // Move the cursor onto the blank line between the two paragraphs.
-  const cursorAt = newCursor + 1
+  // The blank line + marker + meta comment land together. Cursor sits
+  // at the end of the new marker line, ready for the next item.
+  const block = prefix
+    ? `\n${prefix}\n<!-- mkf:b:${id} -->\n`
+    : `\n<!-- mkf:b:${id} -->\n`
+  inserts.push({ from: newCursor, to: newCursor, insert: block })
+  // Move the cursor past the marker (or onto the blank line between
+  // the two paragraphs when no marker applies).
+  const cursorAt = prefix ? newCursor + 1 + prefix.length : newCursor + 1
   view.dispatch({
     changes: inserts,
     selection: { anchor: cursorAt, head: cursorAt },
     scrollIntoView: true,
   })
   return true
+}
+
+/**
+ * If `text` looks like a list line, return the marker prefix the next
+ * line should inherit (including trailing space). Returns `''` for
+ * plain paragraphs. Numbered list prefixes are auto-incremented so the
+ * next line reads `2. `, then `3. `, etc. — same as Notion.
+ */
+function listPrefix(text: string): string {
+  const trimmed = text.replace(/\s+$/, '')
+  // todo `- [ ]` / `- [x]`
+  const todo = /^(\s*-\s\[(?:[ x])\])\s*/.exec(trimmed)
+  if (todo) return todo[1] + ' '
+  // bullet `- ` / `* ` / `+ `
+  const bullet = /^(\s*[-*+])\s+/.exec(trimmed)
+  if (bullet) return bullet[1] + ' '
+  // numbered `1. `, `42. `
+  const numbered = /^(\s*)(\d+)\.\s+/.exec(trimmed)
+  if (numbered) return `${numbered[1]}${Number(numbered[2]) + 1}. `
+  return ''
 }
 
 async function runCopyLink(view: EditorView, docPath: string): Promise<void> {
@@ -280,17 +310,34 @@ const editorTheme = EditorView.theme({
   '.cm-frontmatter-hidden': { display: 'none' },
   '.cm-block-handle': {
     position: 'absolute',
-    left: '4px',
-    width: '20px',
-    textAlign: 'center',
-    cursor: 'grab',
+    left: '-2px',
+    display: 'flex',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: '0',
     color: 'var(--muted-foreground)',
     opacity: '0',
     userSelect: 'none',
     transition: 'opacity 100ms ease',
-    fontSize: '14px',
+    fontSize: '13px',
     lineHeight: 'inherit',
+    pointerEvents: 'auto',
   },
+  '.cm-block-handle-plus, .cm-block-handle-grip': {
+    display: 'inline-flex',
+    width: '18px',
+    height: '18px',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    color: 'inherit',
+  },
+  '.cm-block-handle-plus': { fontSize: '14px', fontWeight: '500' },
+  '.cm-block-handle-grip': { cursor: 'grab', fontSize: '13px' },
   '.cm-block-handle:hover': { opacity: '1' },
   '.cm-line:hover > .cm-block-handle, .cm-line:focus-within > .cm-block-handle': { opacity: '1' },
   '.cm-block-handle-dragging': { opacity: '1', cursor: 'grabbing' },
@@ -491,6 +538,16 @@ export function MarkdownEditor({
       // Hover drag handle for every paragraph. Only registered for the
       // edit mode — the reading view does not need it.
       blockHandle(),
+      // Inline AI fence preview in edit mode. Hides the raw ` ```ai `
+      // text behind a placeholder; the active line reveals the source.
+      aiBlockEdit(),
+      // Page-reference chip in edit mode. Renders `[[wikilink]]` as a
+      // small "📄 Title" pill; the active line shows the raw syntax.
+      pageRefEdit(),
+      // Inline toggle list in edit mode. Adds a ▼/▶ disclosure arrow
+      // ahead of the first line of every toggle_list block; clicking
+      // it flips the meta's `open` flag.
+      toggleListEdit(),
       livePreview({
         // The reading view's resolver, not a second one. Two would drift, and the
         // symptom would be a link that renders as resolved but navigates nowhere.
@@ -553,7 +610,8 @@ export function MarkdownEditor({
           key: 'Mod-Shift-d',
           preventDefault: true,
           run: (view) => {
-            view.dispatch(duplicate(view.state))
+            const spec = duplicate(view.state)
+            if (spec) view.dispatch(spec)
             return true
           },
         },
@@ -578,6 +636,17 @@ export function MarkdownEditor({
           run: (view) => {
             const head = view.state.selection.main.head
             const line = view.state.doc.lineAt(head)
+            // Empty list line: Notion-style "exit the list". Strip the
+            // marker, leave a plain paragraph. The user pressed Enter
+            // on a `- ` or `1. ` line with no text after it.
+            if (listPrefix(line.text) !== '' && line.text.replace(/\s+$/, '').match(/^(\s*(?:-\s\[(?:[ x])\]|[-*+]|\d+\.))\s*$/)) {
+              view.dispatch({
+                changes: { from: line.from, to: line.to, insert: '' },
+                selection: { anchor: line.from, head: line.from },
+                scrollIntoView: true,
+              })
+              return true
+            }
             if (line.text === '') return false
             return insertNewBlockBelow(view)
           },
@@ -670,7 +739,8 @@ export function MarkdownEditor({
           run: (view) => {
             const sel = view.state.selection.main
             if (sel.empty) return false
-            view.dispatch(deleteBlock(view.state))
+            const spec = deleteBlock(view.state)
+            if (spec) view.dispatch(spec)
             return true
           },
         },
@@ -794,6 +864,15 @@ export function MarkdownEditor({
     })
 
     /*
+      Click on the `+` hover button: insert a fresh empty block below this
+      one and leave the cursor on it. The user can then type, or hit `/`
+      to open the slash menu — same as if they had pressed Enter.
+    */
+    setBlockInsertHandler((_ctx: BlockHandleContext) => {
+      insertNewBlockBelow(view)
+    })
+
+    /*
       Ctrl/Cmd-A must select the whole document, not the whole window. The default
       `keymap` already binds it, but only when CodeMirror is the focus target — a
       click that lands on a child of the editor (a completion popup, an inline
@@ -817,6 +896,7 @@ export function MarkdownEditor({
     return () => {
       window.removeEventListener('keydown', handleSelectAll)
       setBlockHandleClickHandler(null)
+      setBlockInsertHandler(null)
       view.destroy()
       viewRef.current = null
       setView(null)
