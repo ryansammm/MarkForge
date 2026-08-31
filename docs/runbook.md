@@ -40,7 +40,7 @@ recognises.
 index can always be thrown away and rebuilt from them.
 
 ```bash
-curl -X POST -b "morrow_session=<your cookie>" \
+curl -X POST -b "markforge_session=<your cookie>" \
   "https://<your-host>/api/storage?action=reindex"
 ```
 
@@ -95,13 +95,13 @@ The common ones:
 is invisible to the index by design.
 
 ```bash
-curl -s -b "morrow_session=<cookie>" https://<your-host>/api/trash
+curl -s -b "markforge_session=<cookie>" https://<your-host>/api/trash
 ```
 
 Restore one:
 
 ```bash
-curl -X POST -b "morrow_session=<cookie>" -H 'Content-Type: application/json' \
+curl -X POST -b "markforge_session=<cookie>" -H 'Content-Type: application/json' \
   -d '{"id":"<entry id>"}' https://<your-host>/api/trash
 ```
 
@@ -180,8 +180,8 @@ Redeploy for the new value to take effect.
 There is no bulk revoke. List them, then revoke each:
 
 ```bash
-curl -s -b "morrow_session=<cookie>" https://<your-host>/api/shares
-curl -X DELETE -b "morrow_session=<cookie>" \
+curl -s -b "markforge_session=<cookie>" https://<your-host>/api/shares
+curl -X DELETE -b "markforge_session=<cookie>" \
   "https://<your-host>/api/shares?token=<token>"
 ```
 

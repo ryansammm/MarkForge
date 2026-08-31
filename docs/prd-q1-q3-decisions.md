@@ -1,7 +1,7 @@
 # PRD Blocking Questions Q1 & Q3 Decision Document
 
 **Sprint**: Sprint 2 (The Soak / Gate Sprint)  
-**Author**: Sena  
+**Author**: Xyks  
 **Status**: Decided  
 
 ---

@@ -1,10 +1,10 @@
 # Tasks: notion-parity
 
-> **Status:** approved (2026-08-30). Tasks 1-16 shipped to `dev`
-> (commit `640979d`). Task 17 (post-§16 fix batch) next. See
-> `proposal.md` for full design and Risks.
+> **Status:** approved (2026-08-30). Tasks 1-17 shipped to `dev`
+> (commit `764ee51`). Task 18 (post-§17 fix batch + MarkForge rename)
+> next. See `proposal.md` for full design and Risks.
 
-Total: 16 tasks. Sized for 2-hour commits. Numbered so they can be
+Total: 18 tasks. Sized for 2-hour commits. Numbered so they can be
 re-ordered if a regression forces a rollback. Each task ships as one
 commit on `dev` (push after each).
 
@@ -358,7 +358,7 @@ app gate becomes a 6-digit PIN that the user can rotate from settings.
       and when nothing gates the route. Never throws.
 - [x] 12b.4 `lib/session.ts` — `sessionSecret(env)` now reads
       `APP_PIN` (with `SESSION_SECRET` still winning) and bumps
-      the namespace to `morrow-session-v2:pin:<pin>`. Old
+      the namespace to `markforge-session-v2:pin:<pin>`. Old
       `APP_PASSWORD`-derived cookies are no longer valid; this is
       the intended forced re-login.
 - [x] 12b.5 `app/api/auth/route.ts` — `POST { pin }` instead of
@@ -571,3 +571,82 @@ is a follow-up to an existing task.
       `createDocumentAtRef.current` + `fireShortcutAction`,
       `shortcut-bus.ts` exports both functions, `block-menu` still
       exports `OpenTarget` with `side-peek` + `new-window`.
+
+## 18. Post-§17 fix batch + MarkForge rename
+
+Seven fixes plus a full `Morrow` -> `MarkForge` (and `Sena` -> `Xyks`)
+rename landed in one commit on `dev`. Self-checks 1-18 (25 total
+runner rows) all pass; `pnpm verify` exits 0; e2e 20/22 (pre-existing
+R2 + encrypted-nested fails are unchanged).
+
+- [x] 18.1 Untitled.md duplicate retry
+      (`lib/workspace-api.ts`, `components/workspace/workspace-app.tsx`):
+      added `findUniquePath(parentDir, baseTitle, takenPaths)`. Walks
+      `Object.keys(indexData.documents)`, returns the first free
+      `Untitled.md` / `Untitled 2.md` / `Untitled 3.md` ... up to
+      10k (throws after). `ponytail:` comment marks the linear
+      scan + the workspace-flat namespace. `createDocumentAt`
+      consumes the helper; `indexData` added to the `useCallback`
+      deps.
+- [x] 18.2 Header `⋯` meatball page menu
+      (`components/workspace/page-menu.tsx`,
+      `components/workspace/doc-viewer.tsx`,
+      `components/workspace/workspace-app.tsx`): `PageMenu` now lives
+      in the workspace header (gated by `activeDoc && source`,
+      visible in both read + edit mode). All 10 menu actions wired
+      (copy / duplicate / move to / trash / set view / set width /
+      lock / unlock / import / export). `pageMenu` prop and the
+      sticky wrapper inside `DocViewer` are gone. Rail toggle
+      loosened from `mode === 'read'` to `activeDoc` so it shows
+      in edit mode too.
+- [x] 18.3 Sidebar icons re-arranged
+      (`components/workspace/sidebar.tsx`,
+      `components/workspace/grimoire-switcher.tsx`): Folders header
+      carries `FilePlus` (new page) + `FolderPlus` (new folder ->
+      `onCreateFolder('')`). The grimoire `+` (new grimoire) moved
+      into the grimoire switcher header next to the Settings button.
+- [x] 18.4 Import file / Import folder above Passwords
+      (`components/workspace/sidebar.tsx`,
+      `components/workspace/workspace-app.tsx`): two new icon
+      buttons (`FileUp`, `FolderUp`) above the Passwords button.
+      File import reuses `importPages`; folder import is a new
+      `importFolder` callback that uses `webkitdirectory` +
+      `webkitRelativePath` to recreate sub-folders via
+      `api.createFolder` and write each `.md`/`.markdown`/`.txt`
+      through `createDocumentAt`. `ponytail:` comment on
+      `webkitdirectory` (only portable signal).
+- [x] 18.5 Drop Root folder field on grimoire settings
+      (`components/workspace/grimoire-switcher.tsx`): removed the
+      `Root folder` label, value display, and `selectDirectory`
+      Electron IPC call entirely. Settings sheet still toggles via
+      the `Settings` button.
+- [x] 18.6 Settings three-way theme
+      (`app/settings/page.tsx`): new Appearance card above App
+      PIN with a three-way `light` / `dark` / `system` segmented
+      control wired through `next-themes` `useTheme().setTheme`.
+      `aria-pressed` reflects the active value. Header
+      `ThemeSwitcher` still works as a quick toggle.
+- [x] 18.7 Self-checks: `check-page-menu.ts` rewritten to assert
+      the header-mounted `PageMenu` and the absence of the
+      `pageMenu` prop in `DocViewer`; `check-sidebar-plus.ts`
+      rewritten for `FilePlus` + `FolderPlus` (folder calls
+      `onCreateFolder('')`), grimoire switcher carries New grimoire,
+      Root folder gone, and sidebar `onImportFile` + `onImportFolder`
+      wired. New `check-theme.ts` (5 assertions) +
+      `check-unique-name.ts` (7 assertions).
+- [x] 18.8 Full `Morrow` -> `MarkForge` rename: 28 source files
+      touched. Session secret namespace
+      `markforge-session-v2:pin:<pin>`; cookie `markforge_session`;
+      localStorage keys `markforge:tabs`, `markforge:rail-open`,
+      `markforge:rail-width`, `markforge:sidebar-width`;
+      service-worker cache `markforge-shell-v2`; test origin
+      `https://markforge.test`; e2e cookie capture updated;
+      `audit-parent-orphans.ts` cookie match updated; `docs/`
+      curl examples + tab + password-manager + production-readiness
+      + architecture.html updated; `lib/vault/crypto.ts` error
+      messages + `use-vault` comment; `pwa-install` install title;
+      `passwords-dialog` copy.
+- [x] 18.9 Full `Sena` -> `Xyks` rename: 6 sites (3 tests, 2 docs).
+      Test fixtures `Xyks/MarkForge Project.md` and
+      `C:\Users\Xyks\shot.png`; sprint-7-plan + prd-q1-q3-decisions
+      doc authors.

@@ -43,8 +43,8 @@ async function api(method, url, { json, query, headers = {} } = {}) {
   const res = await fetch(u.toString(), { method, headers: h, body: json !== undefined ? JSON.stringify(json) : undefined })
   const set = res.headers.get('set-cookie')
   if (set) {
-    const m = set.match(/morrow_session=([^;]+)/)
-    if (m) cookie = `morrow_session=${m[1]}`
+    const m = set.match(/markforge_session=([^;]+)/)
+    if (m) cookie = `markforge_session=${m[1]}`
   }
   let body = null
   const text = await res.text()

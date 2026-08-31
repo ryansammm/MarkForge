@@ -7,9 +7,11 @@ import {
   CloudUpload,
   FilePlus,
   FileText,
+  FileUp,
   Folder,
   FolderOpen,
   FolderPlus,
+  FolderUp,
   KeyRound,
   LogOut,
   Pencil,
@@ -80,6 +82,10 @@ interface SidebarProps {
   onSignOut: () => void
   /** Refetch the index after a native import copied files into the store. */
   onAfterImport?: () => Promise<void>
+  /** Pick a single .md/.markdown/.txt file from disk. */
+  onImportFile: () => void
+  /** Pick a folder and import its .md/.markdown/.txt tree. */
+  onImportFolder: () => void
   /** Current index documents, for pin titles. */
   documents?: Record<string, MarkdownDocument>
   /** Drawer state. Only meaningful below the md breakpoint. */
@@ -151,6 +157,8 @@ export function Sidebar({
   onOpenSettings,
   onSignOut,
   onAfterImport,
+  onImportFile,
+  onImportFolder,
   documents,
   open,
   onClose,
@@ -185,8 +193,9 @@ export function Sidebar({
     () => Boolean(window.markforge),
     () => false
   )
-  // Imperative handle to the grimoire switcher — the `+ New grimoire` button
-  // jumps straight to its create input without opening the dropdown UI.
+  // Imperative handle to the grimoire switcher — the `+` button next to the
+  // grimoire name calls `requestCreate` to open the inline name input
+  // directly, without first opening the dropdown.
   const grimoireSwitcherRef = useRef<GrimoireSwitcherHandle>(null)
   /*
     Cmd/Ctrl-Shift-N fires from the workspace's global keydown handler; this
@@ -717,10 +726,12 @@ onDrop={(event) => {
         <div className="mb-2 mt-1 flex items-center justify-between gap-1 px-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
           <span>Folders</span>
           {/*
-            Two affordances instead of a popover: `New page` writes to the
-            active grimoire, `New grimoire` jumps straight to the create
-            form. Each is one click — the popover asked for two clicks and
-            a decision between two icons that share a name.
+            Two affordances: `New page` writes to the active grimoire and
+            opens it as a tab; `New folder` creates a folder under the
+            active grimoire. The `New grimoire` button lives next to the
+            grimoire switcher name instead — folders are not grimoires, and
+            putting the grimoire creator in the grimoire section lets the
+            shortcut hint and the dropdown picklist share a single button.
           */}
           <div className="flex shrink-0 items-center gap-0.5">
             <button
@@ -734,9 +745,9 @@ onDrop={(event) => {
             </button>
             <button
               type="button"
-              onClick={() => grimoireSwitcherRef.current?.requestCreate()}
-              title="New grimoire (Ctrl/Cmd-Shift-N)"
-              aria-label="New grimoire"
+              onClick={() => onCreateFolder('')}
+              title="New folder"
+              aria-label="New folder"
               className="flex size-5 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary"
             >
               <FolderPlus className="size-3.5" />
@@ -764,6 +775,28 @@ onDrop={(event) => {
             <span>Sync to cloud…</span>
           </button>
         )}
+        {/*
+          Import file / Import folder: pull text files from disk into the
+          active grimoire. The page menu already has an Import file action
+          for the active page — this is the same surface, surfaced in the
+          sidebar so it is reachable when no page is open.
+        */}
+        <button
+          type="button"
+          onClick={onImportFile}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <FileUp className="size-3.5 shrink-0" />
+          <span>Import file</span>
+        </button>
+        <button
+          type="button"
+          onClick={onImportFolder}
+          className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-sm text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+        >
+          <FolderUp className="size-3.5 shrink-0" />
+          <span>Import folder</span>
+        </button>
         {/*
           Beside Trash rather than in the document tree: the vault is not a document,
           is not indexed, and is not part of the corpus. Putting it in the tree would

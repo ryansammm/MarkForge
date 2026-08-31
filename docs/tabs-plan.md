@@ -1,14 +1,14 @@
 # Tab Dokumen & Riwayat Navigasi — Rencana Fitur
 
 **Status:** Fase 0–4 selesai.
-**Produk:** Morrow
+**Produk:** MarkForge
 **Prinsip utama:** *satu sesi kerja, satu jendela* — membuka dua catatan sekaligus tidak boleh butuh dua tab browser, dan mengikuti sebuah tautan tidak boleh menghilangkan tempat asal.
 
 ---
 
 ## Ringkasan
 
-Morrow hari ini adalah aplikasi satu-dokumen. Seluruh state dokumen aktif bertumpu pada
+MarkForge hari ini adalah aplikasi satu-dokumen. Seluruh state dokumen aktif bertumpu pada
 satu `useState`: `activePath` di [workspace-app.tsx:104](../components/workspace/workspace-app.tsx). Mengklik apa pun —
 item sidebar, backlink, wikilink, hasil pencarian — memanggil `navigateTo` yang
 mengganti dokumen di tempat. Tidak ada tab, tidak ada riwayat, tidak ada tombol kembali.
@@ -20,7 +20,7 @@ banyak dokumen.
 ## Masalah yang diselesaikan
 
 Untuk membaca dua catatan sekaligus, satu-satunya jalan saat ini adalah membuka aplikasi
-Morrow di tab browser kedua. Ini menimbulkan dua kerugian nyata:
+MarkForge di tab browser kedua. Ini menimbulkan dua kerugian nyata:
 
 1. **Dua instance aplikasi berarti dua salinan state.** Dua `indexData` terpisah, dua
    mesin autosave, dua vault. Rename di satu tab tidak terlihat di tab lain sampai
@@ -79,7 +79,7 @@ ini disiasati pengguna dengan tab browser.
 |---|---|---|
 | **1. Klik backlink: ganti di tempat atau tab baru?** | **Ganti di tempat.** Tab baru lewat Ctrl/Cmd+klik atau klik tengah. | Kalau setiap backlink membuka tab, sepuluh menit membaca menghasilkan dua puluh tab yang tidak satu pun diminta. Model Chrome/Obsidian sudah jadi kebiasaan dan bisa dipelajari sekali. **Ini satu-satunya keputusan yang saya ambil berbeda dari permintaan awal** — kalau backlink memang harus selalu membuka tab, perubahannya satu baris di `handleNavigateWikilink`, dan sebaiknya diputuskan sebelum Fase 1 dimulai, bukan sesudah. |
 | **2. Apa yang per-tab, apa yang global?** | Per-tab: `path`, `mode`, riwayat, posisi scroll. Global: `indexData`, dialog, rail, sidebar, vault, indikator simpan. | `mode` harus per-tab: membuka catatan referensi saat sedang mengedit tidak boleh menyeret editor ikut pindah. Sisanya milik aplikasi, bukan milik dokumen. |
-| **3. Bagaimana dengan mesin autosave?** | **Tetap satu instance `useDocumentSave`, terikat pada tab aktif. Pindah tab memanggil `flushPendingSave()` lebih dulu.** Tab latar bersifat baca. | Rules of Hooks melarang membuat instance hook per tab secara dinamis; alternatifnya adalah komponen per-tab, sebuah refactor jauh lebih besar dengan risiko kehilangan data yang nyata. Dan Morrow adalah aplikasi autosave — "belum tersimpan" hanya berumur selama debounce. Memaksa flush saat pindah tab **lebih aman** daripada memelihara N buffer kotor di latar. `navigateTo` sudah melakukan persis ini hari ini ([workspace-app.tsx:346](../components/workspace/workspace-app.tsx)). |
+| **3. Bagaimana dengan mesin autosave?** | **Tetap satu instance `useDocumentSave`, terikat pada tab aktif. Pindah tab memanggil `flushPendingSave()` lebih dulu.** Tab latar bersifat baca. | Rules of Hooks melarang membuat instance hook per tab secara dinamis; alternatifnya adalah komponen per-tab, sebuah refactor jauh lebih besar dengan risiko kehilangan data yang nyata. Dan MarkForge adalah aplikasi autosave — "belum tersimpan" hanya berumur selama debounce. Memaksa flush saat pindah tab **lebih aman** daripada memelihara N buffer kotor di latar. `navigateTo` sudah melakukan persis ini hari ini ([workspace-app.tsx:346](../components/workspace/workspace-app.tsx)). |
 | **4. Body dokumen di-cache atau di-fetch ulang tiap pindah tab?** | **Cache per path, dengan revalidasi.** Tampilkan cache seketika, tetap fetch di belakang, batas 20 entri (LRU). | Tanpa cache, tiap perpindahan tab menampilkan skeleton — tab yang terasa lambat seperti itu tidak menyelesaikan masalah apa pun. Body rata-rata ~1,9 KB (81% dari indeks 4,68 MB pada 2.000 dokumen, `docs/phase-4-scale.md`), jadi 20 tab ≈ 40 KB. Revalidasi wajib karena indeks memang boleh basi terhadap disk, dan etag yang basi berarti simpanan pertama menimpa perubahan dari luar aplikasi. |
 | **5. Masuk mode edit memakai etag yang mana?** | Etag dari fetch terbaru. Bila revalidasi masih berjalan, tombol Edit menunggu. | Ini invarian yang sudah dijaga hari ini lewat `source?.path !== activePath`; cache tidak boleh melubanginya. |
 | **6. Berapa batas jumlah tab?** | Tidak dibatasi; strip menggulir. Cache body yang dibatasi (20). | Batas keras memaksa pertanyaan "tab mana yang ditutup" ke pengguna tanpa alasan teknis. Yang mahal adalah body, dan itu sudah dibatasi. |
@@ -253,7 +253,7 @@ pembedanya.
 
 ### Fase 3 — Bertahan melewati reload — **selesai**
 
-- [x] Sesi ditulis ke `localStorage['morrow:tabs']` pada setiap perubahan.
+- [x] Sesi ditulis ke `localStorage['markforge:tabs']` pada setiap perubahan.
 - [x] Saat boot, path yang tidak ada lagi di `indexData.documents` dibuang; bila tidak
       ada yang tersisa, kembali ke perilaku lama (`paths[0]`).
 - [x] Posisi scroll per tab — **dalam sesi saja**, lihat di bawah.
@@ -336,7 +336,7 @@ sepersekian usaha Fase 1.
 dipakai, Fase 3 dan 4 boleh dibatalkan tanpa membuang apa pun.
 
 **4. Dua instance aplikasi tetap mungkin.** Pengguna masih bisa membuka dua tab browser,
-dan sekarang keduanya menulis ke `localStorage['morrow:tabs']` yang sama.
+dan sekarang keduanya menulis ke `localStorage['markforge:tabs']` yang sama.
 *Mitigasi:* tulis saat berubah, jangan baca ulang kecuali saat boot. Sesi tab bersifat
 per-jendela; yang terakhir menutup menang. Ini sengaja tidak disinkronkan — menyamakan
 set tab antar jendela adalah perilaku yang justru mengejutkan.

@@ -57,9 +57,9 @@ const corpus: LinkCandidate[] = [
   candidate('GDI/PTVI/GH/GH - Dev Notes.md', 'GH - Dev Notes'),
   candidate('GDI/PTVI/GH/GH - Meeting Notes.md', 'GH - Meeting Notes'),
   candidate('GDI/PTVI/Task List.md', 'Task List'),
-  candidate('Sena/Morrow Project.md', 'Morrow Project'),
+  candidate('Xyks/MarkForge Project.md', 'MarkForge Project'),
   // A document whose title was pinned in frontmatter and no longer matches its file.
-  candidate('Sena/palword.md', 'Palworld Server'),
+  candidate('Xyks/palword.md', 'Palworld Server'),
 ]
 
 const titles = (query: string) => rankCandidates(corpus, query).map((c) => c.title)
@@ -93,7 +93,7 @@ export function runWikilinkCompleteTests(): boolean {
   })
 
   check('a document is findable by its folder', () => {
-    equal(titles('Sena/'), ['Morrow Project', 'Palworld Server'], 'the path was not searched')
+    equal(titles('Xyks/'), ['MarkForge Project', 'Palworld Server'], 'the path was not searched')
   })
 
   check('case does not matter', () => {

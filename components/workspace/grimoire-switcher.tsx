@@ -180,6 +180,25 @@ export const GrimoireSwitcher = forwardRef<GrimoireSwitcherHandle, GrimoireSwitc
             <Settings className="size-3.5" />
           </button>
         )}
+        {/*
+          Grimoire creator in the grimoire section, not in the Folders
+          header. Folders and grimoires are different things and putting
+          them under one button was confusing — `Mod-Shift-N` and the
+          imperative handle route here too.
+        */}
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false)
+            setSettingsOpen(false)
+            setCreating(true)
+          }}
+          className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:bg-background hover:text-foreground"
+          title="New grimoire (Ctrl/Cmd-Shift-N)"
+          aria-label="New grimoire"
+        >
+          <Plus className="size-3.5" />
+        </button>
       </div>
 
       {open && (
@@ -320,46 +339,6 @@ export const GrimoireSwitcher = forwardRef<GrimoireSwitcherHandle, GrimoireSwitc
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Calendar className="size-3" />
               <span>Created {new Date(activeGrimoire.createdAt).toLocaleDateString()}</span>
-            </div>
-
-            <div>
-              <label className="mb-1 block text-xs text-muted-foreground">Root folder</label>
-              <div className="flex items-center gap-2">
-                <span
-                  className="min-w-0 flex-1 truncate rounded border bg-background px-2 py-1 text-xs text-muted-foreground"
-                  title={activeGrimoire.path ?? ''}
-                >
-                  {activeGrimoire.path ?? 'Not set — choose a folder on disk'}
-                </span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const mk = (window as unknown as { markforge?: { selectDirectory?: () => Promise<string | null> } }).markforge
-                    if (!mk?.selectDirectory) {
-                      toast.error('Folder picker only available in desktop app')
-                      return
-                    }
-                    const p = await mk.selectDirectory()
-                    if (!p) return
-                    const res = await fetch(`/api/grimoires/${activeGrimoire.id}`, {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ path: p }),
-                    })
-                    if (res.ok) {
-                      setGrimoires((prev) => prev.map((g) => g.id === activeGrimoire.id ? { ...g, path: p } : g))
-                      toast.success('Root folder set')
-                      window.location.reload()
-                    } else {
-                      const err = await res.json()
-                      toast.error(err.error || 'Failed to set root folder')
-                    }
-                  }}
-                  className="flex h-7 shrink-0 items-center gap-1.5 rounded border bg-background px-2 text-xs transition-colors hover:bg-accent"
-                >
-                  {activeGrimoire.path ? 'Change…' : 'Choose…'}
-                </button>
-              </div>
             </div>
 
             <div className="border-t pt-2">

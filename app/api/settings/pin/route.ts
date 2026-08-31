@@ -24,7 +24,7 @@ export const dynamic = 'force-dynamic'
 async function unauthorized(request: NextRequest): Promise<NextResponse | null> {
   const secret = sessionSecret(process.env)
   if (!secret) return null
-  const token = request.cookies.get('morrow_session')?.value
+  const token = request.cookies.get('markforge_session')?.value
   const payload = await verifySession(secret, token)
   if (!payload) {
     return NextResponse.json({ error: 'Unauthorized', code: 'UNAUTHORIZED' }, { status: 401 })

@@ -22,7 +22,6 @@ import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { ViewableImage } from './viewable-image'
 import { ChildPagesSection } from './child-pages-section'
 import { Breadcrumb } from './breadcrumb'
-import { PageMenu } from './page-menu'
 
 /** One look for every link that goes somewhere, whether inside the vault or out. */
 const LINK = 'text-primary underline underline-offset-4 hover:opacity-80'
@@ -58,22 +57,10 @@ interface DocViewerProps {
    */
   scrollFor?: (path: string) => number
   onScroll?: (path: string, top: number) => void
-  /** Folder tree of the active grimoire; feeds the page menu's Move-to picker. */
+  /** Folder tree of the active grimoire. The `⋯` menu now lives in the editor header,
+      not in the viewer; this is still passed so any future side-peek viewer that wants
+      the same menu has the data. */
   tree: FileTreeNode[]
-  /** Page-level actions exposed via the `⋯` menu. */
-  pageMenu?: {
-    onCopy: () => void
-    onDuplicate: () => void
-    onMoveTo: (destDir: string) => void
-    onTrash: () => void
-    onSetView: (view: 'small' | 'full') => void
-    onSetWidth: (width: 'full' | 'default') => void
-    isLocked: boolean
-    onLock?: (passphrase: string) => void
-    onUnlock?: () => void
-    onImport?: (files: File[]) => void
-    onExport?: () => void
-  } | null
 }
 
 export function DocViewer({
@@ -87,7 +74,6 @@ export function DocViewer({
   scrollFor,
   onScroll,
   tree,
-  pageMenu,
 }: DocViewerProps) {
   const articleRef = useRef<HTMLElement>(null)
   /** The document this mount has already placed. Restoring twice would fight the reader. */
@@ -162,26 +148,6 @@ export function DocViewer({
       className="relative flex-1 overflow-y-auto px-8 py-10"
     >
       <div className={cn('mx-auto space-y-6', maxWidth)}>
-        {pageMenu ? (
-          <div className="flex justify-end">
-            <PageMenu
-              document={document}
-              body={body}
-              tree={tree}
-              onCopy={pageMenu.onCopy}
-              onDuplicate={pageMenu.onDuplicate}
-              onMoveTo={pageMenu.onMoveTo}
-              onTrash={pageMenu.onTrash}
-              onSetView={pageMenu.onSetView}
-              onSetWidth={pageMenu.onSetWidth}
-              isLocked={pageMenu.isLocked}
-              onLock={pageMenu.onLock}
-              onUnlock={pageMenu.onUnlock}
-              onImport={pageMenu.onImport}
-              onExport={pageMenu.onExport}
-            />
-          </div>
-        ) : null}
         <Breadcrumb current={document} allDocs={allDocs} onNavigate={onNavigatePath} />
 
         {/* Header Metadata */}

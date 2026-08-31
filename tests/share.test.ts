@@ -597,7 +597,7 @@ async function run() {
         // — must be sent back to the login page, not let in.
         const request = new NextRequest('http://localhost:3000/api/files', { method: 'GET' })
         request.cookies.set('app_access_token', 'test-password')
-        request.cookies.set('morrow_session', 'test-password')
+        request.cookies.set('markforge_session', 'test-password')
 
         const response = await middleware(request)
         equal(response?.status, 401, 'a legacy password cookie was accepted as a session')

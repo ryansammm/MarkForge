@@ -1,7 +1,7 @@
 # Password Manager — Rencana Fitur
 
 **Status:** MVP terimplementasi (Fase 0–3)  
-**Produk:** Morrow  
+**Produk:** MarkForge  
 **Prinsip utama:** *zero-knowledge vault* — backend, bucket R2, backup, indeks, dan log tidak boleh dapat membaca isi kredensial.
 
 ---
@@ -26,22 +26,22 @@ di `tests/vault.test.ts`.
 
 ## Ringkasan
 
-Morrow saat ini menyimpan catatan Markdown sebagai sumber kebenaran, dengan metadata dan indeks yang dapat dibangun ulang. Password Manager akan menjadi vault terpisah untuk menyimpan kredensial pribadi tanpa mencampurkan plaintext ke dokumen, `index.json`, `search.json`, atau share link.
+MarkForge saat ini menyimpan catatan Markdown sebagai sumber kebenaran, dengan metadata dan indeks yang dapat dibangun ulang. Password Manager akan menjadi vault terpisah untuk menyimpan kredensial pribadi tanpa mencampurkan plaintext ke dokumen, `index.json`, `search.json`, atau share link.
 
 MVP ditujukan untuk pemilik workspace tunggal: membuat dan membuka vault dengan master password, menyimpan kredensial, mencari secara lokal setelah vault dibuka, menghasilkan password, dan mengunci vault kembali. Kolaborasi, sharing, dan browser autofill bukan bagian dari rilis pertama.
 
 ## Masalah yang diselesaikan
 
-Pengguna Morrow membutuhkan tempat privat untuk menyimpan kredensial yang terkait dengan pekerjaan dan catatan mereka. Menaruh password di Markdown berisiko karena file dapat terindeks, dibagikan, dicadangkan, atau dibuka di aplikasi lain.
+Pengguna MarkForge membutuhkan tempat privat untuk menyimpan kredensial yang terkait dengan pekerjaan dan catatan mereka. Menaruh password di Markdown berisiko karena file dapat terindeks, dibagikan, dicadangkan, atau dibuka di aplikasi lain.
 
-Tanpa vault terenkripsi, Morrow tidak dapat menjadi tempat yang aman untuk menyimpan kredensial meskipun akses aplikasi telah dilindungi session password. Session aplikasi harus diperlakukan terpisah dari kemampuan membuka isi password vault.
+Tanpa vault terenkripsi, MarkForge tidak dapat menjadi tempat yang aman untuk menyimpan kredensial meskipun akses aplikasi telah dilindungi session password. Session aplikasi harus diperlakukan terpisah dari kemampuan membuka isi password vault.
 
 ## Sasaran
 
 1. Pengguna dapat membuat vault dan menyimpan credential tanpa plaintext pernah dikirim ke server.
 2. Pengguna dapat membuat, membaca, mengubah, menghapus, dan mencari item password setelah vault dibuka.
 3. Kebocoran `password-vault.json`, backup, atau bucket R2 tidak cukup untuk membaca credential tanpa master password.
-4. Vault dapat dikunci otomatis dan dibuka ulang tanpa mengubah session Morrow.
+4. Vault dapat dikunci otomatis dan dibuka ulang tanpa mengubah session MarkForge.
 5. Semua jalur utama MVP memiliki pengujian unit, API, dan browser end-to-end.
 
 ## Bukan sasaran MVP
@@ -49,7 +49,7 @@ Tanpa vault terenkripsi, Morrow tidak dapat menjadi tempat yang aman untuk menyi
 - **Autofill browser dan extension.** Memerlukan integrasi browser serta threat model tambahan.
 - **Berbagi vault atau folder bersama.** Rekeying dan manajemen akses multi-pengguna merupakan proyek terpisah.
 - **TOTP, passkey, kartu pembayaran, dan lampiran.** Skema item v1 hanya untuk login credential.
-- **Pemulihan master password oleh Morrow.** Ini bertentangan dengan model zero-knowledge; recovery key akan diputuskan sebelum implementasi.
+- **Pemulihan master password oleh MarkForge.** Ini bertentangan dengan model zero-knowledge; recovery key akan diputuskan sebelum implementasi.
 - **Pencarian server-side.** Pencarian hanya berjalan di browser setelah dekripsi.
 
 ## Model keamanan dan data
@@ -111,11 +111,11 @@ Seluruh daftar item, termasuk nama situs, URL, username, password, catatan, tag,
 
 ### Pemilik workspace
 
-- Sebagai pemilik workspace, saya ingin membuat vault dengan master password agar credential saya tidak dapat dibaca oleh penyimpanan Morrow.
+- Sebagai pemilik workspace, saya ingin membuat vault dengan master password agar credential saya tidak dapat dibaca oleh penyimpanan MarkForge.
 - Sebagai pemilik workspace, saya ingin menambah situs, username, password, dan catatan agar credential tersimpan rapi.
 - Sebagai pemilik workspace, saya ingin mencari credential saat vault terbuka agar dapat menemukan item dengan cepat.
 - Sebagai pemilik workspace, saya ingin membuat password kuat agar tidak perlu menyusunnya sendiri.
-- Sebagai pemilik workspace, saya ingin mengunci vault tanpa keluar dari Morrow agar perangkat yang ditinggal tetap aman.
+- Sebagai pemilik workspace, saya ingin mengunci vault tanpa keluar dari MarkForge agar perangkat yang ditinggal tetap aman.
 
 ## Kebutuhan
 
@@ -145,7 +145,7 @@ Seluruh daftar item, termasuk nama situs, URL, username, password, catatan, tag,
 5. **Sinkronisasi aman**
    - Endpoint privat khusus vault menerima dan mengembalikan record terenkripsi saja.
    - Penulisan memakai revision/`If-Match`; bila terjadi konflik, perubahan lokal tidak boleh tertimpa diam-diam.
-   - Backup/restore Morrow meliputi record vault tanpa mencoba mendekripsinya.
+   - Backup/restore MarkForge meliputi record vault tanpa mencoba mendekripsinya.
 
 6. **Isolasi dan observabilitas**
    - Tidak ada route share yang dapat membaca vault.
@@ -198,7 +198,7 @@ Seluruh daftar item, termasuk nama situs, URL, username, password, catatan, tag,
 - Tambahkan navigasi Passwords, onboarding master password, unlock screen, dan status lock.
 - Tambahkan daftar, detail, tambah, edit, hapus, search lokal, generator, dan copy action.
 - Implementasikan auto-lock dan UI penanganan save conflict.
-- Gunakan mockup Password Manager sebagai referensi visual; sesuaikan dengan komponen Morrow yang sudah ada.
+- Gunakan mockup Password Manager sebagai referensi visual; sesuaikan dengan komponen MarkForge yang sudah ada.
 
 ### Fase 3 — validasi rilis
 
@@ -258,5 +258,5 @@ tersisa untuk ditinjau:
 | XSS dapat membaca vault yang sedang terbuka | CSP ketat, dependency audit, minimalkan third-party script, security review sebelum beta. |
 | Pengguna lupa master password | Jelaskan zero-knowledge di onboarding; putuskan recovery key sebelum rilis. |
 | Ciphertext conflict antar-tab/device | Gunakan ETag/revision dan tampilkan resolve/retry, bukan last-write-wins diam-diam. |
-| Plaintext bocor ke subsystem Morrow | Test negatif eksplisit untuk index, search, shares, logs, analytics, dan backup. |
+| Plaintext bocor ke subsystem MarkForge | Test negatif eksplisit untuk index, search, shares, logs, analytics, dan backup. |
 | KDF terlalu mahal/ringan | Benchmark pada perangkat target dan gunakan parameter versi agar dapat dimigrasikan nanti. |

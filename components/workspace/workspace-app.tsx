@@ -58,6 +58,7 @@ import { readDocument as readDocumentEncrypted, writeDocument as writeDocumentEn
 import { Sidebar, SIDEBAR_WIDTH } from './sidebar'
 import { ResizeHandle } from './resize-handle'
 import { DocViewer } from './doc-viewer'
+import { PageMenu } from './page-menu'
 import { SidePeek } from './side-peek'
 import { BacklinksPanel } from './backlinks-panel'
 import { TOCPanel } from './toc-panel'
@@ -294,7 +295,7 @@ export function WorkspaceApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [activeGrimoireId, setActiveGrimoire] = useState<string | null>(getActiveGrimoireId)
   /** Context rail, remembered across sessions and across tabs. */
-  const [railOpen, setRailOpen] = usePersistedFlag('morrow:rail-open', true)
+  const [railOpen, setRailOpen] = usePersistedFlag('markforge:rail-open', true)
   /**
    * Panel widths, remembered the same way the rail's open state is.
    *
@@ -304,11 +305,11 @@ export function WorkspaceApp() {
    * alongside are what covers the names that are too long at any sensible width.
    */
   const [sidebarWidth, setSidebarWidth] = usePersistedSize(
-    'morrow:sidebar-width',
+    'markforge:sidebar-width',
     SIDEBAR_WIDTH.default,
     SIDEBAR_WIDTH
   )
-  const [railWidth, setRailWidth] = usePersistedSize('morrow:rail-width', RAIL_WIDTH.default, RAIL_WIDTH)
+  const [railWidth, setRailWidth] = usePersistedSize('markforge:rail-width', RAIL_WIDTH.default, RAIL_WIDTH)
 
   /**
    * The bytes behind each open tab, keyed by path.
@@ -978,7 +979,12 @@ export function WorkspaceApp() {
       const name = api.sanitizeName(title)
       if (!name) throw new api.ApiError('That name has no usable characters in it.', 0, 'BAD_NAME')
 
-      const path = api.joinPath(parentDir, `${name}.md`)
+      // ponytail: linear scan over the in-memory index, not the disk. The
+      // common case is "Untitled.md" -> free on the first try, so the loop
+      // body runs at most once. Move to a per-folder set when the corpus
+      // reaches a few hundred docs.
+      const takenPaths = indexData ? Object.keys(indexData.documents) : []
+      const path = api.findUniquePath(parentDir, name, takenPaths)
       const result = await createDocumentEncrypted(path, body ?? api.newDocumentTemplate(name), noteKey)
 
       patchIndex((index) => applyUpsert(index, result.document))
@@ -994,7 +1000,7 @@ export function WorkspaceApp() {
       setMode('edit')
       return result
     },
-    [patchIndex, dispatchTabs, setMode, putSource]
+    [patchIndex, dispatchTabs, setMode, putSource, indexData]
   )
 
   // Keep the ref in sync with the latest createDocumentAt so the global
@@ -1321,6 +1327,54 @@ export function WorkspaceApp() {
       }
       if (rejected > 0) {
         toast.message(`Skipped ${rejected} file(s) with an unsupported extension.`)
+      }
+      if (created > 0) toast.success(`Imported ${created} page${created === 1 ? '' : 's'}.`)
+    },
+    [activePath, createDocumentAt]
+  )
+
+  /*
+    Folder import. The web only exposes a flat FileList from
+    `<input webkitdirectory>` — `webkitRelativePath` is the only signal we
+    have for the folder tree. We recreate the relative structure under the
+    active folder so importing "Notes/Recipes/Cake.md" lands at
+    `<active>/Notes/Recipes/Cake.md`. The relativePath on webkitdirectory
+    inputs is the only reason the helper exists separately from
+    `importPages`.
+  */
+  const importFolder = useCallback(
+    async (files: File[]) => {
+      if (files.length === 0) return
+      const accepted = files.filter(isImportableFile)
+      if (accepted.length === 0) {
+        toast.error('No importable files in the folder. Use .md, .markdown, or .txt.')
+        return
+      }
+      const root = activePath?.includes('/')
+        ? activePath.slice(0, activePath.lastIndexOf('/'))
+        : ''
+      const ensureFolder = async (folder: string) => {
+        if (!folder || folder === root) return
+        await api.createFolder(folder)
+      }
+      let created = 0
+      let lastFolder = ''
+      for (const file of accepted) {
+        const rel = (file as File & { webkitRelativePath?: string }).webkitRelativePath || file.name
+        const segments = rel.split('/').filter(Boolean)
+        const fileName = segments.pop() || file.name
+        const dir = api.joinPath(root, segments.join('/'))
+        if (dir !== lastFolder) {
+          await ensureFolder(dir)
+          lastFolder = dir
+        }
+        try {
+          const parsed = await readMarkdownFile({ ...file, name: fileName })
+          await createDocumentAt(dir, parsed.title, parsed.body)
+          created += 1
+        } catch (err) {
+          toast.error(`Could not import ${fileName}: ${(err as Error).message}`)
+        }
       }
       if (created > 0) toast.success(`Imported ${created} page${created === 1 ? '' : 's'}.`)
     },
@@ -1793,6 +1847,37 @@ export function WorkspaceApp() {
         onSignOut={() => void signOut()}
         documents={indexData?.documents || {}}
         onAfterImport={reloadIndex}
+        onImportFile={() => {
+          const input = globalThis.document.createElement('input')
+          input.type = 'file'
+          input.accept = '.md,.markdown,.txt,text/markdown,text/plain'
+          input.multiple = true
+          input.style.display = 'none'
+          input.addEventListener('change', () => {
+            const files = input.files ? Array.from(input.files) : []
+            input.remove()
+            if (files.length > 0) void importPages(files)
+          })
+          globalThis.document.body.appendChild(input)
+          input.click()
+        }}
+        onImportFolder={() => {
+          const input = globalThis.document.createElement('input')
+          input.type = 'file'
+          // ponytail: webkitdirectory is the only portable signal we have
+          // for a folder pick on the web. The DataTransfer API exists, but
+          // there is no `showDirectoryPicker` in Safari/Firefox yet.
+          input.setAttribute('webkitdirectory', '')
+          input.multiple = true
+          input.style.display = 'none'
+          input.addEventListener('change', () => {
+            const files = input.files ? Array.from(input.files) : []
+            input.remove()
+            if (files.length > 0) void importFolder(files)
+          })
+          globalThis.document.body.appendChild(input)
+          input.click()
+        }}
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         width={sidebarWidth}
@@ -2011,7 +2096,7 @@ export function WorkspaceApp() {
 
             <ThemeSwitcher />
 
-            {activeDoc && mode === 'read' && (
+            {activeDoc && (
               <button
                 type="button"
                 onClick={() => setRailOpen(!railOpen)}
@@ -2025,6 +2110,30 @@ export function WorkspaceApp() {
               >
                 <PanelRight className="size-4" />
               </button>
+            )}
+
+            {/*
+              The `⋯` meatball menu lives in the header so the button is in the
+              same place in both read and edit mode. Was sticky inside the
+              article, which scrolled out of view for any long document.
+            */}
+            {activeDoc && source && (
+              <PageMenu
+                document={activeDoc}
+                body={source.body}
+                tree={indexData?.tree || []}
+                onCopy={copyPageContent}
+                onDuplicate={() => void duplicatePage()}
+                onMoveTo={(destDir) => void movePageTo(destDir)}
+                onTrash={() => void trashPage()}
+                onSetView={(view) => void setPageView(view)}
+                onSetWidth={(width) => void setPageWidth(width)}
+                isLocked={frontmatterLock(activeDoc.frontmatter) !== null}
+                onLock={(passphrase) => void lockPage(passphrase)}
+                onUnlock={() => void unlockPage()}
+                onImport={(files) => void importPages(files)}
+                onExport={() => void exportPage()}
+              />
             )}
           </div>
         </header>
@@ -2124,34 +2233,12 @@ export function WorkspaceApp() {
               allDocs={indexData?.documents || {}}
               onNavigateWikilink={handleNavigateWikilink}
               onNavigatePath={navigateTo}
-              /*
-                A cached body renders straight away, stale or not. Coming back to a
-                tab should show the document, not a skeleton; the refetch behind it
-                will replace the text if the file changed underneath.
-              */
               body={source?.body ?? null}
               loading={!source}
               error={sourceError?.path === activePath ? sourceError.message : null}
               scrollFor={scrollFor}
               onScroll={rememberScroll}
               tree={indexData?.tree || []}
-              pageMenu={
-                activeDoc
-                  ? {
-                      onCopy: copyPageContent,
-                      onDuplicate: () => void duplicatePage(),
-                      onMoveTo: (destDir) => void movePageTo(destDir),
-                      onTrash: () => void trashPage(),
-                      onSetView: (view) => void setPageView(view),
-                      onSetWidth: (width) => void setPageWidth(width),
-                      isLocked: frontmatterLock(activeDoc.frontmatter) !== null,
-                      onLock: (passphrase) => void lockPage(passphrase),
-                      onUnlock: () => void unlockPage(),
-                      onImport: (files) => void importPages(files),
-                      onExport: () => void exportPage(),
-                    }
-                  : null
-              }
             />
           )}
 
@@ -2159,7 +2246,7 @@ export function WorkspaceApp() {
             Hidden below lg as well as when toggled off: on a narrow screen a 288px
             context rail is most of the viewport, and the document is the point.
           */}
-          {activeDoc && mode === 'read' && railOpen && (
+          {activeDoc && railOpen && (
             <aside
               style={{ '--rail-width': `${railWidth}px` } as React.CSSProperties}
               className="relative hidden w-[var(--rail-width)] shrink-0 flex-col overflow-hidden border-l bg-sidebar/50 lg:flex"

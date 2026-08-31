@@ -127,7 +127,7 @@ export function PwaInstallButton({ className }: { className?: string }) {
     <button
       type="button"
       onClick={() => void install()}
-      title="Install Morrow as an app"
+      title="Install MarkForge as an app"
       className={cn(
         'flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-medium transition-colors hover:bg-muted',
         className

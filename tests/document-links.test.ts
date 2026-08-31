@@ -49,7 +49,7 @@ for (const entry of [
   doc('GDI/PTVI/GH/GH - Dev Notes.md', 'GH - Dev Notes'),
   doc('GDI/PTVI/GH/GH - Meeting Notes.md', 'GH - Meeting Notes'),
   doc('GDI/PTVI/Task List.md', 'Task List'),
-  doc('Sena/Morrow Project.md', 'Morrow Project'),
+  doc('Xyks/MarkForge Project.md', 'MarkForge Project'),
 ]) {
   documents[entry.path] = entry
 }
@@ -112,8 +112,8 @@ export function runDocumentLinkTests(): boolean {
       '../ did not resolve'
     )
     equal(
-      classifyHref('../../../Sena/Morrow Project.md', FROM, documents),
-      { kind: 'document', path: 'Sena/Morrow Project.md' },
+      classifyHref('../../../Xyks/MarkForge Project.md', FROM, documents),
+      { kind: 'document', path: 'Xyks/MarkForge Project.md' },
       'a walk back to the root did not resolve'
     )
   })
@@ -155,8 +155,8 @@ export function runDocumentLinkTests(): boolean {
 
   check('a link from a root document resolves', () => {
     equal(
-      classifyHref('Sena/Morrow Project.md', 'Warisan Projek.md', documents),
-      { kind: 'document', path: 'Sena/Morrow Project.md' },
+      classifyHref('Xyks/MarkForge Project.md', 'Warisan Projek.md', documents),
+      { kind: 'document', path: 'Xyks/MarkForge Project.md' },
       'a link from the workspace root did not resolve'
     )
   })

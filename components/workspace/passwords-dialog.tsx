@@ -212,7 +212,7 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
           <DialogDescription>
             {vault.status === 'unlocked'
               ? 'Unlocked in this tab only. It locks itself after 15 minutes, when this tab goes to the background, and on every reload.'
-              : 'A separate vault, encrypted in your browser. Morrow stores it without being able to read it.'}
+              : 'A separate vault, encrypted in your browser. MarkForge stores it without being able to read it.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -248,7 +248,7 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
                 <AlertTriangle className="mt-0.5 size-3.5 shrink-0 text-amber-600" />
                 <p>
                   <span className="font-medium">There is no way to recover this password.</span> The
-                  key never leaves your browser, so Morrow cannot reset it, read your vault, or help
+                  key never leaves your browser, so MarkForge cannot reset it, read your vault, or help
                   you back in. Write it down somewhere safe before you continue.
                 </p>
               </div>
@@ -289,7 +289,7 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
 
             <div className="flex items-center justify-between gap-2">
               <p className="text-[11px] text-muted-foreground">
-                Not your Morrow sign-in password. Deriving the key takes a moment on purpose.
+                Not your MarkForge sign-in password. Deriving the key takes a moment on purpose.
               </p>
               <Button type="submit" disabled={vault.busy}>
                 {vault.busy && <Loader2 className="animate-spin" />}

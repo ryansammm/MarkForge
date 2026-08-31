@@ -180,7 +180,7 @@ Edited:
   slide-over panel.
 - `components/workspace/passwords-dialog.tsx` — the same unlock flow
   now also unlocks note encryption. The dialog copy changes from
-  "A separate vault, encrypted in your browser. Morrow stores it
+  "A separate vault, encrypted in your browser. MarkForge stores it
   without being able to read it." to "Unlocks your notes and the
   password vault. Without this, the app can read your titles but not
   the bodies."

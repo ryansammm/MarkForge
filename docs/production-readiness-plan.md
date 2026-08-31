@@ -1,4 +1,4 @@
-# Production Readiness Plan — Markdown Workspace ("Morrow")
+# Production Readiness Plan — Markdown Workspace ("MarkForge")
 
 **Date:** 6 August 2026
 **State assessed:** `main` @ `b6ddbe7`, after Sprint 6 (share model, R2 backend, corpus sync)

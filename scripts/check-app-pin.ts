@@ -149,7 +149,7 @@ async function main(): Promise<void> {
 
   const before = sessionSecret({ APP_PIN: '111111' })!
   const after = sessionSecret({ APP_PIN: '222222' })!
-  assert('sessionSecret: v2 namespace in derived key', before.includes('morrow-session-v2:pin:'))
+  assert('sessionSecret: v2 namespace in derived key', before.includes('markforge-session-v2:pin:'))
   assert('sessionSecret: derived key is not the PIN verbatim', before !== '111111')
   assert('sessionSecret: rotating the PIN changes the key', before !== after)
   assert(

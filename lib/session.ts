@@ -17,7 +17,7 @@
  * request, which is exactly what an HMAC is for.
  */
 
-export const SESSION_COOKIE = 'morrow_session'
+export const SESSION_COOKIE = 'markforge_session'
 
 /** Seven days. Long enough to be usable, short enough that a stolen cookie dies. */
 export const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -76,7 +76,7 @@ export function sessionSecret(env: Record<string, string | undefined>): string |
   // before it goes through HMAC. v2 supersedes the v1 namespace used when the
   // gate was `APP_PASSWORD`; old cookies are no longer valid, which is the
   // intended forced re-login on this rename.
-  return `morrow-session-v2:pin:${pin}`
+  return `markforge-session-v2:pin:${pin}`
 }
 
 async function keyFor(secret: string): Promise<CryptoKey> {

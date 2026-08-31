@@ -249,6 +249,38 @@ export function joinPath(parentDir: string, name: string): string {
 }
 
 /**
+ * Returns a `<parent>/<unique>.md` that does not collide with any path in
+ * `taken`. Tries the base first, then `<base> 2.md`, `<base> 3.md`, …
+ *
+ * `Untitled` -> `Untitled.md` if free, else `Untitled 2.md`, etc. The
+ * `taken` argument is any iterable of full workspace paths; the function
+ * compares against the trailing filename so collisions in any sub-folder
+ * are caught. Used by the workspace's "New page" button so a second
+ * click does not throw.
+ */
+export function findUniquePath(
+  parentDir: string,
+  baseTitle: string,
+  taken: Iterable<string>
+): string {
+  const base = sanitizeName(baseTitle) || 'Untitled'
+  const takenSet = new Set<string>()
+  for (const path of taken) {
+    const slash = path.lastIndexOf('/')
+    takenSet.add(slash >= 0 ? path.slice(slash + 1) : path)
+  }
+  const candidate = (name: string) => joinPath(parentDir, `${name}.md`)
+  if (!takenSet.has(`${base}.md`)) return candidate(base)
+  for (let n = 2; n < 10_000; n++) {
+    const file = `${base} ${n}.md`
+    if (!takenSet.has(file)) return candidate(`${base} ${n}`)
+  }
+  // ponytail: 10k collisions is a degenerate case; surface it as a real error
+  // rather than spin forever. Add a UI surface when the corpus reaches that size.
+  throw new Error(`Could not find a free name for "${base}" after 10000 attempts`)
+}
+
+/**
  * The starting content for a brand-new file. Empty.
  *
  * The H1-derives-title path (`buildDocument.deriveTitle` → first H1) and the

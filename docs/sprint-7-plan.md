@@ -42,7 +42,7 @@ route, a new *public* route, and one rendering change per surface.
 
 | Person | Available | Allocation | Notes |
 |--------|-----------|------------|-------|
-| Sena | 10 of 14 days | 30 pts | Solo; part-time evenings/weekend, no on-call |
+| Xyks | 10 of 14 days | 30 pts | Solo; part-time evenings/weekend, no on-call |
 | **Total** | **10 days** | **30 pts** | |
 
 **Planned capacity: 30 pts · Committed (P0): 27 pts (90%) · Stretch (P2): 7 pts**

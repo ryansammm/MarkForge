@@ -63,9 +63,15 @@ check('Move to uses a folder picker (submenu of folders)', /FolderPicker/.test(m
 check('Move to filters the current folder (currentPath.startsWith check)', /currentPath\.startsWith\([`']\$\{fullPath\}/.test(menu))
 check('Lock page / Import / Export show "coming in Task" hint', /Task 9|Task 10/.test(menu))
 
+const workspace = readFileSync(resolve(process.cwd(), 'components/workspace/workspace-app.tsx'), 'utf8')
+
 check('viewer imports frontmatterView / frontmatterWidth', /frontmatterView/.test(viewer) && /frontmatterWidth/.test(viewer))
-check('viewer renders <PageMenu>', /<PageMenu\b/.test(viewer))
 check('viewer applies the frontmatter-driven max-width', /max-w-(2xl|3xl|5xl)/.test(viewer))
+check('viewer no longer renders <PageMenu> (it lives in the header now)', !/<PageMenu\b/.test(viewer))
+check('viewer no longer carries a pageMenu prop', !/pageMenu/.test(viewer))
+check('workspace imports PageMenu', /import\s+\{\s*PageMenu\s*\}\s+from\s+['"]\.\/page-menu['"]/.test(workspace))
+check('workspace renders <PageMenu> in the header right cluster', /<PageMenu\b/.test(workspace))
+check('workspace does not pass pageMenu to the DocViewer', !/pageMenu=\{/.test(workspace))
 
 // Round-trip the frontmatter helper
 const original = `---\nid: abc\ntitle: Hello\n---\n# Hi\n`

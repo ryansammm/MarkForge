@@ -128,7 +128,7 @@ export async function deriveKey(masterPassword: string, kdf: VaultKdf): Promise<
   }
   if (kdf.algorithm !== 'PBKDF2-SHA256') {
     throw new UnsupportedVaultError(
-      `This vault uses ${kdf.algorithm}, which this version of Morrow cannot open. Update the app.`
+      `This vault uses ${kdf.algorithm}, which this version of MarkForge cannot open. Update the app.`
     )
   }
 
@@ -181,7 +181,7 @@ export async function seal(key: CryptoKey, data: unknown): Promise<VaultCipher> 
 export async function unseal<T>(key: CryptoKey, cipher: VaultCipher): Promise<T> {
   if (cipher.algorithm !== 'AES-256-GCM') {
     throw new UnsupportedVaultError(
-      `This vault uses ${cipher.algorithm}, which this version of Morrow cannot open. Update the app.`
+      `This vault uses ${cipher.algorithm}, which this version of MarkForge cannot open. Update the app.`
     )
   }
 

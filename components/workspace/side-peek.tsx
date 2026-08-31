@@ -98,7 +98,6 @@ export function SidePeek({
             void scrolledPath
           }}
           tree={[]}
-          pageMenu={null}
         />
       </div>
     </div>

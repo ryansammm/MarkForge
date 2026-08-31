@@ -24,7 +24,7 @@ import { cancelScheduledClear } from './clipboard'
  * — a browser that could restore an unlocked vault after a refresh could restore it
  * for whoever picks the laptop up next.
  *
- * The Morrow session and the vault are separate credentials on purpose. Signing in
+ * The MarkForge session and the vault are separate credentials on purpose. Signing in
  * gets you the app; the master password gets you the vault; locking one does not touch
  * the other.
  */

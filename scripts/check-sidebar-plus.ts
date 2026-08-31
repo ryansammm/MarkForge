@@ -61,9 +61,17 @@ check(
   /<FilePlus\b/.test(sidebar) && /<FolderPlus\b/.test(sidebar)
 )
 check(
-  'sidebar has "New page" and "New grimoire" button titles',
+  'sidebar has "New page" and "New folder" button titles',
   /title="New page \(Ctrl\/Cmd-N\)"/.test(sidebar) &&
-    /title="New grimoire \(Ctrl\/Cmd-Shift-N\)"/.test(sidebar)
+    /title="New folder"/.test(sidebar)
+)
+check(
+  'sidebar Folders-header FolderPlus calls onCreateFolder, not grimoire create',
+  /onClick=\{\(\) => onCreateFolder\(''\)\}/.test(sidebar)
+)
+check(
+  'grimoire switcher header carries the "New grimoire" button',
+  /title="New grimoire \(Ctrl\/Cmd-Shift-N\)"/.test(switcher)
 )
 
 // --- SidebarPageContextMenu ----------------------------------------------
@@ -80,8 +88,8 @@ check('context menu keeps inside viewport on bottom-right', /viewportW|window\.i
 check('GrimoireSwitcher uses forwardRef', /forwardRef</.test(switcher))
 check('GrimoireSwitcherHandle type exports requestCreate', /requestCreate: \(\) => void/.test(switcher))
 check(
-  'requestCreate opens the dropdown + create input',
-  /requestCreate\(\) \{[\s\S]*setOpen\(true\)[\s\S]*setCreating\(true\)/.test(switcher)
+  'grimoire settings sheet no longer shows a Root folder field',
+  !/Root folder/.test(switcher) && !/selectDirectory/.test(switcher)
 )
 
 // --- Sidebar wiring ------------------------------------------------------
@@ -96,6 +104,8 @@ check('sidebar tracks context menu state', /setContextMenu\(/.test(sidebar))
 check('sidebar accepts onCreatePageDirect prop', /onCreatePageDirect\??: \(\) => void/.test(sidebar))
 check('sidebar accepts onOpenInSidePeek prop', /onOpenInSidePeek\??: \(path: string\) => void/.test(sidebar))
 check('sidebar accepts onOpenInNewWindow prop', /onOpenInNewWindow\??: \(path: string\) => void/.test(sidebar))
+check('sidebar accepts onImportFile prop', /onImportFile: \(\) => void/.test(sidebar))
+check('sidebar accepts onImportFolder prop', /onImportFolder: \(\) => void/.test(sidebar))
 check(
   'sidebar subscribes to open-new-grimoire shortcut action',
   /onShortcutAction\(['"]open-new-grimoire['"]/.test(sidebar)
@@ -105,8 +115,10 @@ check(
   /onClick=\{\(\) => onCreatePageDirect\?\.\(\)\}/.test(sidebar)
 )
 check(
-  'sidebar New-grimoire button calls grimoireSwitcherRef.requestCreate',
-  /onClick=\{\(\) => grimoireSwitcherRef\.current\?\.requestCreate\(\)\}/.test(sidebar)
+  'sidebar Import file / Import folder buttons render above Passwords',
+  /Import file/.test(sidebar) && /Import folder/.test(sidebar) &&
+    /onImportFile/.test(sidebar) && /onImportFolder/.test(sidebar) &&
+    /FileUp/.test(sidebar) && /FolderUp/.test(sidebar)
 )
 
 // --- workspace-app wiring ------------------------------------------------
@@ -114,6 +126,10 @@ check(
 check(
   'workspace-app wires onCreatePageDirect to createDocumentAt',
   /onCreatePageDirect=\{\(\) => void createDocumentAt\(/.test(workspaceApp)
+)
+check(
+  'workspace-app wires onImportFile + onImportFolder',
+  /onImportFile=\{|onImportFolder=\{|importPages|importFolder/.test(workspaceApp),
 )
 check('workspace-app wires onOpenInSidePeek', /onOpenInSidePeek=\{\(path\) =>/.test(workspaceApp))
 check('workspace-app wires onOpenInNewWindow', /onOpenInNewWindow=\{\(path\) =>/.test(workspaceApp))

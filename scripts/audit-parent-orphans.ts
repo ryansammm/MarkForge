@@ -13,7 +13,7 @@ async function login(): Promise<string> {
   })
   if (!res.ok) throw new Error(`login failed: ${res.status}`)
   const setCookie = res.headers.get('set-cookie') ?? ''
-  const match = setCookie.match(/(morrow_session=[^;]+)/)
+  const match = setCookie.match(/(markforge_session=[^;]+)/)
   if (!match) throw new Error('no session cookie')
   return match[1]
 }

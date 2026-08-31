@@ -11,15 +11,15 @@ import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/lib/clipboard'
 
 /**
- * The `⋯` button rendered top-right of the document viewer.
- *
- * Owns the small set of page-level actions Notion has on every page:
+ * The `⋯` button rendered in the editor header (right cluster, both
+ * edit and read mode). Owns the small set of page-level actions
+ * Notion has on every page:
  *  - Copy page content  (decrypted body to clipboard)
  *  - Duplicate          (creates a copy in the same folder, opens a new tab)
  *  - Move to            (folder picker scoped to the active grimoire)
  *  - Move to trash      (same flow as the sidebar Delete)
  *  - Small text / Full width (writes `view` / `width` to frontmatter)
- *  - Lock page / Import / Export (stubs — wired in Tasks 9 and 10)
+ *  - Lock page / Import / Export
  *
  * No state of its own about whether the document is dirty or what its
  * `view` field is — the parent passes both via props so this component
@@ -81,27 +81,20 @@ export function PageMenu({
 
   return (
     /*
-      `sticky` rather than `absolute` so the menu stays in view as the document
-      scrolls. An absolutely positioned button is anchored to the article, not
-      the viewport, and the page menu disappears the moment the document is
-      scrolled — which is most of the time for a long note. The `top-4` offset
-      keeps a finger of breathing room between the menu and the read border.
+      Lives in the editor header, not the article, so the button is always
+      in the same place regardless of scroll position. The header itself
+      never scrolls; the document does. Anchoring the menu inside the
+      article made it disappear as soon as the user scrolled, which was
+      most of the time for a long note.
     */
-    <div className="sticky top-4 z-10 flex items-center gap-1">
-      <Popover.Root open={moveOpen} onOpenChange={setMoveOpen}>
+    <Popover.Root open={moveOpen} onOpenChange={setMoveOpen}>
         <Popover.Trigger
           className={cn(
-            'inline-flex h-8 w-8 items-center justify-center rounded-md border bg-background text-muted-foreground transition-colors hover:bg-accent',
-            'data-[popup-open]:bg-accent data-[popup-open]:text-foreground',
-            'outline-none focus-visible:ring-2 focus-visible:ring-ring'
+            'flex size-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary',
+            'data-[popup-open]:bg-muted data-[popup-open]:text-foreground'
           )}
-          aria-label="Page actions"
-          title="Page actions"
-          onClick={() => {
-            // Avoid double-open: a Base UI Menu trigger and Popover trigger
-            // do not compose on the same element. The popover *is* the menu.
-            // The dedicated menu below uses its own trigger.
-          }}
+          aria-label="More page actions"
+          title="More page actions"
         >
           <MoreVertical className="size-4" aria-hidden />
         </Popover.Trigger>
@@ -238,8 +231,6 @@ export function PageMenu({
           </Popover.Positioner>
         </Popover.Portal>
       </Popover.Root>
-      {disabled ? <span className="sr-only">Page actions unavailable</span> : null}
-    </div>
   )
 }
 

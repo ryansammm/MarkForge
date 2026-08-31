@@ -194,7 +194,7 @@ async function namespaceChecks() {
 
   await check('a filename can be anything and still produce a usable key', () => {
     equal(slugifyFilename('Rapat Q3 — final (2).png'), 'rapat-q3-final-2', 'punctuation and spaces')
-    equal(slugifyFilename('C:\\Users\\Sena\\shot.png'), 'shot', 'a Windows path is not a name')
+    equal(slugifyFilename('C:\\Users\\Xyks\\shot.png'), 'shot', 'a Windows path is not a name')
     equal(slugifyFilename('screenshot.png'), 'screenshot', 'the extension is dropped')
     equal(slugifyFilename('图片.png'), 'image', 'a name with no ASCII still gets a key')
     equal(slugifyFilename(undefined), 'image', 'no name at all')
@@ -735,7 +735,7 @@ async function insertionChecks() {
   await check('alt text keeps the words and drops what would break the link', () => {
     equal(altTextFor('Rapat Q3 — final.png'), 'Rapat Q3 — final', 'accents and dashes survive')
     equal(altTextFor('图片.png'), '图片', 'alt text is read aloud — it is not a slug')
-    equal(altTextFor('C:\\Users\\Sena\\shot.png'), 'shot', 'a path is not a name')
+    equal(altTextFor('C:\\Users\\Xyks\\shot.png'), 'shot', 'a path is not a name')
     equal(altTextFor('a[b]c.png'), 'a b c', 'brackets would close the alt early')
     equal(altTextFor('.gitignore'), '.gitignore', 'a dotfile has no extension to strip')
   })

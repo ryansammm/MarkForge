@@ -18,7 +18,7 @@ import vm from 'node:vm'
  * plus an error that points at the wrong thing.
  */
 
-const ORIGIN = 'https://morrow.test'
+const ORIGIN = 'https://markforge.test'
 
 type FetchEventInit = {
   url: string
@@ -202,7 +202,7 @@ async function run() {
     const worker = loadWorker()
     // Stale chunks from an earlier deploy live in the cache until the cache name
     // changes, which is the whole reason the name carries a version.
-    await worker.seed('morrow-shell-v1', '/_next/static/chunks/stale-000.js', script('/* last deploy */'))
+    await worker.seed('markforge-shell-v1', '/_next/static/chunks/stale-000.js', script('/* last deploy */'))
     worker.setNetwork(async () => html('<!DOCTYPE html><title>shell</title>'))
     await worker.install()
     await worker.activate()

@@ -235,7 +235,7 @@ function pushHistory(tab: Tab, path: string): Tab {
 
 // --- storage ------------------------------------------------------------------
 
-export const TABS_STORAGE_KEY = 'morrow:tabs'
+export const TABS_STORAGE_KEY = 'markforge:tabs'
 
 /** Bumped when the shape below changes. An older payload is dropped, not guessed at. */
 const STORAGE_VERSION = 1
