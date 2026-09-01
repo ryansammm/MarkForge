@@ -41,7 +41,7 @@ Referensi untuk setiap jenis pengerjaan. Prinsip dasar: **main = selalu stabil**
 
 ### D. Rebuild portable exe
 1. Pastikan `main` dalam kondisi teruji.
-2. Jalankan: `pnpm dist:portable` (build standalone + rakit + electron-builder).
+2. Jalankan: `scripts\build-portable.bat` (build standalone + rakit + electron-builder). Di Vercel tidak perlu — Vercel deploy `.next/standalone` langsung.
 3. Output: `dist/MarkForge-Portable-<versi>.exe`.
 4. Smoke test wajib: buka exe → login → buka dokumen → health endpoint 200.
 5. Naikkan `version` di package.json, lalu release resmi lewat tag (lihat §3).
@@ -69,7 +69,7 @@ git push origin main --follow-tags
 |---|---|
 | Mojibake/huruf aneh | Pre-commit + CI gate (`check:encoding`) — sudah aktif |
 | Lupa typecheck/lint sebelum push | Sudah masuk `npm run verify` di CI |
-| Build ulang exe manual | `pnpm dist:portable` satu perintah |
+| Build ulang exe manual | `scripts\build-portable.bat` (double-click) |
 | Release manual | Tag `v*` → workflow release otomatis |
 | Sinkron lockfile tim | `pnpm install --frozen-lockfile` dipaksa di CI |
 | Backup notes | `scripts/backup.ts` (jalankan berkala) |

@@ -1,9 +1,11 @@
 import { spawnSync } from 'node:child_process'
 
 /**
- * Build portable exe end-to-end dalam satu perintah:
+ * Build portable exe end-to-end.
  *
- *   pnpm dist:portable
+ * Dipanggil dari `scripts\build-portable.bat` (double-click). Tidak ada
+ * `dist:portable` di package.json — build ini on-demand, bukan jalur
+ * Vercel (Vercel deploy `.next/standalone` langsung).
  *
  * 1. next build dengan output standalone (BUILD_FOR_ELECTRON=1)
  * 2. electron-builder portable - penyalinan server ke resources dilakukan

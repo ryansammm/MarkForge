@@ -51,8 +51,7 @@
     "test:slash-commands": "tsx tests/slash-commands.test.ts",
     "check:deps": "node scripts/check-deps.mjs",
     "verify": "npm run check:deps && npm run check:encoding && npm run typecheck && npm run lint && npm test && npm run build",
-    "sync": "tsx scripts/sync-storage.ts",
-    "dist:portable": "node scripts/build-portable.mjs"
+    "sync": "tsx scripts/sync-storage.ts"
   },
   "dependencies": {
     "@aws-sdk/checksums": "^3.1000.29",

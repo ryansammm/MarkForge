@@ -28,7 +28,7 @@
     {
       "label": "MF: Build Portable EXE",
       "type": "shell",
-      "command": "pnpm dist:portable",
+      "command": "scripts\\build-portable.bat",
       "group": { "kind": "build", "isDefault": true },
       "problemMatcher": []
     },
