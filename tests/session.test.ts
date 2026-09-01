@@ -91,7 +91,14 @@ export async function runSessionTests(): Promise<boolean> {
   await check('a tampered signature is refused', async () => {
     const token = await mintSession(SECRET)
     const [version, encoded, signature] = token.split('.')
-    const flipped = signature.slice(0, -1) + (signature.endsWith('A') ? 'B' : 'A')
+    // Flip a char early in the signature. The last char of a 43-char
+    // base64url(32 bytes) only carries 4 real bits (the rest is padding
+    // zeros) — flipping a single low-order bit can leave the decoded
+    // bytes unchanged, which the test then misreads as a successful
+    // forgery. First char encodes 8 real bits, so a flip there always
+    // changes a byte.
+    const first = signature[0]
+    const flipped = String.fromCharCode(first.charCodeAt(0) + 1) + signature.slice(1)
     equal(await verifySession(SECRET, `${version}.${encoded}.${flipped}`), null, 'a bad signature verified')
   })
 
