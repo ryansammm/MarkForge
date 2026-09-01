@@ -51,6 +51,7 @@ export function PasswordItemForm({ item, busy, onSubmit, onCancel }: PasswordIte
   const [revealed, setRevealed] = useState(false)
   const [generatorOpen, setGeneratorOpen] = useState(false)
   const [options, setOptions] = useState<GeneratorOptions>(DEFAULT_GENERATOR_OPTIONS)
+  const [totp, setTotp] = useState(item?.totp ?? '')
   const [error, setError] = useState<string | null>(null)
 
   // Hiding it again on unmount is not enough — a form left open on a shared screen
@@ -92,6 +93,7 @@ export function PasswordItemForm({ item, busy, onSubmit, onCancel }: PasswordIte
         .split(',')
         .map((tag) => tag.trim())
         .filter(Boolean),
+      totp: totp.replace(/\s+/g, '').toUpperCase() || undefined,
     })
   }
 
@@ -181,6 +183,25 @@ export function PasswordItemForm({ item, busy, onSubmit, onCancel }: PasswordIte
             <Dices />
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className={LABEL} htmlFor="vault-totp">
+          2FA / TOTP secret (optional)
+        </label>
+        <Input
+          id="vault-totp"
+          value={totp}
+          onChange={(e) => setTotp(e.target.value)}
+          placeholder="JBSWY3DPEHPK3PXP"
+          className="font-mono"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <p className="text-[11px] text-muted-foreground">
+          Base32 secret from your authenticator setup. The 6-digit code is
+          generated when this item is open in the vault and never saved.
+        </p>
       </div>
 
       {generatorOpen && (

@@ -59,6 +59,10 @@ interface DocViewerProps {
       not in the viewer; this is still passed so any future side-peek viewer that wants
       the same menu has the data. */
   tree: FileTreeNode[]
+  /** Effective layout for the active doc. Owner is `workspace-app`,
+      which keeps the per-path override that wins over frontmatter. */
+  view?: 'small' | 'full'
+  width?: 'full' | 'default'
 }
 
 export function DocViewer({
@@ -72,6 +76,8 @@ export function DocViewer({
   scrollFor,
   onScroll,
   tree,
+  view: viewProp,
+  width: widthProp,
 }: DocViewerProps) {
   const articleRef = useRef<HTMLElement>(null)
   /** The document this mount has already placed. Restoring twice would fight the reader. */
@@ -95,6 +101,65 @@ export function DocViewer({
     placedFor.current = path
     article.scrollTop = scrollFor?.(path) ?? 0
   }, [path, body, scrollFor])
+  /*
+    Ctrl/Cmd-A is two-stage: first press selects the active line in
+    the article, a repeat within a short window escalates to the
+    whole article. Matches the editor's behaviour so both modes feel
+    the same. Browsers won't scope selection for a non-focusable
+    element, so we install a Range directly. Capture phase on the
+    article so a focused child element (a link, an image) cannot
+    re-trigger the browser's whole-page select-all first.
+  */
+  useEffect(() => {
+    const article = articleRef.current
+    if (!article) return
+    let lastLinePress = 0
+    const handleSelectAll = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+      if (event.key !== 'a' && event.key !== 'A') return
+      const doc = globalThis.document
+      const active = doc.activeElement
+      if (!active || !article.contains(active)) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const sel = doc.getSelection()
+      if (!sel) return
+      const now = Date.now()
+      const escalate = now - lastLinePress < 500
+      const range = doc.createRange()
+      if (!escalate) {
+        const focusNode = sel.focusNode ?? active
+        const focusOffset = sel.focusOffset
+        range.setStart(focusNode, 0)
+        if (focusNode.nodeType === Node.TEXT_NODE) {
+          const text = focusNode.textContent ?? ''
+          const end = text.length
+          range.setEnd(focusNode, end)
+        } else {
+          range.setEndAfter(focusNode.lastChild ?? focusNode)
+        }
+        lastLinePress = now
+        if (focusOffset !== undefined) {
+          const probe = doc.createRange()
+          probe.setStart(focusNode, 0)
+          probe.setEnd(focusNode, focusOffset)
+          const probeRect = probe.getBoundingClientRect()
+          const articleRect = article.getBoundingClientRect()
+          if (probeRect.top < articleRect.top || probeRect.bottom > articleRect.bottom) {
+            range.selectNodeContents(article)
+            lastLinePress = 0
+          }
+        }
+      } else {
+        range.selectNodeContents(article)
+        lastLinePress = 0
+      }
+      sel.removeAllRanges()
+      sel.addRange(range)
+    }
+    article.addEventListener('keydown', handleSelectAll, true)
+    return () => article.removeEventListener('keydown', handleSelectAll, true)
+  }, [path])
   // Rewrites [[wikilinks]] into links the Markdown renderer understands.
   // Runs before the empty-state return so the hook order never changes.
   const processedContent = useMemo(
@@ -128,11 +193,13 @@ export function DocViewer({
   // `view: small` narrows the reading column. `width: full` widens it.
   // Both come from the page menu via frontmatter; the viewer only
   // changes the layout container, never the prose styling, so the
-  // editor is unaffected.
-  const view = frontmatterView(document.frontmatter)
-  const width = frontmatterWidth(document.frontmatter)
+  // editor is unaffected. The override props win over frontmatter
+  // so the menu's in-memory state does not have to be round-tripped
+  // through the file.
+  const view = viewProp ?? frontmatterView(document.frontmatter)
+  const width = widthProp ?? frontmatterWidth(document.frontmatter)
   const maxWidth = width === 'full'
-    ? 'max-w-5xl'
+    ? 'max-w-none'
     : view === 'small'
       ? 'max-w-2xl'
       : 'max-w-3xl'
@@ -141,7 +208,7 @@ export function DocViewer({
     <article
       ref={articleRef}
       onScroll={(event) => path && onScroll?.(path, event.currentTarget.scrollTop)}
-      className="relative flex-1 overflow-y-auto px-8 py-10"
+      className="workspace-doc relative flex-1 overflow-y-auto px-8 py-10"
     >
       <div className={cn('mx-auto space-y-6', maxWidth)}>
         <Breadcrumb current={document} allDocs={allDocs} onNavigate={onNavigatePath} />
@@ -191,7 +258,12 @@ export function DocViewer({
         )}
 
         {/* Markdown Body Content */}
-        <div className="prose prose-neutral dark:prose-invert max-w-none prose-headings:font-serif prose-a:no-underline">
+        <div
+          className={cn(
+            'prose prose-neutral dark:prose-invert max-w-none prose-headings:font-serif prose-a:no-underline',
+            view === 'small' && 'prose-sm'
+          )}
+        >
           <ReactMarkdown
             /*
               Notion-style lines: a single newline inside a paragraph becomes a

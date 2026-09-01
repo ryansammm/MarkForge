@@ -1,7 +1,7 @@
 'use client'
 
 import * as React from 'react'
-import { ChevronRight, Copy, Files, FolderInput, Lock, MoreVertical, Trash2, Type, Maximize2, Upload, Download } from 'lucide-react'
+import { ChevronRight, Copy, Files, FolderInput, MoreVertical, Trash2, Type, Maximize2, Download } from 'lucide-react'
 import { Menu } from '@base-ui/react/menu'
 import { Popover } from '@base-ui/react/popover'
 import { toast } from 'sonner'
@@ -19,7 +19,7 @@ import { copyToClipboard } from '@/lib/clipboard'
  *  - Move to            (folder picker scoped to the workspace)
  *  - Move to trash      (same flow as the sidebar Delete)
  *  - Small text / Full width (writes `view` / `width` to frontmatter)
- *  - Lock page / Import / Export
+ *  - Import / Export
  *
  * No state of its own about whether the document is dirty or what its
  * `view` field is — the parent passes both via props so this component
@@ -39,23 +39,11 @@ export interface PageMenuProps {
   onTrash: () => void
   onSetView: (view: 'small' | 'full') => void
   onSetWidth: (width: 'full' | 'default') => void
-  /**
-   * `true` when the document is locked. The Lock/Unlock label flips
-   * accordingly; the caller decides what to do when the user
-   * clicks. `onUnlock` takes no argument; `onLock` receives the
-   * passphrase the user typed into a native `window.prompt()` so
-   * the menu stays a single dropdown.
-   */
-  isLocked: boolean
-  onLock?: (passphrase: string) => void
-  onUnlock?: () => void
-  /**
-   * The workspace receives the user's chosen files. The page menu
-   * does no validation here — the workspace reads each one, picks
-   * a title, and creates a new document per file.
-   */
-  onImport?: (files: File[]) => void
   onExport?: () => void
+  /** Effective view for the active doc — wins over frontmatter. */
+  viewOverride?: 'small' | 'full'
+  /** Effective width for the active doc — wins over frontmatter. */
+  widthOverride?: 'full' | 'default'
 }
 
 export function PageMenu({
@@ -69,14 +57,12 @@ export function PageMenu({
   onTrash,
   onSetView,
   onSetWidth,
-  isLocked,
-  onLock,
-  onUnlock,
-  onImport,
   onExport,
+  viewOverride,
+  widthOverride,
 }: PageMenuProps) {
-  const view = frontmatterView(document.frontmatter)
-  const width = frontmatterWidth(document.frontmatter)
+  const view = viewOverride ?? frontmatterView(document.frontmatter)
+  const width = widthOverride ?? frontmatterWidth(document.frontmatter)
   const [moveOpen, setMoveOpen] = React.useState(false)
 
   return (
@@ -170,55 +156,6 @@ export function PageMenu({
               <MenuSeparator />
 
               <MenuSection>
-                {isLocked ? (
-                  <Item
-                    icon={<Lock className="size-3.5" aria-hidden />}
-                    label="Unlock page"
-                    onClick={() => {
-                      onUnlock?.()
-                    }}
-                  />
-                ) : (
-                  <Item
-                    icon={<Lock className="size-3.5" aria-hidden />}
-                    label="Lock page"
-                    onClick={() => {
-                      // The popover stays a single dropdown; the passphrase
-                      // comes from a native prompt. A bespoke modal would
-                      // be nicer — Task 9 keeps it boring on purpose.
-                      const passphrase = window.prompt('Passphrase to lock this page with:')
-                      if (passphrase === null) return
-                      if (!passphrase) {
-                        toast.error('Passphrase must not be empty.')
-                        return
-                      }
-                      onLock?.(passphrase)
-                    }}
-                  />
-                )}
-                <Item
-                  icon={<Upload className="size-3.5" aria-hidden />}
-                  label="Import"
-                  onClick={() => {
-                    // The input is created on the fly and removed after
-                    // `change` fires so the page menu does not carry a
-                    // permanent DOM node. `multiple` lets the user drop
-                    // several files at once; the workspace handler will
-                    // open each as a sibling page in turn.
-                    const input = globalThis.document.createElement('input')
-                    input.type = 'file'
-                    input.accept = '.md,.markdown,.txt,text/markdown,text/plain'
-                    input.multiple = true
-                    input.style.display = 'none'
-                    input.addEventListener('change', () => {
-                      const files = input.files ? Array.from(input.files) : []
-                      input.remove()
-                      if (files.length > 0) onImport?.(files)
-                    })
-                    globalThis.document.body.appendChild(input)
-                    input.click()
-                  }}
-                />
                 <Item
                   icon={<Download className="size-3.5" aria-hidden />}
                   label="Export"

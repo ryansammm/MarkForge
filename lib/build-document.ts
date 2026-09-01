@@ -115,11 +115,17 @@ export function countWords(body: string): number {
 export function buildDocument(
   path: string,
   content: string,
-  meta: { updatedAt?: string; etag?: string } = {}
+  meta: { updatedAt?: string; etag?: string; id?: string; created?: string } = {}
 ): MarkdownDocument {
   const normalized = normalizePath(path)
   const { frontmatter, body } = splitFrontmatter(content)
-  const id = typeof frontmatter.id === 'string' && frontmatter.id.trim() ? frontmatter.id.trim() : undefined
+  // `id` and `created` are workspace bookkeeping — the store passes them in so
+  // they exist in the index even when the markdown on disk does not carry a
+  // frontmatter block at all. A user who wrote their own `id:` in frontmatter
+  // still wins: that value is the truth and we adopt it.
+  const fromFrontmatter =
+    typeof frontmatter.id === 'string' && frontmatter.id.trim() ? frontmatter.id.trim() : undefined
+  const id = fromFrontmatter ?? meta.id
 
   return {
     path: normalized,
@@ -135,6 +141,7 @@ export function buildDocument(
     updatedAt: meta.updatedAt,
     etag: meta.etag,
     id,
+    created: meta.created,
     aliases: readAliases(frontmatter),
     parent_id: readParentId(frontmatter) ?? null,
   }

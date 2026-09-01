@@ -116,8 +116,8 @@
   --accent-bg-muted: #dbeafe;
   --accent-badge-text: #1e40af;
   --icon-neutral: #8a8a86;
-  --selection-bg: oklch(.72 .18 250);
-  --selection-fg: #1d1d1a;
+  --selection-bg: rgba(71, 71, 71, 0.75);
+  --selection-fg: inherit;
   --code-bg: #dcdcd7;
   --code-fg: #1d1d1a;
 }
@@ -140,8 +140,8 @@
   --accent-bg-muted: #3a3520;
   --accent-badge-text: #f0d84a;
   --icon-neutral: #8a8a86;
-  --selection-bg: oklch(.55 .18 90);
-  --selection-fg: #f2f2f0;
+  --selection-bg: rgba(71, 71, 71, 0.75);
+  --selection-fg: inherit;
 }
 
 /* OS-level dark preference applies even before hydration adds the class. */
@@ -163,8 +163,8 @@
     --accent-bg-muted: #3a3520;
     --accent-badge-text: #f0d84a;
     --icon-neutral: #8a8a86;
-    --selection-bg: oklch(.55 .18 90);
-    --selection-fg: #f2f2f0;
+    --selection-bg: rgba(71, 71, 71, 0.75);
+    --selection-fg: inherit;
     --code-bg: #1a1a1a;
     --code-fg: #f2f2f0;
   }
@@ -174,6 +174,7 @@
   * { @apply border-border outline-ring/50; }
   body { @apply bg-background text-foreground; }
   ::selection { background: var(--selection-bg); color: var(--selection-fg); }
+  ::-moz-selection { background: var(--selection-bg); color: var(--selection-fg); }
   button, a { @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50; }
 }
 
@@ -186,6 +187,22 @@
   markers. These override its palette so a document uses the same colours as the app
   around it in both themes, instead of the plugin's stock greys.
 */
+
+/*
+  Scope text selection to the document body so a drag from the article
+  cannot bleed into the sidebar, header, or tab strip. Workspace chrome
+  is interactive but not selectable.
+*/
+.workspace-chrome,
+.workspace-chrome * {
+  user-select: none;
+  -webkit-user-select: none;
+}
+.workspace-doc,
+.workspace-doc * {
+  user-select: text;
+  -webkit-user-select: text;
+}
 .prose {
   --tw-prose-body: var(--foreground);
   --tw-prose-headings: var(--foreground);
@@ -337,7 +354,7 @@ html, body, main, aside, article, header {
   --cm-panel: var(--popover, var(--background));
   --cm-border: var(--border);
   --cm-selection: var(--selection-bg);
-  --cm-active-line: color-mix(in oklch, var(--muted) 55%, transparent);
+  --cm-active-line: transparent;
   --cm-code: oklch(.48 .11 25);
   --cm-keyword: oklch(.46 .13 295);
   --cm-string: oklch(.45 .1 145);
@@ -511,37 +528,6 @@ html, body, main, aside, article, header {
 */
 .cm-md-syntax { display: none; }
 .cm-activeLine .cm-md-syntax { display: inline; }
-
-/*
-  Inline AI fence in edit mode. `ai-block-edit.ts` decorates every
-  ` ```ai ` fence with `.cm-ai-fence-hidden` on every character, then
-  replaces the line with a small placeholder widget. Active-line
-  override reveals the raw fence so the user can edit the prompt.
-  Block widget: hide only when the cursor is *not* in the fence range.
-*/
-.cm-ai-fence-hidden { display: none; }
-.cm-ai-fence-widget {
-  display: block;
-  margin: 0.5rem 0;
-  padding: 0.6rem 0.8rem;
-  border: 1px dashed var(--border);
-  border-radius: 0.5rem;
-  background: var(--muted)/40;
-  color: var(--muted-foreground);
-  font-size: 0.85rem;
-  font-style: italic;
-  pointer-events: auto;
-  cursor: text;
-}
-
-/*
-  Empty-block hint. `empty-block-placeholder.ts` decorates every empty
-  paragraph in the editor with a `<span class="mkf-empty-hint">`; we
-  hide it everywhere except the focused active line, mirroring the
-  WYSIWYG idea: the hint is a guide, not a permanent overlay.
-*/
-.mkf-empty-hint { display: none; color: var(--muted-foreground); opacity: 0.6; pointer-events: none; font-style: italic; }
-.cm-focused .cm-activeLine .mkf-empty-hint { display: inline; }
 
 /*
   Lock-prompt shake. Fired by `data-state="bad"` on the form

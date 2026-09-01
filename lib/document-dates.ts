@@ -20,8 +20,11 @@ import type { MarkdownDocument } from './file-store'
 
 /** The document's own creation date, if it carries one. */
 export function createdValue(document: MarkdownDocument): string | null {
-  // `date:` as well as `created:`, because plenty of note templates use it and a
-  // document that says when it was written should be believed either way.
+  // The index carries the value the store stamped on first save, so it
+  // is always there even when the on-disk frontmatter does not carry a
+  // `created:` line. Frontmatter `date:` and a hand-written `created:`
+  // still win, because the author outranks the app.
+  if (typeof document.created === 'string' && document.created.trim()) return document.created.trim()
   for (const key of ['created', 'date'] as const) {
     const value = document.frontmatter[key]
     if (typeof value === 'string' && value.trim()) return value.trim()

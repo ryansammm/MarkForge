@@ -14,7 +14,6 @@
  * These values only ever exist in a browser with an open vault. Nothing in this module
  * touches the network.
  */
-import type { AiConfig } from './ai-config'
 
 export const VAULT_DATA_VERSION = 1
 
@@ -27,6 +26,12 @@ export interface VaultItem {
   password: string
   notes?: string
   tags?: string[]
+  /**
+   * Base32-encoded TOTP secret (RFC 6238). Stored alongside the password
+   * and encrypted with the same envelope; the 6-digit code is computed on
+   * demand and never persisted.
+   */
+  totp?: string
   createdAt: string
   updatedAt: string
 }
@@ -34,16 +39,10 @@ export interface VaultItem {
 export interface VaultData {
   version: typeof VAULT_DATA_VERSION
   items: VaultItem[]
-  /**
-   * AI provider configs, encrypted with the same envelope. Required for new
-   * writes; `normalizeVaultData` fills in `[]` when a v1 record is read
-   * without the field, and the next commit writes the field back.
-   */
-  ai: AiConfig[]
 }
 
 export function emptyVault(): VaultData {
-  return { version: VAULT_DATA_VERSION, items: [], ai: [] }
+  return { version: VAULT_DATA_VERSION, items: [] }
 }
 
 /** Random id, not a counter: ids have to survive two devices adding items offline. */
@@ -68,6 +67,7 @@ export interface VaultItemDraft {
   password: string
   notes?: string
   tags?: string[]
+  totp?: string
 }
 
 function trimmed(value: string | undefined): string | undefined {
@@ -77,6 +77,7 @@ function trimmed(value: string | undefined): string | undefined {
 
 function cleanDraft(draft: VaultItemDraft): Omit<VaultItemDraft, 'name'> & { name: string } {
   const tags = draft.tags?.map((tag) => tag.trim()).filter(Boolean)
+  const totp = draft.totp?.replace(/\s+/g, '').toUpperCase() || undefined
   return {
     name: draft.name.trim(),
     url: trimmed(draft.url),
@@ -86,6 +87,7 @@ function cleanDraft(draft: VaultItemDraft): Omit<VaultItemDraft, 'name'> & { nam
     password: draft.password,
     notes: trimmed(draft.notes),
     ...(tags && tags.length > 0 ? { tags } : {}),
+    ...(totp ? { totp } : {}),
   }
 }
 
@@ -131,6 +133,51 @@ export function removeItem(data: VaultData, id: string): VaultData {
  * one-off secrets, and a substring match against them turns the search box into an
  * oracle for anyone who gets thirty seconds at an unlocked screen.
  */
+/**
+ * Cheap subsequence score for the quick-switcher. Returns a non-negative
+ * number when every character of `needle` appears in `haystack` in order;
+ * `Infinity` (treated as "no match" by the caller) otherwise. A real
+ * implementation would weight by gap length and case, but the quick
+ * switcher is a five-item list, not a typeahead.
+ */
+function fuzzyScore(haystack: string, needle: string): number {
+  if (!needle) return 0
+  const lower = haystack.toLowerCase()
+  let score = 0
+  let previousIndex = -1
+  for (const char of needle.toLowerCase()) {
+    const next = lower.indexOf(char, previousIndex + 1)
+    if (next < 0) return Number.POSITIVE_INFINITY
+    score += next - previousIndex
+    previousIndex = next
+  }
+  return score
+}
+
+/**
+ * Ranked match for the quick switcher. Same fields as `filterItems`, plus
+ * an ordering: items that start with the query come first, then by
+ * subsequence score. The list is small enough that the linear scan is
+ * cheaper than a trie.
+ */
+export function matchQuick(items: VaultItem[], query: string): VaultItem[] {
+  const needle = query.trim()
+  if (!needle) return items
+  const scored: Array<{ item: VaultItem; score: number }> = []
+  for (const item of items) {
+    const fields = [item.name, item.url, item.username, ...(item.tags ?? [])]
+    let best = Number.POSITIVE_INFINITY
+    for (const field of fields) {
+      if (!field) continue
+      const candidate = fuzzyScore(field, needle)
+      if (candidate < best) best = candidate
+    }
+    if (best !== Number.POSITIVE_INFINITY) scored.push({ item, score: best })
+  }
+  scored.sort((a, b) => a.score - b.score)
+  return scored.map((entry) => entry.item)
+}
+
 export function filterItems(items: VaultItem[], query: string): VaultItem[] {
   const needle = query.trim().toLowerCase()
   if (!needle) return items
@@ -169,14 +216,7 @@ export function mergeVaults(local: VaultData, remote: VaultData): VaultData {
     if (!other || item.updatedAt >= other.updatedAt) byId.set(item.id, item)
   }
 
-  const aiById = new Map<string, import('./ai-config').AiConfig>()
-  for (const entry of remote.ai ?? []) aiById.set(entry.id, entry)
-  for (const entry of local.ai ?? []) {
-    const other = aiById.get(entry.id)
-    if (!other || entry.updatedAt >= other.updatedAt) aiById.set(entry.id, entry)
-  }
-
-  return { version: VAULT_DATA_VERSION, items: [...byId.values()], ai: [...aiById.values()] }
+  return { version: VAULT_DATA_VERSION, items: [...byId.values()] }
 }
 
 /**
@@ -201,25 +241,5 @@ export function normalizeVaultData(value: unknown): VaultData {
       typeof (item as VaultItem).password === 'string'
   )
 
-  return { version: VAULT_DATA_VERSION, items, ai: parseAiField(parsed.ai) }
-}
-
-/**
- * Tolerant parser for the optional `ai` field on a vault record.
- *
- * Lives here (rather than in `ai-config.ts`) to break the import cycle:
- * `ai-config` imports the `VaultData` type from this file, and the parser
- * works on raw decoded JSON, which is the layer that lives in this module.
- */
-export function parseAiField(value: unknown): AiConfig[] {
-  if (!Array.isArray(value)) return []
-  return value.filter(
-    (entry): entry is AiConfig =>
-      typeof entry === 'object' &&
-      entry !== null &&
-      typeof (entry as { id?: unknown }).id === 'string' &&
-      typeof (entry as { provider?: unknown }).provider === 'string' &&
-      typeof (entry as { model?: unknown }).model === 'string' &&
-      typeof (entry as { apiKey?: unknown }).apiKey === 'string'
-  )
+  return { version: VAULT_DATA_VERSION, items }
 }

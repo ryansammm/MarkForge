@@ -24,6 +24,16 @@ export interface MarkdownDocument {
   etag?: string
   /** Stable identity from frontmatter (R7). Absent until the app first saves it. */
   id?: string
+  /**
+   * When the document was first saved by the app, in ISO-8601.
+   *
+   * Sourced from frontmatter `created:` when the author wrote it, and from
+   * the store on first in-app save otherwise. Lives on the document
+   * rather than on the file's mtime because mtime does not survive a
+   * backend move, a trash restore, or a `git clone` — and the reading
+   * view's date line is the one place that says it.
+   */
+  created?: string
   /** Alternative names this document resolves under, from frontmatter `aliases`. */
   aliases?: string[]
   /**

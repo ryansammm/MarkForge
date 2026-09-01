@@ -7,8 +7,8 @@
  *      `File`-shaped object. Title pick order is `title: …` in
  *      frontmatter, then the first H1, then the filename. The
  *      frontmatter block is stripped from the body so the
- *      workspace's own `ensureDocumentMeta` is the only thing
- *      that ever adds `id` and `created`.
+ *      workspace's index is the only thing that ever carries
+ *      `id` and `created`.
  *   2. `buildExportName` derives a clean filename from the
  *      workspace path. A `notes/2026/ideas.md` path becomes
  *      `ideas.md`; a path without a `.md` extension gets one

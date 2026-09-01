@@ -347,9 +347,10 @@ export class WorkspaceStore implements WritableFileStore {
 
       // R7: every document the app saves carries a stable id, assigned on first
       // in-app save so documents authored elsewhere adopt one when edited here. The
-      // `created` stamp rides along in the same splice — see `ensureDocumentMeta` for
-      // why a creation time has to live in the document rather than be inferred from
-      // the file.
+      // `created` stamp rides along — see `ensureDocumentMeta` for why a creation
+      // time has to live in the document rather than be inferred from the file.
+      // Both values are bookkeeping, not user content: they are stored in the
+      // index but never spliced into the markdown the user reads.
       const assigned = ensureDocumentMeta(content)
       const finalContent = assigned.content
 
@@ -357,7 +358,12 @@ export class WorkspaceStore implements WritableFileStore {
 
       const etag = computeEtag(finalContent)
       const updatedAt = new Date().toISOString()
-      const document = buildDocument(key, finalContent, { updatedAt, etag })
+      const document = buildDocument(key, finalContent, {
+        updatedAt,
+        etag,
+        id: assigned.id,
+        created: assigned.created,
+      })
 
       await this.mutateIndex((index) => applyUpsert(index, document))
 

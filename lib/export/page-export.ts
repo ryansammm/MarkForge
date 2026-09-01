@@ -34,6 +34,45 @@ export function buildExportName(document: MarkdownDocument): string {
 }
 
 /**
+ * Frontmatter keys the workspace owns for its own bookkeeping, that a
+ * user exporting a note should never see leaked into a plain `.md`
+ * file on disk: stable `id`, `created`, and the layout toggles
+ * `width` / `view` that have no meaning outside this app.
+ *
+ * ponytail: explicit allow-list, not a regex. Keys are case-folded on
+ * the frontmatter block; YAML keys are case-sensitive by spec, but
+ * `gray-matter` writes them lowercase by convention and the workspace
+ * never emits anything else. Add new internal keys here when they
+ * appear in `lib/markdown/frontmatter.ts`.
+ */
+const INTERNAL_FRONTMATTER_KEYS = new Set(['id', 'created', 'width', 'view'])
+
+/**
+ * Drop workspace-internal frontmatter fields from a raw markdown
+ * document before it leaves the app. Leaves everything outside the
+ * frontmatter block untouched (including wikilinks, code blocks that
+ * happen to contain a `---` line, etc.).
+ *
+ * Files without a leading `---`-delimited frontmatter block return
+ * the input unchanged.
+ */
+export function stripInternalFrontmatter(raw: string): string {
+  if (!raw.startsWith('---')) return raw
+  const closing = raw.indexOf('\n---', 3)
+  if (closing < 0) return raw
+  const bodyStart = raw.indexOf('\n', closing + 4)
+  if (bodyStart < 0) return raw
+  const block = raw.slice(3, closing)
+  const lines = block.split('\n').filter((line) => {
+    const m = /^([A-Za-z_][\w-]*)\s*:/.exec(line)
+    if (!m) return true
+    return !INTERNAL_FRONTMATTER_KEYS.has(m[1].toLowerCase())
+  })
+  const stripped = ['---', ...lines, '---'].join('\n')
+  return stripped + raw.slice(bodyStart)
+}
+
+/**
  * Triggers a browser download of `content` as `filename`.
  *
  * The anchor is appended to the DOM, clicked, then removed: a

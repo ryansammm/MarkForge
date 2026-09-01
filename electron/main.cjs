@@ -43,7 +43,7 @@ function startServer() {
   // ── Packaged (portable exe) ──────────────────────────────────────────────
   // Runs the Next standalone server with Electron's own embedded Node
   // (ELECTRON_RUN_AS_NODE): no system Node, no pnpm, no terminal. The server
-  // folder ships in resources/server, assembled by scripts/prepare-electron.mjs.
+  // folder ships in resources/server, assembled by scripts/build-portable.mjs.
   if (app.isPackaged) {
     const serverDir = path.join(process.resourcesPath, 'server')
     process.env.MARKFORG_SYNC = '0' // tsx-based cloud push needs the repo; hidden in packaged builds

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { EditorState, type Extension } from '@codemirror/state'
+import { EditorState, Compartment, type Extension } from '@codemirror/state'
 import {
   EditorView,
   keymap,
@@ -35,9 +35,7 @@ import { MAX_ASSET_BYTES } from '@/lib/asset-limits'
 import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
-import { aiBlockEdit } from './ai-block-edit'
 import { hideMarkdownSyntax } from './hide-md-syntax'
-import { emptyBlockPlaceholder } from './empty-block-placeholder'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
 import { wikilinkCompletions } from './wikilink-complete'
@@ -97,6 +95,12 @@ interface MarkdownEditorProps {
    * `null` to abort.
    */
   onCreatePage?: (name: string) => Promise<string | null> | string | null
+  /**
+   * `small` shrinks the editor font to match the reader's small-text
+   * view. `full` is the default size. The parent owns the source of
+   * truth; this prop is just a hint to the styling.
+   */
+  pageView?: 'small' | 'full'
 }
 
 /**
@@ -129,31 +133,43 @@ const markdownHighlight = HighlightStyle.define([
   { tag: tags.operator, color: 'var(--cm-muted)' },
 ])
 
+const fontSizeCompartment = new Compartment()
+
+function fontSizeExtension(pageView: 'small' | 'full') {
+  return EditorView.theme({
+    '&': { fontSize: pageView === 'small' ? '13px' : '15px' },
+  })
+}
+
 const editorTheme = EditorView.theme({
   '&': {
     height: '100%',
-    fontSize: '15px',
     backgroundColor: 'transparent',
     color: 'var(--cm-text)',
   },
   '.cm-scroller': {
     fontFamily: 'var(--font-sans, ui-sans-serif, system-ui, sans-serif)',
     lineHeight: '1.75',
-    padding: '0 0 40vh 0',
+    padding: '0 0 40vh 32px',
     overflow: 'auto',
   },
-  '.cm-content': { padding: '0 0 0 32px', caretColor: 'var(--cm-accent)' },
+  '.cm-content': { caretColor: 'var(--cm-accent)' },
   '&.cm-focused': { outline: 'none' },
-  '.cm-line': { padding: '0 2px' },
   // Frontmatter lines (id, created, title, ---) carry this class via
   // hide-frontmatter-id.ts. Hiding the line is a paint-only concern — the
   // document buffer still has every byte, so the file is saved intact.
   '.cm-frontmatter-hidden': { display: 'none' },
-  '.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
+  '.cm-activeLine': { backgroundColor: 'var(--cm-active-line) !important' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--cm-accent)', borderLeftWidth: '2px' },
-  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
-    backgroundColor: 'var(--cm-selection)',
+  '&.cm-focused .cm-selectionBackground, .cm-selectionBackground': {
+    backgroundColor: 'var(--cm-selection) !important',
   },
+  // The native `::selection` rule covers the scroller's padding too,
+  // which paints the editor background colour into gutters/empty space
+  // when the user Ctrl-A's the buffer. CodeMirror draws its own
+  // selection rectangle on the canvas, so the pseudo-element can stay
+  // scoped to the content only.
+  '.cm-content ::selection': { backgroundColor: 'var(--cm-selection)' },
   '.cm-tooltip': {
     backgroundColor: 'var(--cm-panel)',
     border: '1px solid var(--cm-border)',
@@ -250,6 +266,7 @@ export function MarkdownEditor({
   reconciledContent,
   onNavigateWikilink,
   onCreatePage,
+  pageView,
 }: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -312,9 +329,6 @@ export function MarkdownEditor({
       EditorView.lineWrapping,
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(markdownHighlight, { fallback: true }),
-      // Inline AI fence preview in edit mode. Hides the raw ` ```ai `
-      // text behind a placeholder; the active line reveals the source.
-      aiBlockEdit(),
       livePreview({
         // The reading view's resolver, not a second one. Two would drift, and the
         // symptom would be a link that renders as resolved but navigates nowhere.
@@ -348,7 +362,6 @@ export function MarkdownEditor({
         icons: false,
       }),
       cmPlaceholder('Start writing…'),
-      emptyBlockPlaceholder(),
       keymap.of([
         {
           key: 'Mod-s',
@@ -417,6 +430,7 @@ export function MarkdownEditor({
         }
       }),
       editorTheme,
+      fontSizeCompartment.of(fontSizeExtension(pageView ?? 'full')),
     ]
 
     const view = new EditorView({
@@ -437,29 +451,7 @@ export function MarkdownEditor({
     setView(view)
     view.focus()
 
-    /*
-      Ctrl/Cmd-A must select the whole document, not the whole window. The default
-      `keymap` already binds it, but only when CodeMirror is the focus target — a
-      click that lands on a child of the editor (a completion popup, an inline
-      image's expand button) leaves the active element outside the keymap, and
-      the browser's whole-window select-all runs instead. A window-level guard
-      re-runs CM's selectAll whenever the active element is inside the editor
-      host, regardless of which child owns focus.
-    */
-    const handleSelectAll = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
-      if (event.key !== 'a' && event.key !== 'A') return
-      const host = hostRef.current
-      const active = document.activeElement
-      if (!host || !active || !host.contains(active)) return
-      event.preventDefault()
-      view.dispatch({ selection: { anchor: 0, head: view.state.doc.length }, scrollIntoView: true })
-      view.focus()
-    }
-    window.addEventListener('keydown', handleSelectAll)
-
     return () => {
-      window.removeEventListener('keydown', handleSelectAll)
       view.destroy()
       viewRef.current = null
       setView(null)
@@ -469,8 +461,24 @@ export function MarkdownEditor({
   }, [docPath])
 
   /*
-    Applies server-side rewrites — the `id` and `created` spliced into frontmatter on
-    a document's first in-app save — without disturbing the cursor.
+    The font-size is mounted through a Compartment so the user can flip
+    between small/full text without losing the buffer. Re-runs on every
+    `pageView` change.
+  */
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({ effects: fontSizeCompartment.reconfigure(fontSizeExtension(pageView ?? 'full')) })
+  }, [pageView])
+
+  /*
+    Applies server-side rewrites — anything the store round-trips through
+    a different code path than the editor buffer — without disturbing the
+    cursor. Today the only such rewrite is the first-save timestamp the
+    server used to splice into frontmatter; the store now keeps it in the
+    index, so the buffer never has to be touched for that reason.
+    Hook stays because the same shape is the right answer for any future
+    server-side rewrite the buffer needs to adopt.
 
     Only ones that arrive *while this editor is mounted*. See reconcile.ts: the value
     lives in the workspace and outlives the editor, so without the applied-record this
@@ -489,6 +497,44 @@ export function MarkdownEditor({
     appliedReconcileRef.current = applied
     if (edit) view.dispatch({ changes: edit })
   }, [reconciledContent])
+
+  /*
+    Ctrl/Cmd-A is two-stage inside the editor: first press selects
+    the current line, a repeat within 500ms escalates to the whole
+    buffer. Capture-phase on the host so a focused child element
+    (a completion popup, the toolbar) cannot let the browser's
+    whole-page select-all win, and the listener runs before
+    CodeMirror's own Mod-a binding. Mirrors doc-viewer.tsx so
+    both modes feel the same.
+  */
+  useEffect(() => {
+    const host = hostRef.current
+    if (!host) return
+    let lastLinePress = 0
+    const handleSelectAll = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey) return
+      if (event.key !== 'a' && event.key !== 'A') return
+      const view = viewRef.current
+      const active = document.activeElement
+      if (!view || !active || !host.contains(active)) return
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      const now = Date.now()
+      const escalate = now - lastLinePress < 500
+      if (!escalate) {
+        const { from } = view.state.selection.main
+        const line = view.state.doc.lineAt(from)
+        view.dispatch({ selection: { anchor: line.from, head: line.to }, scrollIntoView: true })
+        lastLinePress = now
+      } else {
+        view.dispatch({ selection: { anchor: 0, head: view.state.doc.length }, scrollIntoView: true })
+        lastLinePress = 0
+      }
+      view.focus()
+    }
+    host.addEventListener('keydown', handleSelectAll, true)
+    return () => host.removeEventListener('keydown', handleSelectAll, true)
+  }, [docPath])
 
   return (
     <div className="relative h-full w-full">

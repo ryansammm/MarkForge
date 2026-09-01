@@ -6,7 +6,6 @@ import { Loader2, ArrowLeft, KeyRound, Moon, Sun } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { useVault } from '@/lib/vault/use-vault'
 import { Button } from '@/components/ui/button'
-import { SettingsForm } from '@/components/workspace/settings-form'
 import { PasswordsDialog } from '@/components/workspace/passwords-dialog'
 import { cn } from '@/lib/utils'
 
@@ -14,19 +13,22 @@ import { cn } from '@/lib/utils'
  * Settings page.
  *
  * Lives at `/settings` as a route, not a dialog, because the spec wants a
- * deep-linkable surface. The price is auth + vault gating on every render: a
- * tab someone bookmarked should not show a list of API keys to whoever opens
- * the link next.
+ * deep-linkable surface. The price is auth + vault gating on every render:
+ * a tab someone bookmarked should not show a list of credentials to whoever
+ * opens the link next.
  *
- * Two pieces, with two different gate stories:
+ * Three pieces, with two different gate stories:
  *
- *   - The App PIN card is independent of the vault — it is the same gate that
- *     the workspace already passed, and it should render even when there is no
- *     vault yet.
- *   - The SettingsForm (API keys, AI config) is the encrypted-vault UI and
- *     needs the vault unlocked. The same `PasswordsDialog` the workspace uses
- *     handles the create / unlock flow inline, so the page is not a hard
- *     redirect to /login for a missing master.
+ *   - The App PIN card is independent of the vault — it is the same gate
+ *     that the workspace already passed, and it should render even when
+ *     there is no vault yet.
+ *   - The PasswordsDialog (encrypted credentials) is gated on the vault
+ *     being unlocked, with the same dialog the workspace uses mounted
+ *     inline. Locked and absent states share the same dialog; an
+ *     `unavailable` record skips it so the form cannot offer to overwrite
+ *     a damaged vault.
+ *   - Appearance (day / night / system) is local and renders regardless of
+ *     vault state.
  *
  * Earlier the auth check was a `fetch('/api/health')`, which is intentionally
  * public — it answered 200 even when the session had expired, and a follow-up
@@ -103,14 +105,6 @@ export default function SettingsPage() {
         </Button>
         <h1 className="text-sm font-semibold tracking-tight">Settings</h1>
       </header>
-
-      {/*
-        The vault-gated section. The dialog appears the same way it does in
-        the workspace, so an existing user can unlock from here without going
-        back through the workspace. Renders nothing extra when the vault is
-        already unlocked.
-      */}
-      {vault.status === 'unlocked' ? <SettingsForm vault={vault} /> : null}
 
       {/*
         Standalone unlock / create form. Renders when the vault exists but is

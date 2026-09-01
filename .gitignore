@@ -59,6 +59,9 @@ ci-failed.log
 .opencode/
 opencode.json
 
+# Claude Code local debug config (launch.json etc) — personal, not source
+.claude/
+
 # Local test/E2E artifacts — logs, screenshots, and transient outputs, not source
 bat_out.log
 e2e-server.log

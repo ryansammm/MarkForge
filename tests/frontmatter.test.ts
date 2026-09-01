@@ -97,26 +97,23 @@ export function runFrontmatterTests(): boolean {
   })
 
   console.log('\nid assignment')
-  check('a document with no frontmatter gets a block with an id', () => {
+  check('a document with no frontmatter resolves an id without touching content', () => {
     const result = ensureDocumentId('# External Note\n\nWritten in vim.\n', () => 'fixed-id')
     assert(result.changed, 'should report a change')
     equal(result.id, 'fixed-id', 'wrong id')
     equal(
       result.content,
-      '---\nid: fixed-id\n---\n\n# External Note\n\nWritten in vim.\n',
-      'unexpected content'
+      '# External Note\n\nWritten in vim.\n',
+      'content was mutated'
     )
   })
 
-  check('an existing block gains only one line', () => {
+  check('an existing block is read, not spliced into', () => {
     const before = '---\ntitle: Existing\ntags: [a]\n---\n\nBody\n'
     const result = ensureDocumentId(before, () => 'fixed-id')
     assert(result.changed, 'should report a change')
-    equal(
-      result.content,
-      '---\nid: fixed-id\ntitle: Existing\ntags: [a]\n---\n\nBody\n',
-      'frontmatter was reformatted rather than spliced'
-    )
+    equal(result.content, before, 'content was mutated')
+    equal(result.id, 'fixed-id', 'id should still be the freshly assigned one')
   })
 
   check('an existing id is left completely alone', () => {
@@ -136,13 +133,13 @@ export function runFrontmatterTests(): boolean {
   check('unparseable frontmatter is never rewritten', () => {
     const broken = '---\ntitle: [unclosed\n---\n\nBody\n'
     const result = ensureDocumentId(broken, () => 'fixed-id')
-    assert(!result.changed, 'should refuse to touch invalid YAML')
     equal(result.content, broken, 'invalid YAML was rewritten')
+    equal(result.id, 'fixed-id', 'an id should still be resolved')
   })
 
   check('CRLF documents stay CRLF', () => {
     const result = ensureDocumentId('---\r\ntitle: X\r\n---\r\n\r\nBody\r\n', () => 'fixed-id')
-    assert(result.content.includes('id: fixed-id\r\n'), 'inserted line used the wrong ending')
+    assert(!/id: fixed-id/.test(result.content), 'an id line was spliced in')
     assert(!/[^\r]\n/.test(result.content), 'mixed line endings introduced')
   })
 
@@ -157,14 +154,12 @@ export function runFrontmatterTests(): boolean {
 
   const FIXED = () => new Date('2026-08-18T09:30:00.000Z')
 
-  check('the first save stamps both id and created, in one block', () => {
+  check('the first save resolves both id and created without writing them', () => {
     const result = ensureDocumentMeta('# New Note\n', { idFactory: () => 'fixed-id', now: FIXED })
     assert(result.changed, 'should report a change')
-    equal(
-      result.content,
-      '---\nid: fixed-id\ncreated: 2026-08-18T09:30:00.000Z\n---\n\n# New Note\n',
-      'unexpected content'
-    )
+    equal(result.content, '# New Note\n', 'content was mutated')
+    equal(result.id, 'fixed-id', 'wrong id')
+    equal(result.created, '2026-08-18T09:30:00.000Z', 'wrong created')
   })
 
   check("a created date the author wrote is never overwritten", () => {
@@ -177,15 +172,16 @@ export function runFrontmatterTests(): boolean {
     equal(result.created, '2019-04-01', 'wrong created returned')
   })
 
-  check('a document that already has an id still gains a created date', () => {
-    const result = ensureDocumentMeta('---\nid: already-here\n---\n\nBody\n', {
+  check('a document that already has an id still resolves a created date', () => {
+    const before = '---\nid: already-here\n---\n\nBody\n'
+    const result = ensureDocumentMeta(before, {
       idFactory: () => 'no',
       now: FIXED,
     })
     assert(result.changed, 'should report a change')
     equal(result.id, 'already-here', 'the existing id was replaced')
-    assert(result.content.includes('created: 2026-08-18T09:30:00.000Z'), 'created was not added')
-    assert(!/id: no/.test(result.content), 'a second id was spliced in')
+    equal(result.created, '2026-08-18T09:30:00.000Z', 'created was not resolved')
+    equal(result.content, before, 'content was mutated')
   })
 
   check('stamping is idempotent', () => {
@@ -197,17 +193,18 @@ export function runFrontmatterTests(): boolean {
   check('unparseable frontmatter is still never rewritten', () => {
     const broken = '---\ntitle: [unclosed\n---\n\nBody\n'
     const result = ensureDocumentMeta(broken, { idFactory: () => 'fixed-id', now: FIXED })
-    assert(!result.changed, 'should refuse to touch invalid YAML')
     equal(result.content, broken, 'invalid YAML was rewritten')
+    equal(result.id, 'fixed-id', 'an id should still be resolved')
+    equal(result.created, '2026-08-18T09:30:00.000Z', 'a created should still be resolved')
   })
 
-  check('CRLF documents stay CRLF when both lines go in', () => {
+  check('CRLF documents stay CRLF', () => {
     const result = ensureDocumentMeta('---\r\ntitle: X\r\n---\r\n\r\nBody\r\n', {
       idFactory: () => 'fixed-id',
       now: FIXED,
     })
-    assert(result.content.includes('id: fixed-id\r\n'), 'the id line used the wrong ending')
-    assert(result.content.includes('created: 2026-08-18T09:30:00.000Z\r\n'), 'the created line used the wrong ending')
+    assert(!/id: fixed-id/.test(result.content), 'an id line was spliced in')
+    assert(!/created:/.test(result.content), 'a created line was spliced in')
     assert(!/[^\r]\n/.test(result.content), 'mixed line endings introduced')
   })
 

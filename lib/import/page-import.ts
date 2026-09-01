@@ -66,8 +66,8 @@ function stripExtension(name: string): string {
  * The body is the file's text with the frontmatter block removed,
  * so the workspace's `createDocumentAt` writes the same content
  * the user uploaded, byte for byte, with no app-injected
- * frontmatter of its own. (The workspace's own `id` and `created`
- * fields are added by `ensureDocumentMeta` on the first save.)
+ * frontmatter of its own. The workspace's `id` and `created`
+ * bookkeeping now lives in the index, not in the document.
  */
 export async function readMarkdownFile(file: FileLike): Promise<ParsedMarkdownFile> {
   const text = await file.text()

@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from 'react'
 import {
   AlertTriangle,
   Copy,
+  Download,
   Eye,
   EyeOff,
   KeyRound,
@@ -14,6 +15,7 @@ import {
   Search,
   ShieldCheck,
   Trash2,
+  Upload,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import {
@@ -26,6 +28,15 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { PasswordItemForm } from './password-item-form'
+import { TotpCode } from './totp-code'
+import {
+  backupToBlob,
+  exportBackup,
+  importBackup,
+  InvalidBackupFileError,
+  readBackupFile,
+  suggestedBackupFilename,
+} from '@/lib/vault/backup'
 import { type UseVault } from '@/lib/vault/use-vault'
 import { CLIPBOARD_CLEAR_SECONDS, copySecret } from '@/lib/vault/clipboard'
 import {
@@ -76,6 +87,9 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
   const [query, setQuery] = useState('')
   const [revealedId, setRevealedId] = useState<string | null>(null)
   const [pendingDelete, setPendingDelete] = useState<VaultItem | null>(null)
+  const [backupPane, setBackupPane] = useState<{ kind: 'closed' } | { kind: 'export' } | { kind: 'import' }>({
+    kind: 'closed',
+  })
 
   const [masterPassword, setMasterPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -193,6 +207,81 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
       toast.success(`${label} copied — the clipboard clears in ${CLIPBOARD_CLEAR_SECONDS}s`)
     } catch (err) {
       toast.error((err as Error).message)
+    }
+  }
+
+  /**
+   * Export pipeline: encrypt under a fresh passphrase, blob it, click an
+   * invisible anchor. Three steps because the user has to see the
+   * passphrase prompt before the download starts, otherwise the file lands
+   * on disk unencrypted and the "encrypted backup" promise is a lie.
+   */
+  const [exportPassphrase, setExportPassphrase] = useState('')
+  const [exportBusy, setExportBusy] = useState(false)
+
+  const doExport = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!vault.data) return
+    setExportBusy(true)
+    try {
+      const file = await exportBackup(vault.data, { passphrase: exportPassphrase })
+      const blob = backupToBlob(file)
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = suggestedBackupFilename()
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+      toast.success(
+        `Backup saved. Keep the passphrase safe — without it the file is unreadable.`
+      )
+      setExportPassphrase('')
+      setBackupPane({ kind: 'closed' })
+    } catch (err) {
+      toast.error((err as Error).message)
+    } finally {
+      setExportBusy(false)
+    }
+  }
+
+  const [importPassphrase, setImportPassphrase] = useState('')
+  const [importFile, setImportFile] = useState<{ name: string; payload: unknown } | null>(null)
+  const [importBusy, setImportBusy] = useState(false)
+
+  const pickImportFile = async (file: File) => {
+    try {
+      const payload = await readBackupFile(file)
+      setImportFile({ name: file.name, payload })
+      setImportPassphrase('')
+    } catch (err) {
+      toast.error((err as Error).message)
+    }
+  }
+
+  const doImport = async (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!importFile) return
+    setImportBusy(true)
+    try {
+      const { data, file } = await importBackup(importFile.payload, importPassphrase)
+      await vault.commit(data)
+      const stamp = new Date(file.exportedAt).toLocaleString()
+      toast.success(
+        `Imported ${data.items.length} item(s) from a backup made on ${stamp}.`
+      )
+      setImportFile(null)
+      setImportPassphrase('')
+      setBackupPane({ kind: 'closed' })
+    } catch (err) {
+      if (err instanceof InvalidBackupFileError) {
+        toast.error(`That file is not a MarkForge backup: ${err.message}`)
+      } else {
+        toast.error((err as Error).message || 'Could not decrypt that backup.')
+      }
+    } finally {
+      setImportBusy(false)
     }
   }
 
@@ -346,6 +435,26 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
                     <Plus />
                     Add
                   </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBackupPane({ kind: 'export' })}
+                    title="Export an encrypted backup"
+                    aria-label="Export an encrypted backup"
+                  >
+                    <Download />
+                    Backup
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setBackupPane({ kind: 'import' })}
+                    title="Import a backup"
+                    aria-label="Import a backup"
+                  >
+                    <Upload />
+                    Restore
+                  </Button>
                   <Button size="sm" variant="outline" onClick={lockNow} title="Lock the vault">
                     <Lock />
                     Lock
@@ -377,6 +486,8 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
                             </p>
                           )}
                         </div>
+
+                        {item.totp && <TotpCode secret={item.totp} />}
 
                         <div className="flex shrink-0 items-center gap-0.5">
                           {item.username && (
@@ -471,6 +582,103 @@ export function PasswordsDialog({ open, onOpenChange, vault }: PasswordsDialogPr
                 onSubmit={(draft) => void saveItem(draft)}
                 onCancel={() => setPane({ kind: 'list' })}
               />
+            )}
+          </div>
+        )}
+
+        {backupPane.kind !== 'closed' && (
+          <div className="mt-3 rounded-md border border-border/60 bg-muted/30 p-3">
+            {backupPane.kind === 'export' ? (
+              <form onSubmit={doExport} className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Pick a passphrase for the file. It is separate from your master password and
+                  MarkForge does not store it — write it down somewhere safe.
+                </p>
+                <Input
+                  type="password"
+                  value={exportPassphrase}
+                  onChange={(e) => setExportPassphrase(e.target.value)}
+                  placeholder="Backup passphrase (12+ characters)"
+                  autoFocus
+                  aria-label="Backup passphrase"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setBackupPane({ kind: 'closed' })
+                      setExportPassphrase('')
+                    }}
+                    disabled={exportBusy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={exportBusy || exportPassphrase.length < 12}
+                  >
+                    {exportBusy && <Loader2 className="animate-spin" />}
+                    Save file
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <form onSubmit={doImport} className="space-y-3">
+                <p className="text-xs text-muted-foreground">
+                  Pick a backup file. The contents replace everything currently in this vault once
+                  the passphrase unlocks them.
+                </p>
+                <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border/60 bg-background/50 px-3 py-2 text-xs hover:bg-accent/40">
+                  <Upload className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+                  <span className="truncate">
+                    {importFile ? importFile.name : 'Choose backup file…'}
+                  </span>
+                  <input
+                    type="file"
+                    accept="application/json,.json"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) void pickImportFile(file)
+                      e.target.value = ''
+                    }}
+                  />
+                </label>
+                <Input
+                  type="password"
+                  value={importPassphrase}
+                  onChange={(e) => setImportPassphrase(e.target.value)}
+                  placeholder="Backup passphrase"
+                  disabled={!importFile}
+                  aria-label="Backup passphrase"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      setBackupPane({ kind: 'closed' })
+                      setImportFile(null)
+                      setImportPassphrase('')
+                    }}
+                    disabled={importBusy}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="submit"
+                    size="sm"
+                    disabled={importBusy || !importFile || importPassphrase.length < 12}
+                  >
+                    {importBusy && <Loader2 className="animate-spin" />}
+                    Replace vault
+                  </Button>
+                </div>
+              </form>
             )}
           </div>
         )}

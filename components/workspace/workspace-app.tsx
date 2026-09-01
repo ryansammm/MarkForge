@@ -44,14 +44,12 @@ import {
 import { resolveWikiLink } from '@/lib/resolve-link'
 import { keyboardIsClaimed } from '@/lib/modal-keys'
 import * as api from '@/lib/workspace-api'
-import { setFrontmatterField, setFrontmatterObject, removeFrontmatterField, frontmatterLock } from '@/lib/markdown/frontmatter'
-import { makeLock } from '@/lib/lock/page-lock'
-import { LockPrompt } from './lock-prompt'
+import { frontmatterView, frontmatterWidth } from '@/lib/markdown/frontmatter'
 import { isImportableFile, readMarkdownFile } from '@/lib/import/page-import'
-import { buildExportName, downloadMarkdown } from '@/lib/export/page-export'
+import { buildExportName, downloadMarkdown, stripInternalFrontmatter } from '@/lib/export/page-export'
 import { useVault } from '@/lib/vault/use-vault'
 import { VaultKeyProvider, useNoteKey } from '@/lib/client/vault-key'
-import { readDocument as readDocumentEncrypted, writeDocument as writeDocumentEncrypted, createDocument as createDocumentEncrypted } from '@/lib/client/encrypted-fetch'
+import { readDocument as readDocumentEncrypted, createDocument as createDocumentEncrypted } from '@/lib/client/encrypted-fetch'
 import { Sidebar, SIDEBAR_WIDTH } from './sidebar'
 import { ResizeHandle } from './resize-handle'
 import { DocViewer } from './doc-viewer'
@@ -70,6 +68,7 @@ import { ShareDialog } from './share-dialog'
 import { TrashDialog } from './trash-dialog'
 import { Breadcrumb } from './breadcrumb'
 import { PasswordsDialog } from './passwords-dialog'
+import { PasswordQuickSwitcher, usePasswordQuickSwitcherHotkey } from './password-quick-switcher'
 import { ThemeSwitcher } from '@/components/theme-switcher'
 import { PwaInstallButton } from '@/components/pwa-install'
 import { TRASH_RETENTION_DAYS } from '@/lib/trash'
@@ -271,6 +270,7 @@ export function WorkspaceApp() {
   const [shareOpen, setShareOpen] = useState(false)
   const [trashOpen, setTrashOpen] = useState(false)
   const [passwordsOpen, setPasswordsOpen] = useState(false)
+  const [quickSwitcherOpen, setQuickSwitcherOpen] = useState(false)
 
   /**
    * The vault lives here, not inside the dialog, so the unlocked key is
@@ -279,6 +279,9 @@ export function WorkspaceApp() {
    * all flow through `vault` below.
    */
   const vault = useVault(true)
+  usePasswordQuickSwitcherHotkey(vault.data?.items ?? null, () =>
+    setQuickSwitcherOpen(true)
+  )
 
   /**
    * The note-encryption key, sourced from the unlocked vault. `null` when
@@ -345,15 +348,6 @@ export function WorkspaceApp() {
   const isFresh = activePath !== null && freshPath === activePath
   const [sourceError, setSourceError] = useState<{ path: string; message: string } | null>(null)
   const [reconciled, setReconciled] = useState<string | null>(null)
-  /**
-   * Per-path unlock state for the per-page lock (Task 9).
-   *
-   * The lock itself lives in `frontmatter.lock`; the editor only
-   * needs to know which paths the current user has already passed
-   * the passphrase check for in this session. In-memory only —
-   * closing the tab or reloading the page re-locks everything.
-   */
-  const [unlockedPaths, setUnlockedPaths] = useState<ReadonlySet<string>>(() => new Set())
 
   const router = useRouter()
 
@@ -724,18 +718,6 @@ export function WorkspaceApp() {
    * opening on a cached body and an etag the server may have moved past.
    */
   const editingPath = mode === 'edit' && source && isFresh ? activePath : null
-  /**
-   * The per-page lock for the document the editor is bound to, or
-   * `null` when the page is not locked or has been unlocked for
-   * this session. Computed from the live `activeDoc.frontmatter`
-   * so an unlock on the *read* path (DocViewer) does not lag the
-   * edit path.
-   */
-  const activeLockPrompt = useMemo(() => {
-    if (!editingPath || !activeDoc) return null
-    if (unlockedPaths.has(editingPath)) return null
-    return frontmatterLock(activeDoc.frontmatter)
-  }, [editingPath, activeDoc, unlockedPaths])
 
   const {
     state: saveState,
@@ -1012,8 +994,7 @@ export function WorkspaceApp() {
 
     // In edit mode the buffer is fresher than `source.body`; in read
     // mode the two are the same. Strip frontmatter off the buffer so the
-    // copy starts as a clean document; `createDocumentAt` re-stamps
-    // `id` / `created` on the new file.
+    // copy starts as a clean document.
     const buffer = getBufferRef.current?.()
     const bodyForCopy = buffer !== null && buffer !== undefined
       ? stripFrontmatterBlock(buffer)
@@ -1092,170 +1073,41 @@ export function WorkspaceApp() {
     }
   }, [activePath, activeDoc, flushPendingSave, patchIndex, dispatchTabs])
 
+  const [viewOverrides, setViewOverrides] = useState<Record<string, 'small' | 'full'>>({})
+  const [widthOverrides, setWidthOverrides] = useState<Record<string, 'full' | 'default'>>({})
+
   const setPageView = useCallback(
-    async (view: 'small' | 'full') => {
-      if (!activePath || !source) return
-      const next = setFrontmatterField(source.raw, 'view', view)
-      if (!next.changed) return
-      try {
-        await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
-        setSources((prev) => {
-          const entry = prev[activePath]
-          if (!entry) return prev
-          return { ...prev, [activePath]: { ...entry, raw: next.content } }
-        })
-        patchIndex((index) => {
-          const doc = index.documents[activePath]
-          if (!doc) return
-          applyUpsert(index, {
-            ...doc,
-            frontmatter: { ...doc.frontmatter, view },
-            updatedAt: new Date().toISOString(),
-          })
-        })
-      } catch (err) {
-        toast.error((err as Error).message)
-      }
+    (view: 'small' | 'full') => {
+      if (!activePath) return
+      setViewOverrides((prev) => (prev[activePath] === view ? prev : { ...prev, [activePath]: view }))
     },
-    [activePath, source, noteKey, patchIndex]
+    [activePath]
   )
 
   const setPageWidth = useCallback(
-    async (width: 'full' | 'default') => {
-      if (!activePath || !source) return
-      const next = setFrontmatterField(source.raw, 'width', width)
-      if (!next.changed) return
-      try {
-        await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
-        setSources((prev) => {
-          const entry = prev[activePath]
-          if (!entry) return prev
-          return { ...prev, [activePath]: { ...entry, raw: next.content } }
-        })
-        patchIndex((index) => {
-          const doc = index.documents[activePath]
-          if (!doc) return
-          applyUpsert(index, {
-            ...doc,
-            frontmatter: { ...doc.frontmatter, width },
-            updatedAt: new Date().toISOString(),
-          })
-        })
-      } catch (err) {
-        toast.error((err as Error).message)
-      }
+    (width: 'full' | 'default') => {
+      if (!activePath) return
+      setWidthOverrides((prev) => (prev[activePath] === width ? prev : { ...prev, [activePath]: width }))
     },
-    [activePath, source, noteKey, patchIndex]
+    [activePath]
   )
+
+  /*
+    View and width are in-memory only. The previous implementation
+    wrote them to disk frontmatter, which surfaced a `width: full`
+    line at the top of the editor the moment the user toggled the
+    option — internal UI state looked like user content. Keeping it
+    in a per-path override means the toggle survives tab switches
+    and reloads of the active doc without ever reaching the file.
+  */
 
   /**
    * Lock the current page with a fresh passphrase.
    *
-   * The lock is stored in `frontmatter.lock`. A new pageKey is
-   * generated per lock, then wrapped under the passphrase via
-   * PBKDF2-SHA256 (see `lib/lock/page-lock.ts`). The body is NOT
-   * re-encrypted — the master note-crypto envelope is still the
-   * at-rest protection.
+   * The lock feature was removed (2026-09-01). Frontmatter `lock`
+   * fields left over from older documents are kept in storage but
+   * ignored by the UI — they will not block editing.
    */
-  const lockPage = useCallback(
-    async (passphrase: string) => {
-      if (!activePath || !source) return
-      if (!passphrase) {
-        toast.error('Passphrase must not be empty.')
-        return
-      }
-      try {
-        const lock = await makeLock(passphrase)
-        const next = setFrontmatterObject(source.raw, 'lock', lock as unknown as Record<string, unknown>)
-        if (!next.changed) {
-          toast.error('Could not update the frontmatter.')
-          return
-        }
-        await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
-        setSources((prev) => {
-          const entry = prev[activePath]
-          if (!entry) return prev
-          return { ...prev, [activePath]: { ...entry, raw: next.content } }
-        })
-        patchIndex((index) => {
-          const doc = index.documents[activePath]
-          if (!doc) return
-          applyUpsert(index, {
-            ...doc,
-            frontmatter: { ...doc.frontmatter, lock: lock as unknown as Record<string, unknown> },
-            updatedAt: new Date().toISOString(),
-          })
-        })
-        // The user just set the passphrase: they obviously know it.
-        setUnlockedPaths((prev) => {
-          const next = new Set(prev)
-          next.add(activePath)
-          return next
-        })
-        toast.success('Page locked.')
-      } catch (err) {
-        toast.error((err as Error).message)
-      }
-    },
-    [activePath, source, noteKey, patchIndex]
-  )
-
-  /**
-   * Remove the lock from the current page.
-   *
-   * No passphrase check here: the caller (the page menu's
-   * "Unlock page" action) only appears when the user is already
-   * on the page, and the lock's only job is edit-blocking.
-   * Removing the lock does not retroactively lock the file
-   * against future edits — it is the same as never having set it.
-   */
-  const unlockPage = useCallback(async () => {
-    if (!activePath || !source) return
-    const next = removeFrontmatterField(source.raw, 'lock')
-    if (!next.changed) return
-    try {
-      await writeDocumentEncrypted({ path: activePath, content: next.content }, noteKey)
-      setSources((prev) => {
-        const entry = prev[activePath]
-        if (!entry) return prev
-        return { ...prev, [activePath]: { ...entry, raw: next.content } }
-      })
-      patchIndex((index) => {
-        const doc = index.documents[activePath]
-        if (!doc) return
-        const { lock: _lock, ...rest } = doc.frontmatter
-        void _lock
-        applyUpsert(index, {
-          ...doc,
-          frontmatter: rest,
-          updatedAt: new Date().toISOString(),
-        })
-      })
-      setUnlockedPaths((prev) => {
-        if (!prev.has(activePath)) return prev
-        const next = new Set(prev)
-        next.delete(activePath)
-        return next
-      })
-      toast.success('Page unlocked.')
-    } catch (err) {
-      toast.error((err as Error).message)
-    }
-  }, [activePath, source, noteKey, patchIndex])
-
-  /**
-   * Mark the current path as unlocked for this session. Called by
-   * the `<LockPrompt>` after a successful `verifyPassphrase`.
-   */
-  const markUnlocked = useCallback(() => {
-    if (!activePath) return
-    setUnlockedPaths((prev) => {
-      if (prev.has(activePath)) return prev
-      const next = new Set(prev)
-      next.add(activePath)
-      return next
-    })
-  }, [activePath])
 
   /**
    * Import the user's chosen files as siblings of the active page.
@@ -1362,13 +1214,14 @@ export function WorkspaceApp() {
   const exportPage = useCallback(async () => {
     if (!activeDoc || !source) return
     const filename = buildExportName(activeDoc)
+    const exported = stripInternalFrontmatter(source.raw)
     const desktop = (typeof window !== 'undefined' ? window.markforge : null) as
       | { saveFile?: (p: { content: string; defaultName: string; filters?: Array<{ name: string; extensions: string[] }> }) => Promise<string | null> }
       | null
     if (desktop?.saveFile) {
       try {
         const written = await desktop.saveFile({
-          content: source.raw,
+          content: exported,
           defaultName: filename,
           filters: [
             { name: 'Markdown', extensions: ['md'] },
@@ -1381,7 +1234,7 @@ export function WorkspaceApp() {
       }
       return
     }
-    downloadMarkdown(filename, source.raw)
+    downloadMarkdown(filename, exported)
   }, [activeDoc, source])
 
   /**
@@ -1741,7 +1594,7 @@ export function WorkspaceApp() {
 
   return (
     <VaultKeyProvider vault={vault}>
-      <div className="flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
+      <div className="workspace-chrome flex h-dvh w-full flex-col overflow-hidden bg-background text-foreground">
       <DesktopTabBar
         state={desktopTabsState}
         dispatch={dispatchDesktopTabs}
@@ -2044,13 +1897,11 @@ export function WorkspaceApp() {
                 onDuplicate={() => void duplicatePage()}
                 onMoveTo={(destDir) => void movePageTo(destDir)}
                 onTrash={() => void trashPage()}
-                onSetView={(view) => void setPageView(view)}
-                onSetWidth={(width) => void setPageWidth(width)}
-                isLocked={frontmatterLock(activeDoc.frontmatter) !== null}
-                onLock={(passphrase) => void lockPage(passphrase)}
-                onUnlock={() => void unlockPage()}
-                onImport={(files) => void importPages(files)}
+                onSetView={setPageView}
+                onSetWidth={setPageWidth}
                 onExport={() => void exportPage()}
+                viewOverride={viewOverrides[activeDoc.path]}
+                widthOverride={widthOverrides[activeDoc.path]}
               />
             )}
           </div>
@@ -2058,8 +1909,15 @@ export function WorkspaceApp() {
 
         <div className="relative flex flex-1 overflow-hidden">
           {mode === 'edit' && activeDoc ? (
-            <div className="flex-1 overflow-hidden px-8 py-6">
-              <div className="mx-auto h-full max-w-3xl">
+            <div className="workspace-doc flex-1 overflow-hidden px-8 py-6">
+              <div
+                className={cn(
+                  'mx-auto h-full',
+                  (widthOverrides[activeDoc.path] ?? frontmatterWidth(activeDoc.frontmatter)) === 'full'
+                    ? 'w-full'
+                    : 'max-w-3xl'
+                )}
+              >
                 {activeDoc && (
                   <Breadcrumb
                     current={activeDoc}
@@ -2084,8 +1942,6 @@ export function WorkspaceApp() {
                     <Loader2 className="mr-2 size-4 animate-spin" />
                     Reading from disk…
                   </div>
-                ) : activeLockPrompt ? (
-                  <LockPrompt lock={activeLockPrompt} onUnlock={markUnlocked} />
                 ) : (
                   <MarkdownEditor
                     docPath={source.path}
@@ -2095,6 +1951,7 @@ export function WorkspaceApp() {
                     onRequestSave={saveNow}
                     reconciledContent={reconciled}
                     onNavigateWikilink={handleNavigateWikilink}
+                    pageView={viewOverrides[activeDoc.path] ?? frontmatterView(activeDoc?.frontmatter ?? {})}
                     onCreatePage={async (name) => {
                       const parent = source.path.includes('/')
                         ? source.path.slice(0, source.path.lastIndexOf('/'))
@@ -2123,6 +1980,8 @@ export function WorkspaceApp() {
               scrollFor={scrollFor}
               onScroll={rememberScroll}
               tree={indexData?.tree || []}
+              view={activeDoc ? viewOverrides[activeDoc.path] : undefined}
+              width={activeDoc ? widthOverrides[activeDoc.path] : undefined}
             />
           )}
 
@@ -2237,6 +2096,12 @@ export function WorkspaceApp() {
         onOpenChange={setPasswordsOpen}
         // The workspace owns the vault instance. The dialog borrows it.
         vault={vault}
+      />
+
+      <PasswordQuickSwitcher
+        open={quickSwitcherOpen}
+        onOpenChange={setQuickSwitcherOpen}
+        items={vault.data?.items ?? null}
       />
 
       <PromptDialog

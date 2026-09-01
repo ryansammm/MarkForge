@@ -2,7 +2,7 @@
 
 /*
   `standalone` selalu aktif: menghasilkan server mandiri (server.js + node_modules
-  hasil tracing) yang dibundel ke dalam exe portable oleh scripts/prepare-electron.
+  hasil tracing) yang dibundel ke dalam exe portable oleh scripts/build-portable.mjs.
   Deploy Vercel dan `next start` lokal tidak terpengaruh - output standalone adalah
   tambahan, bukan pengganti.
 */

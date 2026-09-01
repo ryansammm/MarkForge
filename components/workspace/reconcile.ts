@@ -1,10 +1,11 @@
 /**
  * Applying the server's own version of a document to the editor's buffer.
  *
- * A save can come back with bytes that differ from what was sent: the store splices
- * an `id` and a `created` stamp into frontmatter on a document's first in-app save
- * (`ensureDocumentMeta`). The editor has to adopt those, or the next save writes the
- * pre-splice text back and the id is stripped and reassigned forever.
+ * A save can come back with bytes that differ from what was sent: the store keeps
+ * `id` and `created` in the index now, but it used to splice them into frontmatter
+ * on a document's first in-app save (`ensureDocumentMeta`). The reconcile hook is
+ * still in place for any future server-side rewrite the buffer needs to adopt, and
+ * the bug it was originally written to fix is the same shape.
  *
  * That much always worked. What did not is the part this module exists for: **a
  * reconcile is a one-time event, and it was being held as a value.**
