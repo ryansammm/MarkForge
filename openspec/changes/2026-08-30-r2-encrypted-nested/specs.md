@@ -11,9 +11,8 @@ blob.
 ## New: `nested-pages`
 
 Lives at `openspec/specs/nested-pages/spec.md`. Covers `parent_id`
-in the index, the sidebar tree, the breadcrumb, the
-`Turn into page` block-menu action, and the renderer-generated
-child-pages section.
+in the index, the sidebar tree, the breadcrumb, and the
+renderer-generated child-pages section.
 
 ## New: `r2-only`
 

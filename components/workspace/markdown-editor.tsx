@@ -36,15 +36,8 @@ import type { OpenIntent } from '@/lib/tabs'
 import { livePreview } from './live-preview'
 import { hideFrontmatterId } from './hide-frontmatter-id'
 import { aiBlockEdit } from './ai-block-edit'
-import { pageRefEdit } from './page-ref-edit'
-import { toggleListEdit } from './toggle-list-edit'
 import { hideMarkdownSyntax } from './hide-md-syntax'
 import { emptyBlockPlaceholder } from './empty-block-placeholder'
-import { blockHandle, setBlockHandleClickHandler, setBlockInsertHandler, type BlockHandleContext } from './block-handle'
-import { BlockMenu, type OpenTarget } from './block-menu'
-import { blockHasId, blockRangeAt, blockTypeLabel, blockWordCount, copyLink, deleteBlock, duplicate, moveBlock } from '@/lib/blocks-transforms'
-import { planTurnSelectionIntoPage } from '@/lib/client/turn-into-page'
-import { newBlockId } from '@/lib/blocks'
 import { ImageLightbox, type ViewedImage } from './image-lightbox'
 import { reconcileEdit } from './reconcile'
 import { wikilinkCompletions } from './wikilink-complete'
@@ -59,132 +52,7 @@ import {
 } from './editor-commands'
 
 /**
- * Inserts a blank line below the cursor and moves the cursor into the
- * new paragraph. The new paragraph gets a fresh block id so it is
- * immediately addressable by the menu and by future `[[#mkf:b:...]]`
- * links.
- *
- * Implemented as a single transaction: split the line at the cursor
- * (which leaves the cursor where it is, then a `\n\n` after it), then
- * if the line was not blank already add a single `\n` to terminate the
- * previous line cleanly. The block id is added as a `<!-- mkf:b:... -->`
- * comment on a fresh line after the cursor.
- */
-function insertNewBlockBelow(view: EditorView): boolean {
-  const state = view.state
-  const sel = state.selection.main
-  const head = sel.head
-  const line = state.doc.lineAt(head)
-  // Make sure the line ends with a newline so the new block starts on
-  // its own line.
-  const inserts: { from: number; to: number; insert: string }[] = []
-  let newCursor = head
-  if (line.to < state.doc.length) {
-    // There is content after the cursor on this line; split first.
-    inserts.push({ from: head, to: head, insert: '\n' })
-    newCursor = head + 1
-  }
-  // Auto-continue list markers. A new block right after a list line
-  // inherits the same prefix so the user does not have to type `- `
-  // or `1. ` again — the same gesture Notion uses. The text part
-  // stays empty; the user types the next item.
-  const prefix = listPrefix(line.text)
-  const id = newBlockId()
-  // The blank line + marker + meta comment land together. Cursor sits
-  // at the end of the new marker line, ready for the next item.
-  const block = prefix
-    ? `\n${prefix}\n<!-- mkf:b:${id} -->\n`
-    : `\n<!-- mkf:b:${id} -->\n`
-  inserts.push({ from: newCursor, to: newCursor, insert: block })
-  // Move the cursor past the marker (or onto the blank line between
-  // the two paragraphs when no marker applies).
-  const cursorAt = prefix ? newCursor + 1 + prefix.length : newCursor + 1
-  view.dispatch({
-    changes: inserts,
-    selection: { anchor: cursorAt, head: cursorAt },
-    scrollIntoView: true,
-  })
-  return true
-}
-
-/**
- * If `text` looks like a list line, return the marker prefix the next
- * line should inherit (including trailing space). Returns `''` for
- * plain paragraphs. Numbered list prefixes are auto-incremented so the
- * next line reads `2. `, then `3. `, etc. — same as Notion.
- */
-function listPrefix(text: string): string {
-  const trimmed = text.replace(/\s+$/, '')
-  // todo `- [ ]` / `- [x]`
-  const todo = /^(\s*-\s\[(?:[ x])\])\s*/.exec(trimmed)
-  if (todo) return todo[1] + ' '
-  // bullet `- ` / `* ` / `+ `
-  const bullet = /^(\s*[-*+])\s+/.exec(trimmed)
-  if (bullet) return bullet[1] + ' '
-  // numbered `1. `, `42. `
-  const numbered = /^(\s*)(\d+)\.\s+/.exec(trimmed)
-  if (numbered) return `${numbered[1]}${Number(numbered[2]) + 1}. `
-  return ''
-}
-
-async function runCopyLink(view: EditorView, docPath: string): Promise<void> {
-  const ok = await copyLink(view.state, docPath)
-  if (ok) toast.success('Link copied')
-  else toast.error('Block has no id yet — apply a colour or duplicate it first')
-}
-
-/**
- * Drop handler for the block-drag-and-drop gesture. The handle writes
- * a JSON payload (`{from, to, blockId}`) to `dataTransfer`; we look up
- * the drop offset via `view.posAtCoords` and dispatch a cut + insert
- * through `moveBlock`.
- */
-function blockDropHandlers() {
-  return EditorView.domEventHandlers({
-    dragover(event, view) {
-      const types = event.dataTransfer?.types
-      if (!types || !Array.from(types).includes('application/x-mkf-block')) return
-      event.preventDefault()
-      if (event.dataTransfer) event.dataTransfer.dropEffect = 'move'
-      const coords = { x: event.clientX, y: event.clientY }
-      const pos = view.posAtCoords(coords)
-      if (pos == null) return
-      // Highlight the line the cursor would land on.
-      view.contentDOM.classList.add('cm-block-drop-active')
-    },
-    dragleave(_event, view) {
-      view.contentDOM.classList.remove('cm-block-drop-active')
-    },
-    drop(event, view) {
-      const data = event.dataTransfer?.getData('application/x-mkf-block')
-      if (!data) return
-      event.preventDefault()
-      view.contentDOM.classList.remove('cm-block-drop-active')
-      let payload: { from: number; to: number; blockId: string | null }
-      try {
-        payload = JSON.parse(data) as { from: number; to: number; blockId: string | null }
-      } catch {
-        return
-      }
-      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY })
-      if (pos == null) return
-      // Snap the drop point to the nearest block boundary (start of a
-      // paragraph). The line at `pos` may be inside a paragraph, in
-      // which case the user wants the block dropped just above that
-      // line.
-      const dropAt = pos
-      const move = moveBlock(view.state, payload.from, payload.to, dropAt)
-      if (!move) return
-      view.dispatch(move.cut)
-      const spec = move.insert(view.state)
-      if (spec) view.dispatch(spec)
-      view.focus()
-    },
-  })
-}
-
-/**
- * CodeMirror 6 editor, live-preview style.
+ * CodeMirror 6 editor, source-mode.
  *
  * The buffer is the file. There is no document model between what is typed and what
  * is written, which is why Markdown integrity cannot break here — see
@@ -223,39 +91,12 @@ interface MarkdownEditorProps {
    * already spoken for here — see LivePreviewConfig.
    */
   onNavigateWikilink?: (target: string, intent: OpenIntent) => void
-  /** Document `updatedAt` from the index. Used by the block menu's footer. */
-  documentUpdatedAt?: string | null
   /**
    * Create a new sub-document from the slash command. Receives the
    * user-supplied name; returns the `[[wikilink]]` text to insert or
    * `null` to abort.
    */
   onCreatePage?: (name: string) => Promise<string | null> | string | null
-  /**
-   * Open the current block in another surface. Wired by the workspace
-   * for side peek / new tab / new window / full page.
-   */
-  onOpenIn?: (target: OpenTarget) => void
-  /**
-   * Move the current block to another document. The editor hands the
-   * workspace a fully-resolved `MoveSpec` (block text + index) so the
-   * workspace does not have to re-derive it from disk. The workspace
-   * then writes both files and reconciles the editor's body.
-   */
-  onMoveToBlock?: (spec: { blockText: string; blockIndex: number; destPath: string }) => void | Promise<void>
-  /**
-   * Candidate destinations for the block menu's Move to submenu.
-   * Defaults to every indexed document except the current one; the
-   * workspace passes a curated list to skip trash, the current page,
-   * and anything it does not want to expose.
-   */
-  moveToCandidates?: { path: string; title: string }[]
-  /**
-   * Turn the current selection into a sub-page. The editor has already
-   * rewritten its own buffer with the wikilink; the workspace's job is to
-   * actually create the child document.
-   */
-  onTurnIntoPage?: (spec: { newDocPath: string; newDocBody: string; wikilink: string }) => void | Promise<void>
 }
 
 /**
@@ -308,41 +149,6 @@ const editorTheme = EditorView.theme({
   // hide-frontmatter-id.ts. Hiding the line is a paint-only concern — the
   // document buffer still has every byte, so the file is saved intact.
   '.cm-frontmatter-hidden': { display: 'none' },
-  '.cm-block-handle': {
-    position: 'absolute',
-    left: '-2px',
-    top: '0',
-    display: 'flex',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: '0',
-    color: 'var(--muted-foreground)',
-    opacity: '0',
-    userSelect: 'none',
-    transition: 'opacity 100ms ease',
-    fontSize: '13px',
-    lineHeight: '1',
-    pointerEvents: 'auto',
-  },
-  '.cm-block-handle-plus, .cm-block-handle-grip': {
-    display: 'inline-flex',
-    width: '18px',
-    height: '18px',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    background: 'transparent',
-    border: 'none',
-    padding: 0,
-    color: 'inherit',
-  },
-  '.cm-block-handle-plus': { fontSize: '14px', fontWeight: '500' },
-  '.cm-block-handle-grip': { cursor: 'grab', fontSize: '13px' },
-  '.cm-block-handle:hover': { opacity: '1' },
-  '.cm-line:hover > .cm-block-handle, .cm-line:focus-within > .cm-block-handle': { opacity: '1' },
-  '.cm-block-handle-dragging': { opacity: '1', cursor: 'grabbing' },
-  '.cm-content.cm-block-drop-active': { cursor: 'copy' },
   '.cm-activeLine': { backgroundColor: 'var(--cm-active-line)' },
   '.cm-cursor, .cm-dropCursor': { borderLeftColor: 'var(--cm-accent)', borderLeftWidth: '2px' },
   '&.cm-focused .cm-selectionBackground, .cm-selectionBackground, ::selection': {
@@ -443,12 +249,7 @@ export function MarkdownEditor({
   onRequestSave,
   reconciledContent,
   onNavigateWikilink,
-  documentUpdatedAt,
   onCreatePage,
-  onTurnIntoPage,
-  onOpenIn,
-  onMoveToBlock,
-  moveToCandidates,
 }: MarkdownEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -456,23 +257,6 @@ export function MarkdownEditor({
   const [view, setView] = useState<EditorView | null>(null)
   /** The picture the viewer is showing, if any. */
   const [viewing, setViewing] = useState<ViewedImage | null>(null)
-  /** The block menu's open state. Context is rebuilt from the live view
-      on every open, so the menu always reflects the block the cursor
-      is actually in. */
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [menuContext, setMenuContext] = useState<{
-    view: EditorView
-    docPath: string
-    rect: DOMRect
-    blockLabel: string
-    wordCount: number
-    hasId: boolean
-    updatedAt: string | null
-    onOpen?: (target: OpenTarget) => void
-    onMoveTo?: (destPath: string) => void | Promise<void>
-    moveToCandidates?: { path: string; title: string }[]
-    onTurnIntoPage?: () => void
-  } | null>(null)
 
   // Read through refs so the editor is never torn down just because a callback
   // identity changed — that would cost the user their cursor position mid-sentence.
@@ -483,10 +267,6 @@ export function MarkdownEditor({
   const onNavigateRef = useRef(onNavigateWikilink)
   const reconciledRef = useRef(reconciledContent)
   const onCreatePageRef = useRef(onCreatePage)
-  const onOpenInRef = useRef(onOpenIn)
-  const onMoveToBlockRef = useRef(onMoveToBlock)
-  const moveToCandidatesRef = useRef(moveToCandidates)
-  const onTurnIntoPageRef = useRef(onTurnIntoPage)
   /**
    * The server version this editor has already adopted.
    *
@@ -507,11 +287,7 @@ export function MarkdownEditor({
     onNavigateRef.current = onNavigateWikilink
     reconciledRef.current = reconciledContent
     onCreatePageRef.current = onCreatePage
-    onOpenInRef.current = onOpenIn
-    onMoveToBlockRef.current = onMoveToBlock
-    moveToCandidatesRef.current = moveToCandidates
-    onTurnIntoPageRef.current = onTurnIntoPage
-  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage, onOpenIn, onMoveToBlock, moveToCandidates, onTurnIntoPage])
+  }, [onChange, onRequestSave, allDocs, initialValue, onNavigateWikilink, reconciledContent, onCreatePage])
 
   // A changed index changes which wikilinks resolve. The decorations are rebuilt on
   // any transaction, so an empty one is enough to repaint ghosts that just became
@@ -536,19 +312,9 @@ export function MarkdownEditor({
       EditorView.lineWrapping,
       markdown({ base: markdownLanguage, codeLanguages: languages }),
       syntaxHighlighting(markdownHighlight, { fallback: true }),
-      // Hover drag handle for every paragraph. Only registered for the
-      // edit mode — the reading view does not need it.
-      blockHandle(),
       // Inline AI fence preview in edit mode. Hides the raw ` ```ai `
       // text behind a placeholder; the active line reveals the source.
       aiBlockEdit(),
-      // Page-reference chip in edit mode. Renders `[[wikilink]]` as a
-      // small "📄 Title" pill; the active line shows the raw syntax.
-      pageRefEdit(),
-      // Inline toggle list in edit mode. Adds a ▼/▶ disclosure arrow
-      // ahead of the first line of every toggle_list block; clicking
-      // it flips the meta's `open` flag.
-      toggleListEdit(),
       livePreview({
         // The reading view's resolver, not a second one. Two would drift, and the
         // symptom would be a link that renders as resolved but navigates nowhere.
@@ -567,7 +333,6 @@ export function MarkdownEditor({
       }),
       hideFrontmatterId(),
       hideMarkdownSyntax(),
-      blockDropHandlers(),
       imageDrop({
         upload: uploadAsset,
         onError: (message) => toast.error(message),
@@ -597,61 +362,6 @@ export function MarkdownEditor({
         { key: 'Mod-i', preventDefault: true, run: toggleItalic },
         { key: 'Mod-`', preventDefault: true, run: toggleInlineCode },
         { key: 'Mod-Shift-x', preventDefault: true, run: toggleStrikethrough },
-        /*
-          Block menu shortcuts. Listed before `defaultKeymap` so they win
-          — the editor's own keys otherwise take precedence.
-
-          `Mod-d` was the original choice but it collides with the browser's
-          "bookmark this page". `Mod-Shift-d` is the same gesture with the
-          shift qualifier, and no major browser uses that chord. Same logic
-          for `Mod-Shift-k` over `Mod-Shift-p` (private-window in Firefox /
-          Chrome devtools palette).
-        */
-        {
-          key: 'Mod-Shift-d',
-          preventDefault: true,
-          run: (view) => {
-            const spec = duplicate(view.state)
-            if (spec) view.dispatch(spec)
-            return true
-          },
-        },
-        {
-          key: 'Alt-Shift-l',
-          preventDefault: true,
-          run: (view) => {
-            void runCopyLink(view, docPath)
-            return true
-          },
-        },
-        {
-          // Notion-style: Enter splits the block, Shift-Enter inserts a
-          // markdown hard break (`  \n` → <br>). On an empty block, fall
-          // through to the default keymap so list-exit still works.
-          // ponytail: per-line `Enter` no-op (no extra blank line) is
-          // not implemented — let defaultKeymap handle empty lines and
-          // add the list-exit / extra-blank semantics. Add an explicit
-          // guard when Notion's "exit on empty" is required.
-          key: 'Enter',
-          preventDefault: true,
-          run: (view) => {
-            const head = view.state.selection.main.head
-            const line = view.state.doc.lineAt(head)
-            // Empty list line: Notion-style "exit the list". Strip the
-            // marker, leave a plain paragraph. The user pressed Enter
-            // on a `- ` or `1. ` line with no text after it.
-            if (listPrefix(line.text) !== '' && line.text.replace(/\s+$/, '').match(/^(\s*(?:-\s\[(?:[ x])\]|[-*+]|\d+\.))\s*$/)) {
-              view.dispatch({
-                changes: { from: line.from, to: line.to, insert: '' },
-                selection: { anchor: line.from, head: line.from },
-                scrollIntoView: true,
-              })
-              return true
-            }
-            if (line.text === '') return false
-            return insertNewBlockBelow(view)
-          },
-        },
         {
           key: 'Shift-Enter',
           preventDefault: true,
@@ -664,14 +374,13 @@ export function MarkdownEditor({
             return true
           },
         },
-        // Notion-style: Space at the start of an empty block turns the
-        // line into an AI fence. The fence's first line is the JSON
-        // header the renderer reads; the prompt goes on the second
-        // line. Cursor lands in the header so the user can pick a
-        // provider before typing the prompt.
-        // ponytail: only fires on truly empty paragraphs; an explicit
-        // "convert" command (or a `/:ai` slash entry) is a separate
-        // path that does not need this guard.
+        /*
+          Notion-style: Space at the start of an empty block turns the
+          line into an AI fence. The fence's first line is the JSON
+          header the renderer reads; the prompt goes on the second
+          line. Cursor lands in the header so the user can pick a
+          provider before typing the prompt.
+        */
         {
           key: 'Space',
           run: (view) => {
@@ -681,67 +390,11 @@ export function MarkdownEditor({
             if (line.text !== '') return false
             const fence = '```ai\n{"configId":""}\n\n```\n'
             const insertAt = line.from
-            // Place the caret between the two double-quotes of `configId`
-            // so the user can paste a provider id without having to find
-            // the right spot.
             const cursorAt = insertAt + '```ai\n{"configId":"'.length
             view.dispatch({
               changes: { from: insertAt, to: line.to, insert: fence },
               selection: { anchor: cursorAt },
             })
-            return true
-          },
-        },
-        // Turn the current selection into a sub-page. Same wiring the
-        // block menu's `Turn into > Page` action uses, exposed as a
-        // keyboard shortcut so the user does not have to reach for the
-        // handle.
-        {
-          key: 'Mod-Shift-k',
-          preventDefault: true,
-          run: (view) => {
-            const sel = view.state.selection.main
-            // No selection → "turn this paragraph". Expand to the current
-            // line so the new page gets a meaningful title instead of the
-            // `untitled-page` fallback.
-            let from: number
-            let to: number
-            if (sel.empty) {
-              const line = view.state.doc.lineAt(sel.head)
-              from = line.from
-              to = line.to
-            } else {
-              from = Math.min(sel.anchor, sel.head)
-              to = Math.max(sel.anchor, sel.head)
-            }
-            const body = view.state.doc.toString()
-            const plan = planTurnSelectionIntoPage({
-              parentPath: docPath,
-              parentBody: body,
-              selection: { from, to },
-              allDocs: docsRef.current,
-            })
-            view.dispatch({
-              changes: { from, to, insert: plan.wikilink },
-              selection: { anchor: from + plan.wikilink.length },
-            })
-            void onTurnIntoPageRef.current?.({
-              newDocPath: plan.newDocPath,
-              newDocBody: plan.newDocBody,
-              wikilink: plan.wikilink,
-            })
-            return true
-          },
-        },
-        // Del with a non-empty selection → delete the selected block
-        // range. With an empty selection the default forward-delete runs.
-        {
-          key: 'Delete',
-          run: (view) => {
-            const sel = view.state.selection.main
-            if (sel.empty) return false
-            const spec = deleteBlock(view.state)
-            if (spec) view.dispatch(spec)
             return true
           },
         },
@@ -785,95 +438,6 @@ export function MarkdownEditor({
     view.focus()
 
     /*
-      A click on a drag handle reaches here through the module-level
-      handler registered by `setBlockHandleClickHandler`. We rebuild
-      the menu context from the live view so the menu always sees the
-      block the cursor is in — a click on a handle after editing is
-      enough to have moved the cursor.
-    */
-    setBlockHandleClickHandler((ctx: BlockHandleContext) => {
-      // The view passed to the menu is captured at click time, so a
-      // pending render never has the menu dispatch against a stale view.
-      setMenuContext({
-        view,
-        docPath,
-        rect: ctx.rect,
-        blockLabel: blockTypeLabel(view.state),
-        wordCount: blockWordCount(view.state),
-        hasId: blockHasId(view.state),
-        updatedAt: documentUpdatedAt ?? null,
-        onOpen: (target: OpenTarget) => onOpenInRef.current?.(target),
-        onMoveTo: (destPath: string) => {
-          const range = blockRangeAt(view.state)
-          if (!range) {
-            toast.error('No block at cursor')
-            return
-          }
-          // ponytail: v1 moves only the first block of the range. The
-          // spec scenario covers a single block; multi-block moves add a
-          // new menu action.
-          const firstIndex = range.blockIndex[0]
-          if (firstIndex === undefined) {
-            toast.error('No block at cursor')
-            return
-          }
-          void onMoveToBlockRef.current?.({
-            blockText: range.text,
-            blockIndex: firstIndex,
-            destPath,
-          })
-        },
-        moveToCandidates: moveToCandidatesRef.current,
-        onTurnIntoPage: () => {
-          // The selection is the actual cursor range, which can be a single
-          // paragraph or anything between. An empty selection means "turn
-          // this paragraph" — expand to the current line so the title is
-          // derived from the line text, not the `untitled-page` fallback.
-          const sel = view.state.selection.main
-          let from: number
-          let to: number
-          if (sel.empty) {
-            const line = view.state.doc.lineAt(sel.head)
-            from = line.from
-            to = line.to
-          } else {
-            from = Math.min(sel.anchor, sel.head)
-            to = Math.max(sel.anchor, sel.head)
-          }
-          const body = view.state.doc.toString()
-          const plan = planTurnSelectionIntoPage({
-            parentPath: docPath,
-            parentBody: body,
-            selection: { from, to },
-            allDocs: docsRef.current,
-          })
-          // Apply the parent swap now so the editor is internally consistent
-          // even if the network write fails — the user sees the wikilink
-          // appear, and the failed child creation is reported in a toast.
-          view.dispatch({
-            changes: { from, to, insert: plan.wikilink },
-            selection: { anchor: from + plan.wikilink.length },
-          })
-          void onTurnIntoPageRef.current?.({
-            newDocPath: plan.newDocPath,
-            newDocBody: plan.newDocBody,
-            wikilink: plan.wikilink,
-          })
-        },
-      })
-      setMenuOpen(true)
-    })
-
-    /*
-      Click on the `+` hover button: insert a fresh empty block below this
-      one and leave the cursor on it. The user can then type, or hit `/`
-      to open the slash menu — same as if they had pressed Enter.
-    */
-    setBlockInsertHandler((_ctx: BlockHandleContext) => {
-      insertNewBlockBelow(view)
-    })
-
-    /*
       Ctrl/Cmd-A must select the whole document, not the whole window. The default
       `keymap` already binds it, but only when CodeMirror is the focus target — a
       click that lands on a child of the editor (a completion popup, an inline
@@ -896,8 +460,6 @@ export function MarkdownEditor({
 
     return () => {
       window.removeEventListener('keydown', handleSelectAll)
-      setBlockHandleClickHandler(null)
-      setBlockInsertHandler(null)
       view.destroy()
       viewRef.current = null
       setView(null)
@@ -932,13 +494,6 @@ export function MarkdownEditor({
     <div className="relative h-full w-full">
       <div ref={hostRef} className="h-full w-full overflow-hidden" />
       {view && <EditorToolbar view={view} />}
-      {/*
-        The block menu is rendered here (not in the workspace shell) so
-        the click handler in `setBlockHandleClickHandler` always has a
-        live `view` to dispatch against. Mounting it inline also means
-        the menu is destroyed with the editor — no stale views.
-      */}
-      <BlockMenu open={menuOpen} onOpenChange={setMenuOpen} context={menuContext ? { ...menuContext, onClose: () => setMenuOpen(false) } : null} />
       <ImageLightbox
         image={viewing}
         onClose={() => setViewing(null)}

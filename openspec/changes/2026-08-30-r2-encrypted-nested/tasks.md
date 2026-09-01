@@ -142,10 +142,16 @@ Estimated total: 4–5 weeks, single dev. Tasks are sized to fit in
       (`planTurnSelectionIntoPage`): title from first non-empty line,
       slug for path, wikilink to replace the selection, disambiguation
       on collision. Pure — caller does the writes.
+      *Removed in full-revert of §19-§22 on 2026-09-01: the block menu
+      is gone, so the only entry point for `Turn into page` is gone.
+      New pages are still created via the slash `/page` command, which
+      is the remaining user-facing path.*
 - [x] 4.5 `components/workspace/block-menu.tsx` — `Turn into page`
       top-level item (kept out of the `Turn into` submenu because it
       changes document structure, not block kind). Editor wires it via
       `onTurnIntoPage` prop.
+      *Removed in full-revert of §19-§22 on 2026-09-01: the block menu
+      itself is gone, so the top-level item it hosted is gone too.*
 - [x] 4.6 `components/workspace/page-tree.tsx` — collapsible page tree,
       groups by `parent_id`. Cycles broken, orphans dropped to root,
       docs without an `id` cannot be parents. Mounted above the
@@ -169,11 +175,17 @@ Estimated total: 4–5 weeks, single dev. Tasks are sized to fit in
       `Ctrl+Shift+P` which is the same on Windows). The block menu
       surfaces the same action with search tokens `["turn into", "page"]`
       so it shows up on a query like "page".
+      *Removed in full-revert of §19-§22 on 2026-09-01: shortcut and
+      menu surface are gone. New pages remain reachable via the slash
+      `/page` command.*
 - [x] 4.11 Self-check `scripts/check-nested-pages.ts` — covers
       `parent_id` from frontmatter, slugify Unicode, plan
       (heading + wikilink + sibling path), disambiguation, page tree
       grouping, cycle breaking, orphan handling, `childrenOf` and
       `ancestorChain`. 8 checks, all pass.
+      *Removed in full-revert of §19-§22 on 2026-09-01: it was the
+      only self-check that exercised `lib/client/turn-into-page.ts`,
+      which is gone.*
 
 ## 5. Verification (2026-08-30 final, on `dev` = `3ef5db9`)
 

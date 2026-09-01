@@ -25,8 +25,8 @@ const ITEM = 'flex w-full items-center gap-2 rounded px-2 py-1.5 text-sm transit
  *
  * Always offers "Open in side peek". Offers "Open in new window" on the web
  * only — Electron already has its own windowing story (IPC + system menu),
- * and surfacing a second web-style entry there would confuse the parallel
- * with the block-menu's "Open in new window" item, which goes through IPC.
+ * and surfacing a second web-style entry there would duplicate the
+ * system-menu path that Electron already wires through IPC.
  */
 export function SidebarPageContextMenu({
   path,

@@ -10,9 +10,6 @@ import { MarkdownDocument, type FileTreeNode } from '@/lib/file-store'
 import { classifyHref, isResolvable } from '@/lib/resolve-link'
 import { documentDates } from '@/lib/document-dates'
 import { isWorkspaceHref, linkifyWikilinks, parseWikilinkHref } from '@/lib/markdown/wikilink-href'
-import { stripBlockComments } from '@/lib/markdown/strip-block-comments'
-import { remarkToggleList } from '@/lib/markdown/remark-toggle-list'
-import { remarkBlockColor } from '@/lib/markdown/annotate-block-color'
 import { frontmatterView, frontmatterWidth } from '@/lib/markdown/frontmatter'
 import { resolveImageSrc } from '@/lib/workspace-api'
 import type { OpenIntent } from '@/lib/tabs'
@@ -100,10 +97,8 @@ export function DocViewer({
   }, [path, body, scrollFor])
   // Rewrites [[wikilinks]] into links the Markdown renderer understands.
   // Runs before the empty-state return so the hook order never changes.
-  // `stripBlockComments` runs first so a hidden `<!-- mkf:b:... -->` at
-  // the end of a paragraph does not leak into the rendered output.
   const processedContent = useMemo(
-    () => (body ? linkifyWikilinks(stripBlockComments(body)) : ''),
+    () => (body ? linkifyWikilinks(body) : ''),
     [body]
   )
 
@@ -203,7 +198,7 @@ export function DocViewer({
               visible break, instead of being folded into a space like strict
               CommonMark does.
             */
-            remarkPlugins={[remarkGfm, remarkBreaks, remarkBlockColor(body ?? ''), remarkToggleList]}
+            remarkPlugins={[remarkGfm, remarkBreaks]}
             /*
               Gives every heading an id, which is what the outline scrolls to. It uses
               github-slugger, the same thing lib/markdown/headings.ts uses to work out

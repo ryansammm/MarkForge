@@ -60,11 +60,6 @@ transform.
   - Slash `/page "Name"` becomes `/page "Name" <parent-or-child>` —
     default child of the current document. Existing parents in
     frontmatter (`subpages:`, `parent:`) keep working as legacy links.
-  - `Turn into page` block-menu action: extracts the selected text into
-    a new child document named after the first line (or "Untitled"),
-    replaces the selection with a `[[embed:relative/path]]` link in the
-    parent body, sets the child's `parent_id`, and refreshes the
-    index.
   - Sidebar gains a collapsible tree view (parent → children) above the
     flat document list. `Breadcrumb` at the top of the editor shows
     `… / parent / current`.
@@ -142,9 +137,6 @@ New code:
 - `components/workspace/child-pages-section.tsx` — bottom of the
   reading view, generated from the index. Clicking a child opens it
   in the same tab.
-- `components/workspace/turn-into-page-item.tsx` — block-menu action.
-  Visible only when the selection is non-empty and resolves to a single
-  paragraph or contiguous range.
 
 Edited:
 

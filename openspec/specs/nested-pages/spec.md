@@ -2,9 +2,8 @@
 
 ## Purpose
 
-Specifies how MarkForge models nested pages (page-in-page), how the
-sidebar and the body render the hierarchy, and how `Turn into page`
-creates child pages from a paragraph selection.
+Specifies how MarkForge models nested pages (page-in-page) and how
+the sidebar and the body render the hierarchy.
 
 ## Requirements
 
@@ -51,31 +50,6 @@ root. Clicking any segment navigates to that document.
 - **WHEN** the active document has `parent_id = "A"` and
   `A` has `parent_id = "Root"`
 - **THEN** the breadcrumb reads `Root / A / Current`
-
-### Requirement: Turn into page
-
-The block menu SHALL expose a `Turn into page` action in the
-`Turn into` submenu. When the user invokes it on a non-empty
-selection:
-
-- A new child document is created at `<parent-dir>/<slug>.md`
-  where `<slug>` is the first non-empty line of the selection
-  (or `untitled` if empty).
-- The new document's body is `## <title>\n\n<selection>`.
-- The new document's `parent_id` is the active document's path.
-- The parent document's body replaces the selection with
-  `[[embed:<child-path>]]`.
-- The index is refreshed.
-- A toast appears with an `Open` action that opens the child
-  in a new tab.
-
-#### Scenario: Turn a paragraph into a page
-
-- **WHEN** the user selects one paragraph in a document and
-  invokes `Turn into page`
-- **THEN** a new child document appears in the sidebar under
-  the parent, the parent body shows an embed link, and the
-  child body starts with the selected text
 
 ### Requirement: Child pages section in body
 

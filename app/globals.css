@@ -535,40 +535,6 @@ html, body, main, aside, article, header {
 }
 
 /*
-  Page reference chip in edit mode. `page-ref-edit.ts` decorates the
-  `[[wikilink]]` characters with `.cm-page-ref-hidden` and inserts a
-  small chip widget that reads `📄 <label>`. The active line reveals
-  the raw wikilink so the user can edit the target.
-*/
-.cm-page-ref-hidden { display: none; }
-.cm-page-ref {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  padding: 0 0.45rem;
-  border-radius: 0.4rem;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  font-size: 0.9em;
-  line-height: 1.5;
-  cursor: pointer;
-  user-select: none;
-}
-.cm-page-ref:hover { filter: brightness(0.97); }
-
-/*
-  Toggle list (edit mode). `toggle-list-edit.ts` decorates the meta
-  comment line of every toggle_list block with `.cm-toggle-meta-hidden`
-  and inserts a `▼`/`▶` disclosure arrow before the first line. The
-  active line reveals the raw meta text (so the user can edit it),
-  mirroring the WYSIWYG pattern used by AI/page-ref widgets.
-*/
-.cm-toggle-meta-hidden { display: none; }
-.cm-focused .cm-activeLine.cm-toggle-meta-hidden { display: block; }
-.cm-toggle-arrow { color: var(--muted-foreground); }
-.cm-toggle-arrow:hover { color: var(--foreground); }
-
-/*
   Empty-block hint. `empty-block-placeholder.ts` decorates every empty
   paragraph in the editor with a `<span class="mkf-empty-hint">`; we
   hide it everywhere except the focused active line, mirroring the
